@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "278196681904",
+    "project_id": "catchy-66f8f",
+    "storage_bucket": "catchy-66f8f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:278196681904:android:4a7e76663f4bcd27b74f75",
+        "android_client_info": {
+          "package_name": "com.imt.catchy"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDDq4dBVDkl78LkxcKNf5L1YL5nqbwpZfY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
