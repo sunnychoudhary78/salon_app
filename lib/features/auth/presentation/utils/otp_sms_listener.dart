@@ -11,7 +11,7 @@ class OtpSmsListener {
 
   static final OtpSmsListener instance = OtpSmsListener._();
 
-  final SmartAuth _smartAuth = SmartAuth();
+  final SmartAuth _smartAuth = SmartAuth.instance;
   final StreamController<String> _codeController =
       StreamController<String>.broadcast();
 
@@ -34,10 +34,10 @@ class OtpSmsListener {
   Future<void> _listenLoop() async {
     while (_sessionActive) {
       try {
-        final res = await _smartAuth.getSmsCode(useUserConsentApi: true);
+        final res = await _smartAuth.getSmsWithUserConsentApi();
         if (!_sessionActive) break;
-        if (res.succeed && res.codeFound) {
-          final otp = extractOtp(res.code);
+        if (res.hasData && res.data?.code != null) {
+          final otp = extractOtp(res.data!.code);
           if (otp != null) {
             _pendingCode = otp;
             if (!_codeController.isClosed) {
@@ -82,8 +82,10 @@ class OtpSmsListener {
   Future<void> logAppSignature() async {
     if (!Platform.isAndroid || !kDebugMode) return;
     try {
-      final hash = await _smartAuth.getAppSignature();
-      debugPrint('SMS app hash: $hash');
+      final result = await _smartAuth.getAppSignature();
+      if (result.hasData) {
+        debugPrint('SMS app hash: ${result.data}');
+      }
     } catch (e) {
       debugPrint('SMS app hash error: $e');
     }
@@ -93,7 +95,10 @@ class OtpSmsListener {
     _sessionActive = false;
     _pendingCode = null;
     if (Platform.isAndroid) {
-      await _smartAuth.removeSmsListener();
+      await Future.wait([
+        _smartAuth.removeUserConsentApiListener(),
+        _smartAuth.removeSmsRetrieverApiListener(),
+      ]);
     }
     _loopRunning = false;
   }
