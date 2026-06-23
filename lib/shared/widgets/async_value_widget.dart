@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/shared/widgets/glass_card.dart';
+import 'package:saloon_booking/shared/widgets/empty_state.dart';
 import 'package:saloon_booking/shared/widgets/premium_button.dart';
 
 class AsyncValueWidget<T> extends StatelessWidget {
@@ -140,50 +141,11 @@ class EmptyView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: GlassCard(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      AppColors.primary.withValues(alpha: 0.2),
-                      AppColors.accent.withValues(alpha: 0.1),
-                    ],
-                  ),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.glassBorder),
-                ),
-                child: Icon(
-                  icon ?? Icons.inbox_rounded,
-                  size: 36,
-                  color: AppColors.textMuted,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                message,
-                style: Theme.of(context).textTheme.bodyLarge,
-                textAlign: TextAlign.center,
-              ),
-              if (action != null && actionLabel != null) ...[
-                const SizedBox(height: 20),
-                PremiumButton(
-                  label: actionLabel!,
-                  expand: false,
-                  variant: PremiumButtonVariant.accent,
-                  onPressed: action,
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
+    return EmptyState(
+      icon: icon ?? Icons.inbox_rounded,
+      title: message,
+      actionLabel: actionLabel,
+      onAction: action,
     );
   }
 }

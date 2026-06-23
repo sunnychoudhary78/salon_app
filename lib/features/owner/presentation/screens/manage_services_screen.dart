@@ -8,7 +8,10 @@ import 'package:saloon_booking/core/theme/app_decorations.dart';
 import 'package:saloon_booking/features/customer/data/models/salon_model.dart';
 import 'package:saloon_booking/features/owner/data/services/owner_service.dart';
 import 'package:saloon_booking/shared/widgets/async_value_widget.dart';
+import 'package:saloon_booking/shared/widgets/empty_state.dart';
+import 'package:saloon_booking/shared/widgets/glass_card.dart';
 import 'package:saloon_booking/shared/widgets/premium_app_bar.dart';
+import 'package:saloon_booking/shared/widgets/section_header.dart';
 import 'package:saloon_booking/shared/widgets/screen_action_bar.dart';
 import 'package:saloon_booking/shared/widgets/service_tile.dart';
 
@@ -119,31 +122,62 @@ class _ManageServicesScreenState extends ConsumerState<ManageServicesScreen> {
           value: services,
           data: (items) {
             if (items.isEmpty) {
-              return ListView(
-                padding: const EdgeInsets.all(24),
-                children: const [
-                  SizedBox(height: 80),
-                  Center(
-                    child: Text(
-                      'No services yet — use the Add service button below',
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ],
+              return const EmptyStateScrollable(
+                child: EmptyState(
+                  icon: Icons.spa_outlined,
+                  title: 'No services yet',
+                  subtitle: 'Tap Add service below to create your first offering.',
+                ),
               );
             }
-            return ListView.builder(
+            final grouped = <String, List<ServiceModel>>{};
+            for (final service in items) {
+              final key = service.category?.name ?? 'General';
+              grouped.putIfAbsent(key, () => []).add(service);
+            }
+
+            return ListView(
               padding: const EdgeInsets.fromLTRB(
                 16,
                 16,
                 16,
                 AppDecorations.shellBottomInset,
               ),
-              itemCount: items.length,
-              itemBuilder: (_, i) => ServiceTile(
-                service: items[i],
-                onTap: () => _showServiceDialog(existing: items[i]),
-              ),
+              children: [
+                SectionHeader(
+                  title: '${items.length} service${items.length == 1 ? '' : 's'}',
+                  subtitle: 'Tap a service to edit',
+                ),
+                const SizedBox(height: 12),
+                ...grouped.entries.map((entry) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: GlassCard(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            entry.key,
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(
+                                  color: AppColors.accent,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                          ),
+                          const SizedBox(height: 8),
+                          ...entry.value.map(
+                            (service) => ServiceTile(
+                              service: service,
+                              onTap: () =>
+                                  _showServiceDialog(existing: service),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
+              ],
             );
           },
         ),

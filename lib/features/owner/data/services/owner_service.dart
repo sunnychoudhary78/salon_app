@@ -267,6 +267,11 @@ final serviceCategoriesProvider =
   return ref.watch(ownerServiceProvider).getServiceCategories();
 });
 
+final ownerAllBookingsProvider =
+    FutureProvider.autoDispose<List<OwnerBookingModel>>((ref) {
+  return ref.watch(ownerServiceProvider).getBookings();
+});
+
 final ownerBookingsProvider =
     FutureProvider.autoDispose.family<List<OwnerBookingModel>, String?>(
   (ref, status) {
@@ -326,18 +331,21 @@ class OwnerBookingActions {
   Future<void> accept(String id) async {
     await _ref.read(ownerServiceProvider).acceptBooking(id);
     _ref.invalidate(ownerBookingsProvider);
+    _ref.invalidate(ownerAllBookingsProvider);
     _ref.invalidate(ownerDashboardProvider);
   }
 
   Future<void> reject(String id, {String? reason}) async {
     await _ref.read(ownerServiceProvider).rejectBooking(id, reason: reason);
     _ref.invalidate(ownerBookingsProvider);
+    _ref.invalidate(ownerAllBookingsProvider);
     _ref.invalidate(ownerDashboardProvider);
   }
 
   Future<void> complete(String id) async {
     await _ref.read(ownerServiceProvider).completeBooking(id);
     _ref.invalidate(ownerBookingsProvider);
+    _ref.invalidate(ownerAllBookingsProvider);
     _ref.invalidate(ownerDashboardProvider);
   }
 }

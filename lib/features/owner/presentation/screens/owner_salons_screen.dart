@@ -11,8 +11,9 @@ import 'package:saloon_booking/features/customer/data/models/salon_model.dart';
 import 'package:saloon_booking/features/owner/data/models/owner_model.dart';
 import 'package:saloon_booking/features/owner/data/services/owner_service.dart';
 import 'package:saloon_booking/shared/widgets/async_value_widget.dart';
+import 'package:saloon_booking/shared/widgets/glass_card.dart';
 import 'package:saloon_booking/shared/widgets/premium_app_bar.dart';
-import 'package:saloon_booking/shared/widgets/premium_button.dart';
+import 'package:saloon_booking/shared/widgets/empty_state.dart';
 import 'package:saloon_booking/shared/widgets/salon_card.dart';
 
 class OwnerSalonsScreen extends ConsumerWidget {
@@ -158,23 +159,15 @@ class OwnerSalonsScreen extends ConsumerWidget {
           value: salons,
           data: (items) {
             if (items.isEmpty) {
-              return ListView(
-                padding: const EdgeInsets.all(24),
-                children: [
-                  const SizedBox(height: 60),
-                  const Center(
-                    child: Text(
-                      'No salons yet — apply for a salon first, then add services',
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  PremiumButton(
-                    label: 'Apply for a salon',
-                    variant: PremiumButtonVariant.accent,
-                    onPressed: () => context.push(RoutePaths.becomeOwner),
-                  ),
-                ],
+              return EmptyStateScrollable(
+                child: EmptyState(
+                  icon: Icons.store_outlined,
+                  title: 'No salons yet',
+                  subtitle:
+                      'Apply for a salon first, then add services and start taking bookings.',
+                  actionLabel: 'Apply for a salon',
+                  onAction: () => context.push(RoutePaths.becomeOwner),
+                ),
               );
             }
 
@@ -249,37 +242,45 @@ class OwnerSalonsScreen extends ConsumerWidget {
                       SalonCard(
                         salon: salon,
                         autoPlayImages: false,
-                        onTap: () => _openManageServices(context, salon.id),
-                        footerActionLabel: 'Manage services',
-                        onFooterAction: () =>
-                            _openManageServices(context, salon.id),
+                        onTap: () => _openEditSalon(context, salon.id),
+                      ),
+                      const SizedBox(height: 10),
+                      GlassCard(
+                        padding: const EdgeInsets.all(12),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: _SalonActionButton(
+                                icon: Icons.edit_outlined,
+                                label: 'Edit',
+                                enabled: !hasPending,
+                                onTap: () => _openEditSalon(context, salon.id),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: _SalonActionButton(
+                                icon: Icons.spa_outlined,
+                                label: 'Services',
+                                onTap: () =>
+                                    _openManageServices(context, salon.id),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: _SalonActionButton(
+                                icon: Icons.schedule_rounded,
+                                label: 'Schedule',
+                                onTap: () =>
+                                    _openManageSchedule(context, salon.id),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 8),
                       Row(
                         children: [
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: () =>
-                                  _openManageSchedule(context, salon.id),
-                              icon: const Icon(Icons.schedule_rounded, size: 18),
-                              label: const Text('Schedule'),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: hasPending
-                                  ? null
-                                  : () => _openEditSalon(context, salon.id),
-                              icon: const Icon(Icons.edit_outlined, size: 18),
-                              label: const Text('Edit'),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
                           Expanded(
                             child: OutlinedButton.icon(
                               onPressed: hasPending
@@ -309,6 +310,61 @@ class OwnerSalonsScreen extends ConsumerWidget {
               },
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+class _SalonActionButton extends StatelessWidget {
+  const _SalonActionButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.enabled = true,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        borderRadius: BorderRadius.circular(12),
+        child: Ink(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: enabled
+                ? AppColors.primary.withValues(alpha: 0.1)
+                : AppColors.glassFill.withValues(alpha: 0.3),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: AppColors.glassBorder.withValues(alpha: 0.5),
+            ),
+          ),
+          child: Column(
+            children: [
+              Icon(
+                icon,
+                size: 20,
+                color: enabled ? AppColors.accent : AppColors.textMuted,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: enabled
+                          ? AppColors.textPrimary
+                          : AppColors.textMuted,
+                    ),
+              ),
+            ],
+          ),
         ),
       ),
     );

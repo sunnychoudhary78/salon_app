@@ -142,15 +142,28 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
               ),
             ),
             allSalons.when(
-              loading: () => const SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(vertical: 24),
-                  child: Center(
-                    child: SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+              loading: () => SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (_, index) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          ShimmerBox(
+                            width: double.infinity,
+                            height: 208,
+                            radius: 16,
+                          ),
+                          const SizedBox(height: 10),
+                          ShimmerBox(width: 180, height: 16, radius: 8),
+                          const SizedBox(height: 6),
+                          ShimmerBox(width: 120, height: 12, radius: 6),
+                        ],
+                      ),
                     ),
+                    childCount: 3,
                   ),
                 ),
               ),
@@ -366,27 +379,28 @@ class _ForYouSalonRailSection extends StatelessWidget {
               subtitle: 'Featured picks & deals near you',
             ),
             const SizedBox(height: 14),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              clipBehavior: Clip.none,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  for (var i = 0; i < items.length; i++) ...[
-                    if (i > 0) const SizedBox(width: 14),
-                    SalonCard(
-                      salon: items[i],
-                      cardWidth: 250,
-                      imageHeight: 168,
-                      showPromoChips: true,
-                      compactRating: true,
-                      alwaysShowSubtitle: true,
-                      onTap: () => context.push(
-                        '${RoutePaths.customerSalons}/${items[i].id}',
-                      ),
+            SizedBox(
+              height: 248,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                clipBehavior: Clip.none,
+                padding: const EdgeInsets.symmetric(horizontal: 2),
+                itemCount: items.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 14),
+                itemBuilder: (context, i) {
+                  final salon = items[i];
+                  return SalonCard(
+                    salon: salon,
+                    cardWidth: 268,
+                    imageHeight: 180,
+                    showPromoChips: true,
+                    compactRating: true,
+                    alwaysShowSubtitle: true,
+                    onTap: () => context.push(
+                      '${RoutePaths.customerSalons}/${salon.id}',
                     ),
-                  ],
-                ],
+                  );
+                },
               ),
             ),
           ],

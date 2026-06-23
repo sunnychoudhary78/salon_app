@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/features/customer/data/models/salon_model.dart';
+import 'package:saloon_booking/shared/widgets/booking_when_badge.dart';
 import 'package:saloon_booking/shared/widgets/glass_card.dart';
 import 'package:saloon_booking/shared/widgets/status_badge.dart';
 
@@ -77,6 +78,14 @@ class BookingCard extends StatelessWidget {
                       ),
                     ),
                     StatusBadge(status: booking.bookingStatus),
+                    const SizedBox(width: 6),
+                    BookingWhenBadge(
+                      date: booking.bookingDate,
+                      time: booking.bookingTime,
+                      durationMinutes:
+                          booking.service?.durationMinutes ?? 30,
+                      compact: true,
+                    ),
                     if (booking.isPremium) ...[
                       const SizedBox(width: 6),
                       Container(

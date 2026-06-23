@@ -14,13 +14,20 @@ import 'package:saloon_booking/shared/widgets/glass_card.dart';
 import 'package:saloon_booking/shared/widgets/premium_app_bar.dart';
 import 'package:saloon_booking/shared/widgets/premium_button.dart';
 import 'package:saloon_booking/shared/widgets/premium_text_field.dart';
+import 'package:saloon_booking/shared/widgets/screen_action_bar.dart';
+import 'package:saloon_booking/shared/widgets/section_header.dart';
 import 'package:saloon_booking/shared/widgets/service_tile.dart';
 import 'package:saloon_booking/shared/widgets/slot_picker_grid.dart';
 
 class BookAppointmentScreen extends ConsumerStatefulWidget {
-  const BookAppointmentScreen({super.key, required this.salonId});
+  const BookAppointmentScreen({
+    super.key,
+    required this.salonId,
+    this.initialServiceIds = const {},
+  });
 
   final String salonId;
+  final Set<String> initialServiceIds;
 
   @override
   ConsumerState<BookAppointmentScreen> createState() =>
@@ -39,6 +46,9 @@ class _BookAppointmentScreenState extends ConsumerState<BookAppointmentScreen> {
   void initState() {
     super.initState();
     _selectedDate = DateTime.now();
+    if (widget.initialServiceIds.isNotEmpty) {
+      _selectedServiceIds.addAll(widget.initialServiceIds);
+    }
   }
 
   @override
@@ -82,6 +92,12 @@ class _BookAppointmentScreenState extends ConsumerState<BookAppointmentScreen> {
     return salon.services
         .where((s) => _selectedServiceIds.contains(s.id))
         .fold(0.0, (sum, s) => sum + s.effectivePrice);
+  }
+
+  int _selectedDurationMinutes(SalonModel salon) {
+    return salon.services
+        .where((s) => _selectedServiceIds.contains(s.id))
+        .fold(0, (sum, s) => sum + (s.durationMinutes ?? 30));
   }
 
   String _premiumSlotMessage(SalonSlotModel slot) {
@@ -233,193 +249,241 @@ class _BookAppointmentScreenState extends ConsumerState<BookAppointmentScreen> {
               );
             }
 
-            return ListView(
-              padding: const EdgeInsets.all(16),
+            return Column(
               children: [
-                Text(
-                  'Select services',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                Text(
-                  'You can choose more than one service for the same time slot',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: AppColors.textMuted),
-                ),
-                const SizedBox(height: 8),
-                ...salon.services.map(
-                  (s) => ServiceTile(
-                    service: s,
-                    multiSelect: true,
-                    selected: _selectedServiceIds.contains(s.id),
-                    onTap: () => _toggleService(s.id),
-                  ),
-                ),
-                if (_selectedServiceIds.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    '${_selectedServiceIds.length} selected · ₹${_selectedTotal(salon).toStringAsFixed(0)} est.',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.labelLarge?.copyWith(color: AppColors.accent),
-                  ),
-                ],
-                const SizedBox(height: 16),
-                GlassCard(
-                  onTap: _pickDate,
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.calendar_today_rounded,
-                        color: AppColors.accent,
+                if (_selectedServiceIds.isNotEmpty)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.accent.withValues(alpha: 0.12),
+                      border: Border(
+                        bottom: BorderSide(
+                          color: AppColors.accent.withValues(alpha: 0.25),
+                        ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
+                    ),
+                    child: Text(
+                      '${_selectedServiceIds.length} service${_selectedServiceIds.length > 1 ? 's' : ''} selected · '
+                      '${_selectedDurationMinutes(salon)} min · '
+                      '₹${_selectedTotal(salon).toStringAsFixed(0)} est.',
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                            color: AppColors.accent,
+                          ),
+                    ),
+                  ),
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: [
+                      const SectionHeader(
+                        title: '1. Choose services',
+                        subtitle: 'Select one or more for the same time slot',
+                      ),
+                      const SizedBox(height: 12),
+                      GlassCard(
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: salon.services
+                              .map(
+                                (s) => ServiceTile(
+                                  service: s,
+                                  multiSelect: true,
+                                  selected: _selectedServiceIds.contains(s.id),
+                                  onTap: () => _toggleService(s.id),
+                                ),
+                              )
+                              .toList(),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      const SectionHeader(
+                        title: '2. Pick date & time',
+                        subtitle: 'Choose when you would like to visit',
+                      ),
+                      const SizedBox(height: 12),
+                      GlassCard(
+                        onTap: _pickDate,
+                        child: Row(
                           children: [
-                            Text(
-                              'Date',
-                              style: Theme.of(context).textTheme.labelMedium
-                                  ?.copyWith(color: AppColors.textMuted),
+                            const Icon(
+                              Icons.calendar_today_rounded,
+                              color: AppColors.accent,
                             ),
-                            Text(
-                              _selectedDate != null
-                                  ? DateFormat.yMMMd().format(_selectedDate!)
-                                  : 'Pick a date',
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Date',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelMedium
+                                        ?.copyWith(color: AppColors.textMuted),
+                                  ),
+                                  Text(
+                                    _selectedDate != null
+                                        ? DateFormat.yMMMd()
+                                            .format(_selectedDate!)
+                                        : 'Pick a date',
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(
+                              Icons.chevron_right_rounded,
+                              color: AppColors.textMuted,
                             ),
                           ],
                         ),
                       ),
-                      const Icon(
-                        Icons.chevron_right_rounded,
-                        color: AppColors.textMuted,
+                      const SizedBox(height: 12),
+                      Text(
+                        'Hours: ${salon.openingTime!.substring(0, 5)} – ${salon.closingTime!.substring(0, 5)}',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppColors.textMuted,
+                            ),
                       ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Select time slot',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Hours: ${salon.openingTime!.substring(0, 5)} – ${salon.closingTime!.substring(0, 5)}',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: AppColors.textMuted),
-                ),
-                const SizedBox(height: 8),
-                if (slotsAsync == null)
-                  const SizedBox.shrink()
-                else
-                  AsyncValueWidget(
-                    value: slotsAsync,
-                    data: (slotsData) {
-                      final availableCount = slotsData.slots
-                          .where((s) => s.status == 'available')
-                          .length;
-                      final hasUrgentSlots = slotsData.slots.any(
-                        (s) =>
-                            s.premiumEligible &&
-                            slotsData.premiumConfig.enabled,
-                      );
+                      const SizedBox(height: 8),
+                      if (slotsAsync == null)
+                        const SizedBox.shrink()
+                      else
+                        AsyncValueWidget(
+                          value: slotsAsync,
+                          data: (slotsData) {
+                            final availableCount = slotsData.slots
+                                .where((s) => s.status == 'available')
+                                .length;
+                            final hasUrgentSlots = slotsData.slots.any(
+                              (s) =>
+                                  s.premiumEligible &&
+                                  slotsData.premiumConfig.enabled,
+                            );
 
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (availableCount == 0 && hasUrgentSlots)
-                            Container(
-                              width: double.infinity,
-                              margin: const EdgeInsets.only(bottom: 12),
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: AppColors.accent.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: AppColors.accent.withValues(
-                                    alpha: 0.35,
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (availableCount == 0 && hasUrgentSlots)
+                                  Container(
+                                    width: double.infinity,
+                                    margin: const EdgeInsets.only(bottom: 12),
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.accent
+                                          .withValues(alpha: 0.12),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: AppColors.accent.withValues(
+                                          alpha: 0.35,
+                                        ),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      'All regular slots are full. Tap any booked or unavailable slot marked '
+                                      '“Urgent · ₹${slotsData.premiumConfig.fee.toStringAsFixed(0)}” to send a premium request.',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(color: AppColors.accent),
+                                    ),
+                                  )
+                                else if (hasUrgentSlots)
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 8),
+                                    child: Text(
+                                      'Booked or unavailable slots can be taken urgently for '
+                                      '₹${slotsData.premiumConfig.fee.toStringAsFixed(0)} after salon approval.',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(color: AppColors.textMuted),
+                                    ),
+                                  ),
+                                SlotPickerGrid(
+                                  slots: slotsData.slots,
+                                  selectedSlotStart: _selectedSlot?.slotStart,
+                                  premiumFee: slotsData.premiumConfig.fee,
+                                  onSlotTap: (slot) => _onSlotTap(
+                                    slot,
+                                    slotsData.premiumConfig,
                                   ),
                                 ),
-                              ),
-                              child: Text(
-                                'All regular slots are full. Tap any booked or unavailable slot marked '
-                                '“Urgent · ₹${slotsData.premiumConfig.fee.toStringAsFixed(0)}” to send a premium request.',
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(color: AppColors.accent),
-                              ),
-                            )
-                          else if (hasUrgentSlots)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: Text(
-                                'Booked or unavailable slots can be taken urgently for '
-                                '₹${slotsData.premiumConfig.fee.toStringAsFixed(0)} after salon approval.',
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(color: AppColors.textMuted),
-                              ),
-                            ),
-                          SlotPickerGrid(
-                            slots: slotsData.slots,
-                            selectedSlotStart: _selectedSlot?.slotStart,
-                            premiumFee: slotsData.premiumConfig.fee,
-                            onSlotTap: (slot) =>
-                                _onSlotTap(slot, slotsData.premiumConfig),
-                          ),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 12,
-                            runSpacing: 4,
-                            children: const [
-                              _LegendDot(
-                                color: AppColors.success,
-                                label: 'Available',
-                              ),
-                              _LegendDot(
-                                color: AppColors.error,
-                                label: 'Booked',
-                              ),
-                              _LegendDot(
-                                color: AppColors.warning,
-                                label: 'Blocked',
-                              ),
-                              _LegendDot(
-                                color: AppColors.accent,
-                                label: 'Urgent',
-                              ),
-                            ],
-                          ),
-                        ],
-                      );
-                    },
+                                const SizedBox(height: 8),
+                                Wrap(
+                                  spacing: 12,
+                                  runSpacing: 4,
+                                  children: const [
+                                    _LegendDot(
+                                      color: AppColors.success,
+                                      label: 'Available',
+                                    ),
+                                    _LegendDot(
+                                      color: AppColors.error,
+                                      label: 'Booked',
+                                    ),
+                                    _LegendDot(
+                                      color: AppColors.warning,
+                                      label: 'Blocked',
+                                    ),
+                                    _LegendDot(
+                                      color: AppColors.accent,
+                                      label: 'Urgent',
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      const SizedBox(height: 24),
+                      const SectionHeader(
+                        title: '3. Add notes',
+                        subtitle: 'Optional — special requests for the salon',
+                      ),
+                      const SizedBox(height: 12),
+                      PremiumTextField(
+                        controller: _notesController,
+                        label: 'Notes (optional)',
+                        maxLines: 2,
+                      ),
+                      if (_error != null) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          _error!,
+                          style: const TextStyle(color: AppColors.error),
+                        ),
+                      ],
+                      const SizedBox(height: 80),
+                    ],
                   ),
-                const SizedBox(height: 16),
-                PremiumTextField(
-                  controller: _notesController,
-                  label: 'Notes (optional)',
-                  maxLines: 2,
-                ),
-                if (_error != null) ...[
-                  const SizedBox(height: 12),
-                  Text(_error!, style: const TextStyle(color: AppColors.error)),
-                ],
-                const SizedBox(height: 24),
-                PremiumButton(
-                  label: _selectedServiceIds.isEmpty
-                      ? 'Send request'
-                      : 'Send request (${_selectedServiceIds.length} service${_selectedServiceIds.length > 1 ? 's' : ''})',
-                  loading: _loading,
-                  onPressed:
-                      _loading ||
-                          _selectedSlot?.status != 'available' ||
-                          _selectedServiceIds.isEmpty
-                      ? null
-                      : () => _submit(isPremium: false),
                 ),
               ],
             );
           },
+        ),
+        bottomNavigationBar: salonAsync.maybeWhen(
+          data: (salon) {
+            if (salon.openingTime == null || salon.closingTime == null) {
+              return null;
+            }
+            final count = _selectedServiceIds.length;
+            return ScreenActionBar(
+              label: count == 0
+                  ? 'Send request'
+                  : 'Send request ($count service${count > 1 ? 's' : ''})',
+              icon: Icons.send_rounded,
+              loading: _loading,
+              onPressed: _loading ||
+                      _selectedSlot?.status != 'available' ||
+                      _selectedServiceIds.isEmpty
+                  ? null
+                  : () => _submit(isPremium: false),
+            );
+          },
+          orElse: () => null,
         ),
       ),
     );

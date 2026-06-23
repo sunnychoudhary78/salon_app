@@ -10,6 +10,7 @@ import 'package:saloon_booking/features/owner/data/services/owner_service.dart';
 import 'package:saloon_booking/shared/widgets/async_value_widget.dart';
 import 'package:saloon_booking/shared/widgets/glass_card.dart';
 import 'package:saloon_booking/shared/widgets/premium_app_bar.dart';
+import 'package:saloon_booking/shared/widgets/section_header.dart';
 import 'package:saloon_booking/shared/widgets/slot_picker_grid.dart';
 
 class OwnerSlotScheduleScreen extends ConsumerStatefulWidget {
@@ -127,6 +128,11 @@ class _OwnerSlotScheduleScreenState
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          const SectionHeader(
+            title: 'Select date',
+            subtitle: 'View and manage slots for a specific day',
+          ),
+          const SizedBox(height: 12),
           GlassCard(
             onTap: _pickDate,
             child: Row(
@@ -136,7 +142,23 @@ class _OwnerSlotScheduleScreenState
                   color: AppColors.accent,
                 ),
                 const SizedBox(width: 12),
-                Expanded(child: Text(DateFormat.yMMMd().format(_selectedDate))),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        DateFormat.yMMMEd().format(_selectedDate),
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                      Text(
+                        'Tap to change date',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppColors.textMuted,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
                 const Icon(
                   Icons.chevron_right_rounded,
                   color: AppColors.textMuted,
@@ -144,24 +166,73 @@ class _OwnerSlotScheduleScreenState
               ],
             ),
           ),
-          const SizedBox(height: 16),
-          Text(
-            'Tap a slot to block/unblock or view booking details.',
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: AppColors.textMuted),
+          const SizedBox(height: 24),
+          const SectionHeader(
+            title: 'Time slots',
+            subtitle: 'Tap to block/unblock or view booking details',
           ),
           const SizedBox(height: 12),
           AsyncValueWidget(
             value: slotsAsync,
-            data: (data) => SlotPickerGrid(
-              slots: data.slots,
-              ownerMode: true,
-              onSlotTap: _onSlotTap,
+            data: (data) => Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SlotPickerGrid(
+                  slots: data.slots,
+                  ownerMode: true,
+                  onSlotTap: _onSlotTap,
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 4,
+                  children: const [
+                    _ScheduleLegendDot(
+                      color: AppColors.success,
+                      label: 'Available',
+                    ),
+                    _ScheduleLegendDot(
+                      color: AppColors.error,
+                      label: 'Booked',
+                    ),
+                    _ScheduleLegendDot(
+                      color: AppColors.warning,
+                      label: 'Blocked',
+                    ),
+                    _ScheduleLegendDot(
+                      color: AppColors.textMuted,
+                      label: 'Past',
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ScheduleLegendDot extends StatelessWidget {
+  const _ScheduleLegendDot({required this.color, required this.label});
+
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 4),
+        Text(label, style: Theme.of(context).textTheme.labelSmall),
+      ],
     );
   }
 }

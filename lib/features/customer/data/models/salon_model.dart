@@ -387,11 +387,13 @@ class BookingServiceRef {
     required this.serviceName,
     this.price,
     this.discountPrice,
+    this.durationMinutes,
   });
 
   final String serviceName;
   final double? price;
   final double? discountPrice;
+  final int? durationMinutes;
 
   double? get effectivePrice {
     final priceValue = price;
@@ -412,6 +414,7 @@ class BookingServiceRef {
         discountPrice: json['discount_price'] == null
             ? null
             : _parseDouble(json['discount_price']),
+        durationMinutes: _parseInt(json['duration_minutes']),
       );
 }
 

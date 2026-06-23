@@ -20,6 +20,7 @@ import 'package:saloon_booking/shared/widgets/salon_hours_picker_row.dart';
 import 'package:saloon_booking/shared/widgets/salon_image_picker.dart';
 import 'package:saloon_booking/shared/widgets/salon_address_autocomplete_field.dart';
 import 'package:saloon_booking/shared/widgets/salon_location_picker.dart';
+import 'package:saloon_booking/shared/widgets/section_header.dart';
 
 class EditSalonScreen extends ConsumerStatefulWidget {
   const EditSalonScreen({super.key, required this.salonId});
@@ -234,98 +235,148 @@ class _EditSalonScreenState extends ConsumerState<EditSalonScreen> {
                     return SingleChildScrollView(
                       padding: const EdgeInsets.all(20),
                       child: AnimatedEntrance(
-                        child: GlassCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Request salon changes',
-                                style: Theme.of(context).textTheme.titleMedium,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            const SectionHeader(
+                              title: 'Request salon changes',
+                              subtitle:
+                                  'Updates are sent to admin for approval before going live.',
+                            ),
+                            const SizedBox(height: 12),
+                            GlassCard(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Basic info',
+                                    style:
+                                        Theme.of(context).textTheme.titleSmall,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  PremiumTextField(
+                                    controller: _salonNameController,
+                                    label: 'Salon name *',
+                                  ),
+                                  const SizedBox(height: 16),
+                                  PremiumTextField(
+                                    controller: _descriptionController,
+                                    label: 'Description',
+                                    maxLines: 3,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  PremiumTextField(
+                                    controller: _phoneController,
+                                    label: 'Salon phone *',
+                                    keyboardType: TextInputType.phone,
+                                  ),
+                                ],
                               ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Updates are sent to admin for approval before going live.',
-                                style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                            const SizedBox(height: 12),
+                            GlassCard(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Location',
+                                    style:
+                                        Theme.of(context).textTheme.titleSmall,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  SalonAddressAutocompleteField(
+                                    onPlaceSelected: _onPlaceSelected,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  PremiumTextField(
+                                    controller: _addressController,
+                                    label: 'Address *',
+                                    onChanged: (_) =>
+                                        _clearLocationOnManualEdit(),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  PremiumTextField(
+                                    controller: _cityController,
+                                    label: 'City *',
+                                    onChanged: (_) =>
+                                        _clearLocationOnManualEdit(),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  PremiumTextField(
+                                    controller: _stateController,
+                                    label: 'State *',
+                                    onChanged: (_) =>
+                                        _clearLocationOnManualEdit(),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  SalonLocationPicker(
+                                    addressController: _addressController,
+                                    cityController: _cityController,
+                                    stateController: _stateController,
+                                    latitude: _latitude,
+                                    longitude: _longitude,
+                                    locationLabel: _locationLabel,
+                                    onLocationSet: (lat, lng, label) =>
+                                        setState(() {
+                                      _latitude = lat;
+                                      _longitude = lng;
+                                      _locationLabel = label;
+                                      _error = null;
+                                    }),
+                                    onClear: () => setState(() {
+                                      _latitude = null;
+                                      _longitude = null;
+                                      _locationLabel = null;
+                                    }),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(height: 20),
-                              PremiumTextField(
-                                controller: _salonNameController,
-                                label: 'Salon name *',
+                            ),
+                            const SizedBox(height: 12),
+                            GlassCard(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Hours',
+                                    style:
+                                        Theme.of(context).textTheme.titleSmall,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  SalonHoursPickerRow(
+                                    openingTime: _openingTime,
+                                    closingTime: _closingTime,
+                                    onOpeningChanged: (time) =>
+                                        setState(() => _openingTime = time),
+                                    onClosingChanged: (time) =>
+                                        setState(() => _closingTime = time),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(height: 16),
-                              PremiumTextField(
-                                controller: _descriptionController,
-                                label: 'Description',
-                                maxLines: 3,
+                            ),
+                            const SizedBox(height: 12),
+                            GlassCard(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Images',
+                                    style:
+                                        Theme.of(context).textTheme.titleSmall,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  SalonImageEditor(
+                                    existingUrls: _existingImageUrls,
+                                    newImages: _newImages,
+                                    onExistingUrlsChanged: (urls) =>
+                                        setState(() => _existingImageUrls = urls),
+                                    onNewImagesChanged: (images) =>
+                                        setState(() => _newImages = images),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(height: 16),
-                              SalonAddressAutocompleteField(
-                                onPlaceSelected: _onPlaceSelected,
-                              ),
-                              const SizedBox(height: 16),
-                              PremiumTextField(
-                                controller: _addressController,
-                                label: 'Address *',
-                                onChanged: (_) => _clearLocationOnManualEdit(),
-                              ),
-                              const SizedBox(height: 16),
-                              PremiumTextField(
-                                controller: _cityController,
-                                label: 'City *',
-                                onChanged: (_) => _clearLocationOnManualEdit(),
-                              ),
-                              const SizedBox(height: 16),
-                              PremiumTextField(
-                                controller: _stateController,
-                                label: 'State *',
-                                onChanged: (_) => _clearLocationOnManualEdit(),
-                              ),
-                              const SizedBox(height: 16),
-                              SalonLocationPicker(
-                                addressController: _addressController,
-                                cityController: _cityController,
-                                stateController: _stateController,
-                                latitude: _latitude,
-                                longitude: _longitude,
-                                locationLabel: _locationLabel,
-                                onLocationSet: (lat, lng, label) => setState(() {
-                                  _latitude = lat;
-                                  _longitude = lng;
-                                  _locationLabel = label;
-                                  _error = null;
-                                }),
-                                onClear: () => setState(() {
-                                  _latitude = null;
-                                  _longitude = null;
-                                  _locationLabel = null;
-                                }),
-                              ),
-                              const SizedBox(height: 16),
-                              PremiumTextField(
-                                controller: _phoneController,
-                                label: 'Salon phone *',
-                                keyboardType: TextInputType.phone,
-                              ),
-                              const SizedBox(height: 16),
-                              SalonHoursPickerRow(
-                                openingTime: _openingTime,
-                                closingTime: _closingTime,
-                                onOpeningChanged: (time) =>
-                                    setState(() => _openingTime = time),
-                                onClosingChanged: (time) =>
-                                    setState(() => _closingTime = time),
-                              ),
-                              const SizedBox(height: 16),
-                              SalonImageEditor(
-                                existingUrls: _existingImageUrls,
-                                newImages: _newImages,
-                                onExistingUrlsChanged: (urls) =>
-                                    setState(() => _existingImageUrls = urls),
-                                onNewImagesChanged: (images) =>
-                                    setState(() => _newImages = images),
-                              ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ),
                     );

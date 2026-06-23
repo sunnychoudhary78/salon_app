@@ -182,9 +182,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(
             path: 'book',
-            builder: (_, state) => BookAppointmentScreen(
-              salonId: state.pathParameters['id']!,
-            ),
+            builder: (_, state) {
+              final query = state.uri.queryParameters;
+              final initialIds = <String>{};
+              final singleId = query['serviceId'];
+              if (singleId != null && singleId.isNotEmpty) {
+                initialIds.add(singleId);
+              }
+              final multipleIds = query['serviceIds'];
+              if (multipleIds != null && multipleIds.isNotEmpty) {
+                initialIds.addAll(
+                  multipleIds.split(',').where((id) => id.isNotEmpty),
+                );
+              }
+              return BookAppointmentScreen(
+                salonId: state.pathParameters['id']!,
+                initialServiceIds: initialIds,
+              );
+            },
           ),
         ],
       ),
@@ -197,24 +212,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: RoutePaths.ownerDashboard,
                 builder: (_, __) => const OwnerDashboardScreen(),
-              ),
-            ],
-          ),
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: RoutePaths.ownerProfile,
-                builder: (_, __) => const ProfileScreen(isOwnerMode: true),
-                routes: [
-                  GoRoute(
-                    path: 'edit',
-                    builder: (_, __) => const EditProfileScreen(),
-                  ),
-                  GoRoute(
-                    path: 'change-password',
-                    builder: (_, __) => const ChangePasswordScreen(),
-                  ),
-                ],
               ),
             ],
           ),
@@ -257,16 +254,34 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: RoutePaths.ownerReviews,
-                builder: (_, __) => const OwnerReviewsScreen(),
+                path: RoutePaths.ownerNotifications,
+                builder: (_, __) => const NotificationsScreen(isOwnerMode: true),
               ),
             ],
           ),
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: RoutePaths.ownerNotifications,
-                builder: (_, __) => const NotificationsScreen(isOwnerMode: true),
+                path: RoutePaths.ownerProfile,
+                builder: (_, __) => const ProfileScreen(isOwnerMode: true),
+                routes: [
+                  GoRoute(
+                    path: 'edit',
+                    builder: (_, __) => const EditProfileScreen(),
+                  ),
+                  GoRoute(
+                    path: 'change-password',
+                    builder: (_, __) => const ChangePasswordScreen(),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: RoutePaths.ownerReviews,
+                builder: (_, __) => const OwnerReviewsScreen(),
               ),
             ],
           ),

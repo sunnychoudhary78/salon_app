@@ -10,12 +10,14 @@ class ServiceTile extends StatelessWidget {
     this.onTap,
     this.selected = false,
     this.multiSelect = false,
+    this.showBookAffordance = false,
   });
 
   final ServiceModel service;
   final VoidCallback? onTap;
   final bool selected;
   final bool multiSelect;
+  final bool showBookAffordance;
 
   @override
   Widget build(BuildContext context) {
@@ -76,6 +78,37 @@ class ServiceTile extends StatelessWidget {
                 ),
               ],
             ),
+            if (showBookAffordance && !multiSelect) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.accent.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: AppColors.accent.withValues(alpha: 0.35),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Book',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: AppColors.accent,
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                    const SizedBox(width: 2),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      size: 16,
+                      color: AppColors.accent.withValues(alpha: 0.9),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             if (selected && !multiSelect) ...[
               const SizedBox(width: 8),
               const Icon(Icons.check_circle_rounded, color: AppColors.accent),
