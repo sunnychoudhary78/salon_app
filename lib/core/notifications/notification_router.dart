@@ -15,6 +15,7 @@ class NotificationRouter {
             PendingNotificationTarget(
               bookingId: payload.bookingId!,
               type: payload.type,
+              userRole: payload.userRole,
             ),
           );
     }
@@ -35,7 +36,11 @@ class NotificationRouter {
       case NotificationScreens.ownerBookingDetails:
         return RoutePaths.ownerBookings;
       case NotificationScreens.ownerEarnings:
+        return RoutePaths.ownerEarnings;
+      case NotificationScreens.ownerDashboard:
         return RoutePaths.ownerDashboard;
+      case NotificationScreens.ownerReviews:
+        return RoutePaths.ownerReviews;
       default:
         return _fallbackByType(payload.type, payload.userRole);
     }
@@ -47,13 +52,20 @@ class NotificationRouter {
         NotificationTypes.newBooking ||
         NotificationTypes.bookingCancelled =>
           RoutePaths.ownerBookings,
-        NotificationTypes.paymentReceived => RoutePaths.ownerDashboard,
+        NotificationTypes.paymentReceived => RoutePaths.ownerEarnings,
+        NotificationTypes.salonApplicationSubmitted ||
+        NotificationTypes.salonApplicationApproved ||
+        NotificationTypes.salonApplicationRejected =>
+          RoutePaths.ownerDashboard,
+        NotificationTypes.newReview => RoutePaths.ownerReviews,
         _ => null,
       };
     }
 
     return switch (type) {
       NotificationTypes.bookingConfirmed ||
+      NotificationTypes.bookingRejected ||
+      NotificationTypes.bookingCompleted ||
       NotificationTypes.appointmentReminder ||
       NotificationTypes.bookingCancelled ||
       NotificationTypes.paymentSuccessful =>
@@ -68,10 +80,12 @@ class PendingNotificationTarget {
   const PendingNotificationTarget({
     required this.bookingId,
     required this.type,
+    this.userRole = '',
   });
 
   final String bookingId;
   final String type;
+  final String userRole;
 }
 
 class PendingNotificationTargetNotifier extends Notifier<PendingNotificationTarget?> {

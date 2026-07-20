@@ -2,14 +2,15 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:saloon_booking/core/network/dio_client.dart';
+import 'package:saloon_booking/core/utils/phone_validation.dart';
 import 'package:saloon_booking/core/routing/route_paths.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/features/auth/presentation/providers/auth_provider.dart';
 import 'package:saloon_booking/features/auth/presentation/utils/otp_sms_listener.dart';
+import 'package:saloon_booking/core/theme/app_animations.dart';
 import 'package:saloon_booking/shared/widgets/animated_entrance.dart';
 import 'package:saloon_booking/shared/widgets/auth_scaffold.dart';
 import 'package:saloon_booking/shared/widgets/premium_button.dart';
@@ -34,13 +35,6 @@ class _PhoneLoginScreenState extends ConsumerState<PhoneLoginScreen> {
     super.dispose();
   }
 
-  String? _validatePhone(String? value) {
-    if (value == null || value.trim().isEmpty) return 'Phone number is required';
-    final digits = value.replaceAll(RegExp(r'\D'), '');
-    if (digits.length < 10) return 'Enter at least 10 digits';
-    return null;
-  }
-
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() {
@@ -48,7 +42,7 @@ class _PhoneLoginScreenState extends ConsumerState<PhoneLoginScreen> {
       _error = null;
     });
     try {
-      final phone = _phoneController.text.trim();
+      final phone = normalizePhoneDigits(_phoneController.text);
       await ref.read(authProvider.notifier).requestOtp(phone);
       if (!mounted) return;
       OtpSmsListener.instance.activateSession();
@@ -73,6 +67,7 @@ class _PhoneLoginScreenState extends ConsumerState<PhoneLoginScreen> {
       logoHero: true,
       logoSize: AuthScaffold.heroLogoSize,
       child: AnimatedEntrance(
+        style: EntranceStyle.scaleIn,
         child: Form(
           key: _formKey,
           child: Column(
@@ -89,12 +84,9 @@ class _PhoneLoginScreenState extends ConsumerState<PhoneLoginScreen> {
                 label: 'Mobile number',
                 keyboardType: TextInputType.phone,
                 underline: true,
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                  LengthLimitingTextInputFormatter(15),
-                ],
+                inputFormatters: phoneDigitInputFormatters,
                 prefixIcon: const Icon(Icons.phone_outlined),
-                validator: _validatePhone,
+                validator: validatePhoneDigits,
               ),
               if (_error != null) ...[
                 const SizedBox(height: 14),

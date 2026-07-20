@@ -5,8 +5,12 @@ class OnboardingCompleted extends AsyncNotifier<bool> {
   @override
   Future<bool> build() async {
     ref.keepAlive();
-    final prefs = await ref.watch(sharedPreferencesProvider.future);
-    return OnboardingRepository(prefs).isCompleted();
+    try {
+      final prefs = await ref.watch(sharedPreferencesProvider.future);
+      return OnboardingRepository(prefs).isCompleted();
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<void> complete() async {

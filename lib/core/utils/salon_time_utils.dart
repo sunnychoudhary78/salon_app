@@ -31,6 +31,22 @@ bool isClosingAfterOpening(TimeOfDay opening, TimeOfDay closing) {
   return salonTimeToMinutes(closing) > salonTimeToMinutes(opening);
 }
 
+bool isSalonOpenNow(String? openingTime, String? closingTime) {
+  final opening = parseSalonTime(openingTime);
+  final closing = parseSalonTime(closingTime);
+  if (opening == null || closing == null) return false;
+
+  final now = TimeOfDay.now();
+  final nowMinutes = salonTimeToMinutes(now);
+  final openMinutes = salonTimeToMinutes(opening);
+  final closeMinutes = salonTimeToMinutes(closing);
+
+  if (isClosingAfterOpening(opening, closing)) {
+    return nowMinutes >= openMinutes && nowMinutes < closeMinutes;
+  }
+  return nowMinutes >= openMinutes || nowMinutes < closeMinutes;
+}
+
 String formatTimeOfDayLabel(TimeOfDay time) {
   final period = time.period == DayPeriod.am ? 'AM' : 'PM';
   final hour = time.hourOfPeriod == 0 ? 12 : time.hourOfPeriod;

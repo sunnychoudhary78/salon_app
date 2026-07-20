@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pinput/pinput.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
+import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 
 class OtpPinInput extends StatelessWidget {
   const OtpPinInput({
@@ -25,18 +26,20 @@ class OtpPinInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
+
     final defaultPinTheme = PinTheme(
       width: 48,
       height: 56,
-      textStyle: const TextStyle(
+      textStyle: TextStyle(
         fontSize: 22,
         fontWeight: FontWeight.w700,
-        color: AppColors.textPrimary,
+        color: colors.textPrimary,
       ),
       decoration: BoxDecoration(
-        color: AppColors.glassFill,
+        color: colors.glassFill,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.glassBorder),
+        border: Border.all(color: colors.glassBorder),
       ),
     );
 
@@ -81,7 +84,7 @@ class OtpPinInput extends StatelessWidget {
         followingPinTheme: defaultPinTheme,
         disabledPinTheme: defaultPinTheme.copyWith(
           decoration: defaultPinTheme.decoration?.copyWith(
-            color: AppColors.glassFill.withValues(alpha: 0.5),
+            color: colors.glassFill.withValues(alpha: 0.5),
           ),
         ),
         errorPinTheme: errorPinTheme,

@@ -6,6 +6,7 @@ import 'package:saloon_booking/core/network/dio_client.dart';
 import 'package:saloon_booking/core/routing/route_paths.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/features/auth/presentation/providers/auth_provider.dart';
+import 'package:saloon_booking/core/theme/app_animations.dart';
 import 'package:saloon_booking/shared/widgets/animated_entrance.dart';
 import 'package:saloon_booking/shared/widgets/auth_scaffold.dart';
 import 'package:saloon_booking/shared/widgets/premium_button.dart';
@@ -69,6 +70,9 @@ class _CompleteProfileScreenState extends ConsumerState<CompleteProfileScreen> {
   Widget build(BuildContext context) {
     final pending = ref.watch(pendingSignupProvider);
     if (pending == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) context.go(RoutePaths.login);
+      });
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       );
@@ -81,6 +85,7 @@ class _CompleteProfileScreenState extends ConsumerState<CompleteProfileScreen> {
       logoHero: true,
       logoSize: AuthScaffold.heroLogoSize,
       child: AnimatedEntrance(
+        style: EntranceStyle.scaleIn,
         child: Form(
           key: _formKey,
           child: Column(

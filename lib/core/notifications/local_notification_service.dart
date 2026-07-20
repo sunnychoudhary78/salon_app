@@ -52,6 +52,23 @@ class LocalNotificationService {
     } catch (_) {}
   }
 
+  /// Returns the payload of a local notification that launched the app from a
+  /// terminated state, if any. Needed because data-only FCM messages are
+  /// rendered as local notifications and are not surfaced by
+  /// FirebaseMessaging.getInitialMessage().
+  Future<NotificationPayload?> getLaunchPayload() async {
+    final details = await _plugin.getNotificationAppLaunchDetails();
+    if (details == null || !details.didNotificationLaunchApp) return null;
+    final payload = details.notificationResponse?.payload;
+    if (payload == null || payload.isEmpty) return null;
+    try {
+      final map = jsonDecode(payload) as Map<String, dynamic>;
+      return NotificationPayload.fromData(map);
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> show(NotificationPayload payload) async {
     final id = payload.bookingId?.hashCode ??
         payload.type.hashCode ^

@@ -1,7 +1,5 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
-import 'package:saloon_booking/core/theme/app_colors.dart';
+import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/shared/widgets/shell_navigation_scope.dart';
 
 class PremiumAppBar extends StatelessWidget implements PreferredSizeWidget {
@@ -38,76 +36,52 @@ class PremiumAppBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     final shellNav = ShellNavigationScope.maybeOf(context);
     final showDrawerButton = showMenu && leading == null && shellNav != null;
+    final colors = context.appColors;
 
-    return ClipRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-        child: Container(
-          decoration: BoxDecoration(
-            color: AppColors.backgroundDark.withValues(alpha: 0.55),
-            border: Border(
-              bottom: BorderSide(
-                color: AppColors.glassBorder.withValues(alpha: 0.5),
-              ),
-            ),
-          ),
-          child: AppBar(
-            automaticallyImplyLeading: showDrawerButton || leading != null,
-            title: titleWidget ??
-                (subtitle != null
-                    ? Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            title!,
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleLarge
-                                ?.copyWith(
-                                  color: AppColors.textPrimary,
-                                ),
+    return AppBar(
+      automaticallyImplyLeading: showDrawerButton || leading != null,
+      title: titleWidget ??
+          (subtitle != null
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title!,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            color: colors.textPrimary,
                           ),
-                          Text(
-                            subtitle!,
-                            style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    Text(
+                      subtitle!,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: colors.textSecondary,
                           ),
-                        ],
-                      )
-                    : Text(
-                        title!,
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              color: AppColors.textPrimary,
-                            ),
-                      )),
-            titleSpacing: showDrawerButton || leading != null ? 0 : 16,
-            leading: leading ??
-                (showDrawerButton
-                    ? IconButton(
-                        icon: const Icon(Icons.menu_rounded),
-                        onPressed: shellNav.openDrawer,
-                        tooltip: 'Open menu',
-                      )
-                    : null),
-            actions: actions,
-            backgroundColor: Colors.transparent,
-            bottom: PreferredSize(
-              preferredSize: const Size.fromHeight(2),
-              child: Container(
-                height: 2,
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      AppColors.accent.withValues(alpha: 0.0),
-                      AppColors.accent.withValues(alpha: 0.6),
-                      AppColors.accent.withValues(alpha: 0.0),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
+                    ),
+                  ],
+                )
+              : Text(
+                  title!,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: colors.textPrimary,
+                      ),
+                )),
+      titleSpacing: showDrawerButton || leading != null ? 0 : 16,
+      leading: leading ??
+          (showDrawerButton
+              ? IconButton(
+                  icon: const Icon(Icons.menu_rounded),
+                  onPressed: shellNav.openDrawer,
+                  tooltip: 'Open menu',
+                )
+              : null),
+      actions: actions,
+      backgroundColor: colors.navBarBackground,
+      foregroundColor: colors.textPrimary,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      surfaceTintColor: Colors.transparent,
+      shape: Border(
+        bottom: BorderSide(color: colors.glassBorder),
       ),
     );
   }

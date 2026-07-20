@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
+import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/features/customer/data/models/salon_model.dart';
 
 class SalonPromoChips extends StatelessWidget {
@@ -66,6 +67,8 @@ class _PromoChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final onAccent = context.appColors.onAccent;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
@@ -75,12 +78,12 @@ class _PromoChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 13, color: AppColors.backgroundDark),
+          Icon(icon, size: 13, color: onAccent),
           const SizedBox(width: 4),
           Text(
             label,
-            style: const TextStyle(
-              color: AppColors.backgroundDark,
+            style: TextStyle(
+              color: onAccent,
               fontSize: 10,
               fontWeight: FontWeight.w800,
               letterSpacing: 0.8,

@@ -17,24 +17,46 @@ class NotificationPayload {
   final String? title;
   final String? body;
 
+  static bool hasVisibleText(String? value) =>
+      value != null && value.trim().isNotEmpty;
+
+  static String? _firstNonEmpty(String? a, String? b) {
+    if (hasVisibleText(a)) return a!.trim();
+    if (hasVisibleText(b)) return b!.trim();
+    return null;
+  }
+
   factory NotificationPayload.fromData(Map<String, dynamic> data) {
     return NotificationPayload(
-      type: data['type'] as String? ?? '',
-      screen: data['screen'] as String? ?? '',
-      userRole: data['userRole'] as String? ?? '',
-      bookingId: data['bookingId'] as String?,
-      title: data['title'] as String?,
-      body: data['body'] as String?,
+      type: data['type']?.toString() ?? '',
+      screen: data['screen']?.toString() ?? '',
+      userRole: data['userRole']?.toString() ?? '',
+      bookingId: _optionalString(data['bookingId']),
+      title: _optionalString(data['title']),
+      body: _optionalString(data['body']),
     );
   }
 
+  static String? _optionalString(dynamic value) {
+    if (value == null) return null;
+    final text = value.toString().trim();
+    return text.isEmpty ? null : text;
+  }
+
   factory NotificationPayload.fromRemoteMessage(RemoteMessage message) {
+    final fromData = NotificationPayload.fromData(message.data);
     final notification = message.notification;
-    return NotificationPayload.fromData(message.data).copyWith(
-      title: notification?.title,
-      body: notification?.body,
+    return NotificationPayload(
+      type: fromData.type,
+      screen: fromData.screen,
+      userRole: fromData.userRole,
+      bookingId: fromData.bookingId,
+      title: _firstNonEmpty(notification?.title, fromData.title),
+      body: _firstNonEmpty(notification?.body, fromData.body),
     );
   }
+
+  bool get hasDisplayContent => hasVisibleText(title) || hasVisibleText(body);
 
   Map<String, String> toDataMap() {
     return {
@@ -45,23 +67,5 @@ class NotificationPayload {
       if (title != null) 'title': title!,
       if (body != null) 'body': body!,
     };
-  }
-
-  NotificationPayload copyWith({
-    String? type,
-    String? screen,
-    String? userRole,
-    String? bookingId,
-    String? title,
-    String? body,
-  }) {
-    return NotificationPayload(
-      type: type ?? this.type,
-      screen: screen ?? this.screen,
-      userRole: userRole ?? this.userRole,
-      bookingId: bookingId ?? this.bookingId,
-      title: title ?? this.title,
-      body: body ?? this.body,
-    );
   }
 }

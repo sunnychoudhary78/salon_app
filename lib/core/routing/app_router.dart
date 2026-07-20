@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:saloon_booking/core/routing/splash_gate_provider.dart';
 import 'package:saloon_booking/core/network/unauthorized_trigger.dart';
-import 'package:saloon_booking/core/providers/owner_approval_provider.dart';
+import 'package:saloon_booking/core/routing/app_page_transitions.dart';
 import 'package:saloon_booking/core/routing/route_paths.dart';
 import 'package:saloon_booking/core/utils/role_utils.dart';
 import 'package:saloon_booking/features/auth/data/models/user_model.dart';
@@ -23,26 +24,28 @@ import 'package:saloon_booking/features/customer/presentation/screens/write_revi
 import 'package:saloon_booking/features/owner/presentation/screens/edit_salon_screen.dart';
 import 'package:saloon_booking/features/owner/presentation/screens/salon_owner_wizard_screen.dart';
 import 'package:saloon_booking/features/owner/presentation/screens/manage_services_screen.dart';
+import 'package:saloon_booking/features/owner/presentation/screens/manage_staff_screen.dart';
 import 'package:saloon_booking/features/owner/presentation/screens/owner_slot_schedule_screen.dart';
 import 'package:saloon_booking/features/owner/presentation/screens/owner_bookings_screen.dart';
 import 'package:saloon_booking/features/owner/presentation/screens/owner_dashboard_screen.dart';
+import 'package:saloon_booking/features/owner/presentation/screens/owner_earnings_screen.dart';
+import 'package:saloon_booking/features/owner/presentation/screens/owner_earnings_transactions_screen.dart';
+import 'package:saloon_booking/features/owner/presentation/screens/owner_payout_account_screen.dart';
 import 'package:saloon_booking/features/owner/presentation/screens/owner_reviews_screen.dart';
 import 'package:saloon_booking/features/owner/presentation/screens/owner_salons_screen.dart';
 import 'package:saloon_booking/features/owner/presentation/screens/owner_shell.dart';
 import 'package:saloon_booking/features/owner/presentation/screens/pending_approval_screen.dart';
 import 'package:saloon_booking/features/notifications/presentation/screens/notifications_screen.dart';
-import 'package:saloon_booking/features/profile/presentation/screens/change_password_screen.dart';
 import 'package:saloon_booking/features/profile/presentation/screens/edit_profile_screen.dart';
 import 'package:saloon_booking/features/profile/presentation/screens/profile_screen.dart';
+import 'package:saloon_booking/features/settings/presentation/screens/settings_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   ref.keepAlive();
+  // _AuthRefreshNotifier already listens to these providers internally; avoid
+  // duplicate listeners here (which made GoRouter re-evaluate redirects twice
+  // per auth/approval/onboarding change).
   final authNotifier = _AuthRefreshNotifier(ref);
-
-  ref.listen(authProvider, (_, __) => authNotifier.notify());
-  ref.listen(hasApprovedSalonsProvider, (_, __) => authNotifier.notify());
-  ref.listen(unauthorizedTriggerProvider, (_, __) => authNotifier.notify());
-  ref.listen(onboardingCompletedProvider, (_, __) => authNotifier.notify());
 
   return GoRouter(
     initialLocation: RoutePaths.splash,
@@ -50,20 +53,30 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final auth = ref.read(authProvider);
       final onboarding = ref.read(onboardingCompletedProvider);
+      final splashTimedOut = ref.read(splashGateProvider);
       final location = state.matchedLocation;
       final isAuthRoute = location.startsWith('/auth');
       final isSplash = location == RoutePaths.splash;
       final isOnboarding = location == RoutePaths.onboarding;
 
-      if (auth.isLoading || onboarding.isLoading) {
-        return isSplash ? null : RoutePaths.splash;
+      final authLoading = auth.isLoading && !splashTimedOut;
+      final onboardingLoading = onboarding.isLoading && !splashTimedOut;
+
+      if (authLoading || onboardingLoading) {
+        // Keep auth/onboarding screens visible while their local actions run.
+        if (isSplash || isAuthRoute || isOnboarding) return null;
+        // Stay on the current route when reloading an existing session.
+        if (auth.hasValue) return null;
+        return RoutePaths.splash;
       }
 
-      final authState = auth.value;
+      final authState = splashTimedOut && auth.isLoading ? null : auth.value;
       final isLoggedIn = authState != null;
 
       if (!isLoggedIn) {
-        final hasSeenOnboarding = onboarding.value ?? false;
+        final hasSeenOnboarding = splashTimedOut && onboarding.isLoading
+            ? false
+            : (onboarding.value ?? false);
         if (!hasSeenOnboarding && !isOnboarding) {
           return RoutePaths.onboarding;
         }
@@ -111,10 +124,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const CompleteProfileScreen(),
       ),
       GoRoute(
-        path: RoutePaths.register,
-        redirect: (_, __) => RoutePaths.login,
-      ),
-      GoRoute(
         path: RoutePaths.adminBlocked,
         builder: (_, __) => const AdminBlockedScreen(),
       ),
@@ -138,11 +147,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 routes: [
                   GoRoute(
                     path: 'edit',
-                    builder: (_, __) => const EditProfileScreen(),
-                  ),
-                  GoRoute(
-                    path: 'change-password',
-                    builder: (_, __) => const ChangePasswordScreen(),
+                    pageBuilder: fadeSlideBuilder(
+                      (_, __) => const EditProfileScreen(),
+                    ),
                   ),
                 ],
               ),
@@ -156,8 +163,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 routes: [
                   GoRoute(
                     path: ':id/review',
-                    builder: (_, state) => WriteReviewScreen(
-                      bookingId: state.pathParameters['id']!,
+                    pageBuilder: (context, state) => fadeSlidePage<void>(
+                      key: state.pageKey,
+                      child: WriteReviewScreen(
+                        bookingId: state.pathParameters['id']!,
+                      ),
                     ),
                   ),
                 ],
@@ -175,14 +185,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ],
       ),
       GoRoute(
+        path: RoutePaths.customerSettings,
+        pageBuilder: fadeSlideBuilder(
+          (_, __) => const SettingsScreen(isOwnerMode: false),
+        ),
+      ),
+      GoRoute(
         path: '${RoutePaths.customerSalons}/:id',
-        builder: (_, state) => SalonDetailScreen(
-          salonId: state.pathParameters['id']!,
+        pageBuilder: (context, state) => fadeSlidePage<void>(
+          key: state.pageKey,
+          child: SalonDetailScreen(
+            salonId: state.pathParameters['id']!,
+          ),
         ),
         routes: [
           GoRoute(
             path: 'book',
-            builder: (_, state) {
+            pageBuilder: (context, state) {
               final query = state.uri.queryParameters;
               final initialIds = <String>{};
               final singleId = query['serviceId'];
@@ -195,9 +214,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   multipleIds.split(',').where((id) => id.isNotEmpty),
                 );
               }
-              return BookAppointmentScreen(
-                salonId: state.pathParameters['id']!,
-                initialServiceIds: initialIds,
+              return fadeSlidePage<void>(
+                key: state.pageKey,
+                child: BookAppointmentScreen(
+                  salonId: state.pathParameters['id']!,
+                  initialServiceIds: initialIds,
+                  initialStaffId: query['staffId'],
+                ),
               );
             },
           ),
@@ -223,20 +246,39 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 routes: [
                   GoRoute(
                     path: ':salonId/edit',
-                    builder: (_, state) => EditSalonScreen(
-                      salonId: state.pathParameters['salonId']!,
+                    pageBuilder: (context, state) => fadeSlidePage<void>(
+                      key: state.pageKey,
+                      child: EditSalonScreen(
+                        salonId: state.pathParameters['salonId']!,
+                        focusField: state.uri.queryParameters['focus'],
+                      ),
                     ),
                   ),
                   GoRoute(
                     path: ':salonId/services',
-                    builder: (_, state) => ManageServicesScreen(
-                      salonId: state.pathParameters['salonId']!,
+                    pageBuilder: (context, state) => fadeSlidePage<void>(
+                      key: state.pageKey,
+                      child: ManageServicesScreen(
+                        salonId: state.pathParameters['salonId']!,
+                      ),
+                    ),
+                  ),
+                  GoRoute(
+                    path: ':salonId/staff',
+                    pageBuilder: (context, state) => fadeSlidePage<void>(
+                      key: state.pageKey,
+                      child: ManageStaffScreen(
+                        salonId: state.pathParameters['salonId']!,
+                      ),
                     ),
                   ),
                   GoRoute(
                     path: ':salonId/schedule',
-                    builder: (_, state) => OwnerSlotScheduleScreen(
-                      salonId: state.pathParameters['salonId']!,
+                    pageBuilder: (context, state) => fadeSlidePage<void>(
+                      key: state.pageKey,
+                      child: OwnerSlotScheduleScreen(
+                        salonId: state.pathParameters['salonId']!,
+                      ),
                     ),
                   ),
                 ],
@@ -267,11 +309,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 routes: [
                   GoRoute(
                     path: 'edit',
-                    builder: (_, __) => const EditProfileScreen(),
-                  ),
-                  GoRoute(
-                    path: 'change-password',
-                    builder: (_, __) => const ChangePasswordScreen(),
+                    pageBuilder: fadeSlideBuilder(
+                      (_, __) => const EditProfileScreen(),
+                    ),
                   ),
                 ],
               ),
@@ -288,8 +328,34 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ],
       ),
       GoRoute(
+        path: RoutePaths.ownerSettings,
+        pageBuilder: fadeSlideBuilder(
+          (_, __) => const SettingsScreen(isOwnerMode: true),
+        ),
+      ),
+      GoRoute(
+        path: RoutePaths.ownerEarnings,
+        pageBuilder: fadeSlideBuilder(
+          (_, __) => const OwnerEarningsScreen(),
+        ),
+      ),
+      GoRoute(
+        path: RoutePaths.ownerEarningsTransactions,
+        pageBuilder: fadeSlideBuilder(
+          (_, __) => const OwnerEarningsTransactionsScreen(),
+        ),
+      ),
+      GoRoute(
+        path: RoutePaths.ownerPayoutAccount,
+        pageBuilder: fadeSlideBuilder(
+          (_, __) => const OwnerPayoutAccountScreen(),
+        ),
+      ),
+      GoRoute(
         path: RoutePaths.becomeOwner,
-        builder: (_, __) => const SalonOwnerWizardScreen(),
+        pageBuilder: modalUpBuilder(
+          (_, __) => const SalonOwnerWizardScreen(),
+        ),
       ),
       GoRoute(
         path: RoutePaths.applySalon,
@@ -297,7 +363,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: RoutePaths.pendingApproval,
-        builder: (_, __) => const PendingApprovalScreen(),
+        pageBuilder: fadeSlideBuilder(
+          (_, __) => const PendingApprovalScreen(),
+        ),
       ),
     ],
   );
@@ -313,12 +381,10 @@ String _homeForUser(AuthState authState) {
 class _AuthRefreshNotifier extends ChangeNotifier {
   _AuthRefreshNotifier(this._ref) {
     _ref.listen(authProvider, (_, __) => notifyListeners());
-    _ref.listen(hasApprovedSalonsProvider, (_, __) => notifyListeners());
     _ref.listen(unauthorizedTriggerProvider, (_, __) => notifyListeners());
     _ref.listen(onboardingCompletedProvider, (_, __) => notifyListeners());
+    _ref.listen(splashGateProvider, (_, __) => notifyListeners());
   }
 
   final Ref _ref;
-
-  void notify() => notifyListeners();
 }

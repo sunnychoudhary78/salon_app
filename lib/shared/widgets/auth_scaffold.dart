@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:saloon_booking/core/theme/app_colors.dart';
+import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/shared/widgets/app_logo.dart';
 
 class AuthScaffold extends StatelessWidget {
@@ -27,6 +27,7 @@ class AuthScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     final screenWidth = MediaQuery.sizeOf(context).width;
     final viewInsets = MediaQuery.viewInsetsOf(context);
     final keyboardOpen = viewInsets.bottom > 0;
@@ -43,7 +44,7 @@ class AuthScaffold extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           DecoratedBox(
-            decoration: BoxDecoration(gradient: AppColors.authGradient),
+            decoration: BoxDecoration(gradient: colors.authGradient),
           ),
           Positioned(
             top: logoHero ? 40 : -60,
@@ -52,7 +53,7 @@ class AuthScaffold extends StatelessWidget {
             child: Center(
               child: _GlowOrb(
                 size: logoHero ? 320 : 220,
-                color: AppColors.glowAccent.withValues(alpha: logoHero ? 0.28 : 0.2),
+                color: colors.glowAccent.withValues(alpha: logoHero ? 0.28 : 0.2),
               ),
             ),
           ),
@@ -61,7 +62,7 @@ class AuthScaffold extends StatelessWidget {
             left: -80,
             child: _GlowOrb(
               size: 200,
-              color: AppColors.accentDark.withValues(alpha: 0.12),
+              color: colors.accentDark.withValues(alpha: 0.12),
             ),
           ),
           SafeArea(
@@ -98,23 +99,27 @@ class AuthScaffold extends StatelessWidget {
                   flex: sheetFlex,
                   child: DecoratedBox(
                     decoration: BoxDecoration(
-                      color: AppColors.authSheet,
+                      color: colors.authSheet,
                       borderRadius: const BorderRadius.vertical(
                         top: Radius.circular(32),
                       ),
                       border: Border(
                         top: BorderSide(
-                          color: AppColors.accent.withValues(alpha: 0.15),
+                          color: colors.accent.withValues(alpha: 0.15),
                         ),
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.5),
+                          color: Colors.black.withValues(
+                            alpha: Theme.of(context).brightness == Brightness.dark
+                                ? 0.5
+                                : 0.12,
+                          ),
                           blurRadius: 32,
                           offset: const Offset(0, -12),
                         ),
                         BoxShadow(
-                          color: AppColors.accent.withValues(alpha: 0.06),
+                          color: colors.accent.withValues(alpha: 0.06),
                           blurRadius: 24,
                           offset: const Offset(0, -4),
                         ),
@@ -166,6 +171,7 @@ class _HeroHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     return Column(
       children: [
         if (onBack != null)
@@ -173,12 +179,12 @@ class _HeroHeader extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: IconButton(
               onPressed: onBack,
-              icon: const Icon(
+              icon: Icon(
                 Icons.arrow_back_rounded,
-                color: AppColors.textPrimary,
+                color: colors.textPrimary,
               ),
               style: IconButton.styleFrom(
-                backgroundColor: Colors.white.withValues(alpha: 0.08),
+                backgroundColor: colors.glassFill,
               ),
             ),
           )
@@ -195,7 +201,7 @@ class _HeroHeader extends StatelessWidget {
           Text(
             headline,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: AppColors.accent,
+                  color: colors.accent,
                   letterSpacing: 1.5,
                   fontWeight: FontWeight.w500,
                 ),
@@ -207,7 +213,7 @@ class _HeroHeader extends StatelessWidget {
           Text(
             subtitle!,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.textSecondary,
+                  color: colors.textSecondary,
                   letterSpacing: 0.5,
                 ),
             textAlign: TextAlign.center,
@@ -238,18 +244,19 @@ class _StandardHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (onBack != null)
           IconButton(
             onPressed: onBack,
-            icon: const Icon(
+            icon: Icon(
               Icons.arrow_back_rounded,
-              color: AppColors.textPrimary,
+              color: colors.textPrimary,
             ),
             style: IconButton.styleFrom(
-              backgroundColor: Colors.white.withValues(alpha: 0.1),
+              backgroundColor: colors.glassFill,
             ),
           )
         else
@@ -263,7 +270,7 @@ class _StandardHeader extends StatelessWidget {
           Text(
             headline,
             style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                  color: AppColors.textPrimary,
+                  color: colors.textPrimary,
                   fontWeight: FontWeight.w700,
                   fontSize: compact ? 22 : null,
                 ),
@@ -273,7 +280,7 @@ class _StandardHeader extends StatelessWidget {
           Text(
             subtitle!,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textPrimary.withValues(alpha: 0.75),
+                  color: colors.textPrimary.withValues(alpha: 0.75),
                 ),
           ),
         ],

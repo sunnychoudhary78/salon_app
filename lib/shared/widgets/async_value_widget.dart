@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
+import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/shared/widgets/glass_card.dart';
 import 'package:saloon_booking/shared/widgets/empty_state.dart';
 import 'package:saloon_booking/shared/widgets/premium_button.dart';
@@ -187,6 +188,8 @@ class _ShimmerBoxState extends State<ShimmerBox>
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
+
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) {
@@ -198,10 +201,10 @@ class _ShimmerBoxState extends State<ShimmerBox>
             gradient: LinearGradient(
               begin: Alignment(-1.0 + _controller.value * 2, 0),
               end: Alignment(1.0 + _controller.value * 2, 0),
-              colors: const [
-                AppColors.glassFill,
-                AppColors.glassBorder,
-                AppColors.glassFill,
+              colors: [
+                colors.glassFill,
+                colors.glassBorder,
+                colors.glassFill,
               ],
             ),
           ),

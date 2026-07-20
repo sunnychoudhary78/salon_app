@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,16 +6,20 @@ import 'package:go_router/go_router.dart';
 import 'package:saloon_booking/core/network/dio_client.dart';
 import 'package:saloon_booking/core/routing/route_paths.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
+import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/core/theme/app_decorations.dart';
 import 'package:saloon_booking/features/auth/presentation/providers/auth_provider.dart';
 import 'package:saloon_booking/features/customer/data/models/salon_model.dart';
 import 'package:saloon_booking/features/owner/data/models/owner_model.dart';
 import 'package:saloon_booking/features/owner/data/services/owner_service.dart';
+import 'package:saloon_booking/shared/widgets/animated_entrance.dart';
 import 'package:saloon_booking/shared/widgets/async_value_widget.dart';
+import 'package:saloon_booking/shared/widgets/empty_state.dart';
 import 'package:saloon_booking/shared/widgets/glass_card.dart';
 import 'package:saloon_booking/shared/widgets/premium_app_bar.dart';
-import 'package:saloon_booking/shared/widgets/empty_state.dart';
-import 'package:saloon_booking/shared/widgets/salon_card.dart';
+import 'package:saloon_booking/shared/widgets/premium_button.dart';
+import 'package:saloon_booking/shared/widgets/premium_dialog.dart';
+import 'package:saloon_booking/shared/widgets/premium_text_field.dart';
 
 class OwnerSalonsScreen extends ConsumerWidget {
   const OwnerSalonsScreen({super.key});
@@ -25,6 +30,10 @@ class OwnerSalonsScreen extends ConsumerWidget {
 
   void _openManageServices(BuildContext context, String salonId) {
     context.push('${RoutePaths.ownerSalons}/$salonId/services');
+  }
+
+  void _openManageStaff(BuildContext context, String salonId) {
+    context.push('${RoutePaths.ownerSalons}/$salonId/staff');
   }
 
   void _openEditSalon(BuildContext context, String salonId) {
@@ -40,42 +49,22 @@ class OwnerSalonsScreen extends ConsumerWidget {
     final reasonController = TextEditingController();
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(
-          activate
-              ? 'Request salon activation?'
-              : 'Request salon deactivation?',
+      builder: (ctx) => PremiumDialog(
+        title: activate
+            ? 'Request salon activation?'
+            : 'Request salon deactivation?',
+        subtitle: activate
+            ? 'Your salon will become visible to customers once admin approves.'
+            : 'Your salon stays visible to customers until admin approves deactivation.',
+        content: PremiumTextField(
+          controller: reasonController,
+          label: 'Reason (optional)',
+          maxLines: 3,
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              activate
-                  ? 'Your salon will become visible to customers once admin approves.'
-                  : 'Your salon stays visible to customers until admin approves deactivation.',
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: reasonController,
-              decoration: const InputDecoration(
-                labelText: 'Reason (optional)',
-                border: OutlineInputBorder(),
-              ),
-              maxLines: 3,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Submit request'),
-          ),
-        ],
+        confirmLabel: 'Submit request',
+        cancelLabel: 'Cancel',
+        onConfirm: () => Navigator.pop(ctx, true),
+        onCancel: () => Navigator.pop(ctx, false),
       ),
     );
 
@@ -142,6 +131,11 @@ class OwnerSalonsScreen extends ConsumerWidget {
     return Scaffold(
       appBar: PremiumAppBar(
         title: 'My salons',
+        subtitle: salons.maybeWhen(
+          data: (items) =>
+              '${items.length} location${items.length == 1 ? '' : 's'}',
+          orElse: () => null,
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.add_business_rounded),
@@ -177,11 +171,11 @@ class OwnerSalonsScreen extends ConsumerWidget {
             );
 
             return ListView.builder(
-              padding: const EdgeInsets.fromLTRB(
+              padding: EdgeInsets.fromLTRB(
                 16,
                 16,
                 16,
-                AppDecorations.shellBottomInset,
+                AppDecorations.scrollBottomPadding(context),
               ),
               itemCount: items.length,
               itemBuilder: (_, i) {
@@ -192,125 +186,228 @@ class OwnerSalonsScreen extends ConsumerWidget {
                 final hasPending = pending != null;
                 final isActive = salon.isActiveForCustomers;
 
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (pendingLabel != null)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 8, left: 4),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.hourglass_top_rounded,
-                                size: 16,
-                                color: AppColors.warning,
+                return AnimatedEntrance(
+                  index: i,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: _OwnerSalonCard(
+                      salon: salon,
+                      pendingLabel: pendingLabel,
+                      hasPending: hasPending,
+                      isActive: isActive,
+                      onEdit: () => _openEditSalon(context, salon.id),
+                      onServices: () => _openManageServices(context, salon.id),
+                      onStaff: () => _openManageStaff(context, salon.id),
+                      onSchedule: () => _openManageSchedule(context, salon.id),
+                      onToggleStatus: hasPending
+                          ? null
+                          : () => _submitStatusRequest(
+                                context: context,
+                                ref: ref,
+                                salon: salon,
+                                activate: !isActive,
                               ),
-                              const SizedBox(width: 6),
-                              Text(
-                                pendingLabel,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
-                                    ?.copyWith(color: AppColors.warning),
-                              ),
-                            ],
-                          ),
-                        )
-                      else if (!isActive)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 8, left: 4),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.visibility_off_outlined,
-                                size: 16,
-                                color: AppColors.textSecondary,
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                'Deactivated — hidden from customers',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
-                                    ?.copyWith(color: AppColors.textSecondary),
-                              ),
-                            ],
-                          ),
-                        ),
-                      SalonCard(
-                        salon: salon,
-                        autoPlayImages: false,
-                        onTap: () => _openEditSalon(context, salon.id),
-                      ),
-                      const SizedBox(height: 10),
-                      GlassCard(
-                        padding: const EdgeInsets.all(12),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: _SalonActionButton(
-                                icon: Icons.edit_outlined,
-                                label: 'Edit',
-                                enabled: !hasPending,
-                                onTap: () => _openEditSalon(context, salon.id),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: _SalonActionButton(
-                                icon: Icons.spa_outlined,
-                                label: 'Services',
-                                onTap: () =>
-                                    _openManageServices(context, salon.id),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: _SalonActionButton(
-                                icon: Icons.schedule_rounded,
-                                label: 'Schedule',
-                                onTap: () =>
-                                    _openManageSchedule(context, salon.id),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: hasPending
-                                  ? null
-                                  : () => _submitStatusRequest(
-                                        context: context,
-                                        ref: ref,
-                                        salon: salon,
-                                        activate: !isActive,
-                                      ),
-                              icon: Icon(
-                                isActive
-                                    ? Icons.visibility_off_outlined
-                                    : Icons.visibility_outlined,
-                                size: 18,
-                              ),
-                              label: Text(
-                                isActive ? 'Deactivate' : 'Activate',
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                    ),
                   ),
                 );
               },
             );
           },
         ),
+      ),
+    );
+  }
+}
+
+class _OwnerSalonCard extends StatelessWidget {
+  const _OwnerSalonCard({
+    required this.salon,
+    required this.hasPending,
+    required this.isActive,
+    required this.onEdit,
+    required this.onServices,
+    required this.onStaff,
+    required this.onSchedule,
+    required this.onToggleStatus,
+    this.pendingLabel,
+  });
+
+  final SalonModel salon;
+  final String? pendingLabel;
+  final bool hasPending;
+  final bool isActive;
+  final VoidCallback onEdit;
+  final VoidCallback onServices;
+  final VoidCallback onStaff;
+  final VoidCallback onSchedule;
+  final VoidCallback? onToggleStatus;
+
+  @override
+  Widget build(BuildContext context) {
+    final imageUrl = salon.displayCoverImage;
+
+    return GlassCard(
+      padding: EdgeInsets.zero,
+      onTap: onEdit,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+            child: Stack(
+              children: [
+                if (imageUrl != null)
+                  CachedNetworkImage(
+                    imageUrl: imageUrl,
+                    height: 140,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    placeholder: (_, __) => Container(
+                      height: 140,
+                      color: context.appColors.glassFill,
+                    ),
+                    errorWidget: (_, __, ___) => Container(
+                      height: 140,
+                      color: AppColors.primary.withValues(alpha: 0.15),
+                      child: const Center(
+                        child: Icon(Icons.store_rounded, size: 40),
+                      ),
+                    ),
+                  )
+                else
+                  Container(
+                    height: 140,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          AppColors.primary.withValues(alpha: 0.3),
+                          AppColors.accent.withValues(alpha: 0.15),
+                        ],
+                      ),
+                    ),
+                    child: const Center(
+                      child: Icon(Icons.store_rounded, size: 40),
+                    ),
+                  ),
+                Positioned(
+                  top: 12,
+                  right: 12,
+                  child: _StatusChip(
+                    label: pendingLabel ??
+                        (isActive ? 'Active' : 'Inactive'),
+                    color: pendingLabel != null
+                        ? AppColors.warning
+                        : (isActive ? AppColors.success : AppColors.error),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  salon.salonName,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+                if (salon.city != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    [salon.city, salon.state].whereType<String>().join(', '),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: context.appColors.textMuted,
+                        ),
+                  ),
+                ],
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _SalonActionButton(
+                        icon: Icons.edit_outlined,
+                        label: 'Edit',
+                        enabled: !hasPending,
+                        onTap: onEdit,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _SalonActionButton(
+                        icon: Icons.spa_outlined,
+                        label: 'Services',
+                        onTap: onServices,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _SalonActionButton(
+                        icon: Icons.groups_outlined,
+                        label: 'Staff',
+                        onTap: onStaff,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _SalonActionButton(
+                        icon: Icons.schedule_rounded,
+                        label: 'Schedule',
+                        onTap: onSchedule,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                PremiumButton(
+                  label: isActive ? 'Deactivate' : 'Activate',
+                  icon: isActive
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
+                  variant: PremiumButtonVariant.ghost,
+                  onPressed: onToggleStatus,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusChip extends StatelessWidget {
+  const _StatusChip({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.2),
+            blurRadius: 8,
+          ),
+        ],
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+            ),
       ),
     );
   }
@@ -341,10 +438,10 @@ class _SalonActionButton extends StatelessWidget {
           decoration: BoxDecoration(
             color: enabled
                 ? AppColors.primary.withValues(alpha: 0.1)
-                : AppColors.glassFill.withValues(alpha: 0.3),
+                : context.appColors.glassFill.withValues(alpha: 0.3),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: AppColors.glassBorder.withValues(alpha: 0.5),
+              color: context.appColors.glassBorder.withValues(alpha: 0.5),
             ),
           ),
           child: Column(
@@ -352,15 +449,15 @@ class _SalonActionButton extends StatelessWidget {
               Icon(
                 icon,
                 size: 20,
-                color: enabled ? AppColors.accent : AppColors.textMuted,
+                color: enabled ? AppColors.accent : context.appColors.textMuted,
               ),
               const SizedBox(height: 4),
               Text(
                 label,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       color: enabled
-                          ? AppColors.textPrimary
-                          : AppColors.textMuted,
+                          ? context.appColors.textPrimary
+                          : context.appColors.textMuted,
                     ),
               ),
             ],

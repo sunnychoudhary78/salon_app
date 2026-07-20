@@ -22,7 +22,12 @@ class SelectedLocation {
   final double? longitude;
   final String? city;
 
-  bool get isSet => displayLabel.isNotEmpty;
+  bool get isSet {
+    if (source == LocationSource.manualCity) {
+      return (city ?? displayLabel).trim().isNotEmpty;
+    }
+    return latitude != null && longitude != null;
+  }
 
   SelectedLocation copyWith({
     String? displayLabel,

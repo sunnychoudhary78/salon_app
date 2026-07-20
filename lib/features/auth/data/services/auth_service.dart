@@ -40,14 +40,13 @@ class AuthService {
     }
 
     final auth = AuthResponse.fromJson(data);
-    final profile = await getProfileWithToken(auth.token);
     return OtpVerifyResult(
       isNewUser: false,
-      authState: AuthState.fromProfile(auth.token, profile),
+      authResponse: auth,
     );
   }
 
-  Future<AuthState> completeProfile({
+  Future<AuthResponse> completeProfile({
     required String signupToken,
     required String name,
     String? email,
@@ -65,66 +64,12 @@ class AuthService {
         },
       ),
     );
-    final auth = AuthResponse.fromJson(response.data as Map<String, dynamic>);
-    final profile = await getProfileWithToken(auth.token);
-    return AuthState.fromProfile(auth.token, profile);
-  }
-
-  Future<ProfileResponse> getProfileWithToken(String token) async {
-    final response = await _dio.get(
-      '${AppConfig.appPrefix}/profile',
-      options: Options(headers: {'Authorization': 'Bearer $token'}),
-    );
-    return ProfileResponse.fromJson(response.data as Map<String, dynamic>);
-  }
-
-  Future<AuthResponse> login({
-    required String email,
-    required String password,
-  }) async {
-    final response = await _dio.post(
-      '${AppConfig.authPrefix}/login',
-      data: {'email': email, 'password': password},
-    );
-    return AuthResponse.fromJson(response.data as Map<String, dynamic>);
-  }
-
-  Future<AuthResponse> register({
-    required String name,
-    required String email,
-    required String password,
-    String? phone,
-  }) async {
-    final response = await _dio.post(
-      '${AppConfig.appPrefix}/auth/register',
-      data: {
-        'name': name,
-        'email': email,
-        'password': password,
-        if (phone != null && phone.isNotEmpty) 'phone': phone,
-      },
-    );
     return AuthResponse.fromJson(response.data as Map<String, dynamic>);
   }
 
   Future<ProfileResponse> getProfile() async {
     final response = await _dio.get('${AppConfig.appPrefix}/profile');
     return ProfileResponse.fromJson(response.data as Map<String, dynamic>);
-  }
-
-  Future<void> changePassword({
-    String? currentPassword,
-    required String newPassword,
-  }) async {
-    await _dio.post(
-      '${AppConfig.authPrefix}/change-password',
-      data: {
-        if (currentPassword != null && currentPassword.isNotEmpty)
-          'currentPassword': currentPassword,
-        'newPassword': newPassword,
-        'confirmPassword': newPassword,
-      },
-    );
   }
 }
 

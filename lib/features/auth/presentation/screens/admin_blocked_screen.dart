@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
+import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/features/auth/presentation/providers/auth_provider.dart';
+import 'package:saloon_booking/core/theme/app_animations.dart';
 import 'package:saloon_booking/shared/widgets/animated_entrance.dart';
 import 'package:saloon_booking/shared/widgets/glass_card.dart';
 import 'package:saloon_booking/shared/widgets/premium_button.dart';
@@ -16,6 +18,7 @@ class AdminBlockedScreen extends ConsumerWidget {
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: AnimatedEntrance(
+            style: EntranceStyle.scaleIn,
             child: GlassCard(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -35,7 +38,7 @@ class AdminBlockedScreen extends ConsumerWidget {
                     'Admin accounts use the web admin panel. This mobile app is for customers and salon owners.',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppColors.textSecondary,
+                          color: context.appColors.textSecondary,
                         ),
                   ),
                   const SizedBox(height: 24),

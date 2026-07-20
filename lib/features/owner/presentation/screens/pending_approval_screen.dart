@@ -3,12 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:saloon_booking/core/providers/owner_approval_provider.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
+import 'package:saloon_booking/core/theme/app_theme_extension.dart';
+import 'package:saloon_booking/core/theme/app_decorations.dart';
 import 'package:saloon_booking/core/routing/route_paths.dart';
 import 'package:saloon_booking/features/auth/presentation/providers/auth_provider.dart';
+import 'package:saloon_booking/shared/widgets/animated_entrance.dart';
 import 'package:saloon_booking/shared/widgets/glass_card.dart';
 import 'package:saloon_booking/shared/widgets/gradient_background.dart';
 import 'package:saloon_booking/shared/widgets/premium_app_bar.dart';
 import 'package:saloon_booking/shared/widgets/premium_button.dart';
+import 'package:saloon_booking/shared/widgets/section_header.dart';
 
 class PendingApprovalScreen extends ConsumerWidget {
   const PendingApprovalScreen({super.key});
@@ -48,23 +52,39 @@ class PendingApprovalScreen extends ConsumerWidget {
               child: RefreshIndicator(
                 onRefresh: () => _checkStatus(context, ref),
                 child: ListView(
-                  padding: const EdgeInsets.all(24),
+                  padding: EdgeInsets.fromLTRB(
+                    24,
+                    24,
+                    24,
+                    AppDecorations.scrollBottomPadding(context),
+                  ),
                   children: [
-                    GlassCard(
-                      child: Column(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: AppColors.warning.withValues(alpha: 0.15),
+                    AnimatedEntrance(
+                      child: GlassCard(
+                        shadowColor: AppColors.warning,
+                        child: Column(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: LinearGradient(
+                                  colors: [
+                                    AppColors.warning.withValues(alpha: 0.25),
+                                    AppColors.warning.withValues(alpha: 0.08),
+                                  ],
+                                ),
+                                border: Border.all(
+                                  color:
+                                      AppColors.warning.withValues(alpha: 0.4),
+                                ),
+                              ),
+                              child: const Icon(
+                                Icons.hourglass_top_rounded,
+                                size: 48,
+                                color: AppColors.warning,
+                              ),
                             ),
-                            child: const Icon(
-                              Icons.hourglass_top_rounded,
-                              size: 48,
-                              color: AppColors.warning,
-                            ),
-                          ),
                           const SizedBox(height: 16),
                           Text(
                             'Under review',
@@ -81,46 +101,59 @@ class PendingApprovalScreen extends ConsumerWidget {
                         ],
                       ),
                     ),
+                    ),
                     const SizedBox(height: 24),
-                    GlassCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Application timeline',
-                            style: Theme.of(context).textTheme.titleSmall,
-                          ),
-                          const SizedBox(height: 16),
-                          const _TimelineStep(
-                            title: 'Application submitted',
-                            done: true,
-                            isLast: false,
-                          ),
-                          const _TimelineStep(
-                            title: 'Admin review',
-                            done: false,
-                            active: true,
-                            isLast: false,
-                          ),
-                          const _TimelineStep(
-                            title: 'Salon goes live',
-                            done: false,
-                            isLast: true,
-                          ),
-                        ],
+                    AnimatedEntrance(
+                      index: 1,
+                      child: GlassCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SectionHeader(
+                              title: 'Application timeline',
+                              subtitle: 'Track your approval progress',
+                            ),
+                            const SizedBox(height: 8),
+                            const _TimelineStep(
+                              title: 'Application submitted',
+                              icon: Icons.check_circle_outline_rounded,
+                              done: true,
+                              isLast: false,
+                            ),
+                            const _TimelineStep(
+                              title: 'Admin review',
+                              icon: Icons.rate_review_outlined,
+                              done: false,
+                              active: true,
+                              isLast: false,
+                            ),
+                            const _TimelineStep(
+                              title: 'Salon goes live',
+                              icon: Icons.rocket_launch_outlined,
+                              done: false,
+                              isLast: true,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                     const SizedBox(height: 24),
-                    PremiumButton(
+                    AnimatedEntrance(
+                      index: 2,
+                      child: PremiumButton(
                       label: 'Check status',
                       variant: PremiumButtonVariant.accent,
                       onPressed: () => _checkStatus(context, ref),
+                      ),
                     ),
                     const SizedBox(height: 12),
-                    PremiumButton(
+                    AnimatedEntrance(
+                      index: 3,
+                      child: PremiumButton(
                       label: 'Back to dashboard',
                       variant: PremiumButtonVariant.ghost,
                       onPressed: () => context.go(RoutePaths.ownerDashboard),
+                      ),
                     ),
                   ],
                 ),
@@ -139,12 +172,14 @@ class _TimelineStep extends StatelessWidget {
     required this.done,
     required this.isLast,
     this.active = false,
+    this.icon = Icons.circle_outlined,
   });
 
   final String title;
   final bool done;
   final bool active;
   final bool isLast;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
@@ -152,7 +187,7 @@ class _TimelineStep extends StatelessWidget {
         ? AppColors.success
         : active
             ? AppColors.warning
-            : AppColors.textMuted;
+            : context.appColors.textMuted;
 
     return IntrinsicHeight(
       child: Row(
@@ -161,25 +196,31 @@ class _TimelineStep extends StatelessWidget {
           Column(
             children: [
               Container(
-                width: 24,
-                height: 24,
+                width: 28,
+                height: 28,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: color.withValues(alpha: 0.2),
+                  gradient: done || active
+                      ? LinearGradient(
+                          colors: [
+                            color.withValues(alpha: 0.35),
+                            color.withValues(alpha: 0.12),
+                          ],
+                        )
+                      : null,
+                  color: done || active ? null : color.withValues(alpha: 0.1),
                   border: Border.all(color: color, width: 2),
                 ),
                 child: done
-                    ? Icon(Icons.check_rounded, size: 14, color: color)
-                    : active
-                        ? Icon(Icons.more_horiz_rounded, size: 14, color: color)
-                        : null,
+                    ? Icon(Icons.check_rounded, size: 16, color: color)
+                    : Icon(icon, size: 14, color: color),
               ),
               if (!isLast)
                 Expanded(
                   child: Container(
                     width: 2,
                     margin: const EdgeInsets.symmetric(vertical: 4),
-                    color: AppColors.glassBorder,
+                    color: context.appColors.glassBorder,
                   ),
                 ),
             ],
@@ -192,8 +233,8 @@ class _TimelineStep extends StatelessWidget {
                 title,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: active || done
-                          ? AppColors.textPrimary
-                          : AppColors.textMuted,
+                          ? context.appColors.textPrimary
+                          : context.appColors.textMuted,
                       fontWeight: active ? FontWeight.w600 : null,
                     ),
               ),

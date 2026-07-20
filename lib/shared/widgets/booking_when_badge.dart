@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
+import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/core/utils/booking_timeline_utils.dart';
 
 class BookingWhenBadge extends StatelessWidget {
@@ -18,6 +19,7 @@ class BookingWhenBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     final label = bookingWhenLabel(
       date: date,
       time: time,
@@ -38,7 +40,7 @@ class BookingWhenBadge extends StatelessWidget {
         ),
       BookingWhenLabel.past => (
           'Past',
-          AppColors.textMuted,
+          colors.textMuted,
           Icons.history_rounded,
         ),
     };

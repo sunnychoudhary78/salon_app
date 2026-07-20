@@ -1,3 +1,34 @@
+String _asString(dynamic value, {String fallback = ''}) {
+  if (value == null) return fallback;
+  if (value is String) return value;
+  return value.toString();
+}
+
+int _asInt(dynamic value, {int fallback = 0}) {
+  if (value == null) return fallback;
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  if (value is String) return int.tryParse(value) ?? fallback;
+  return fallback;
+}
+
+DateTime _asDateTime(dynamic value) {
+  if (value is DateTime) return value;
+  if (value is String && value.isNotEmpty) {
+    return DateTime.parse(value);
+  }
+  throw FormatException('Invalid date: $value');
+}
+
+Map<String, dynamic> _asDataMap(dynamic value) {
+  if (value == null) return {};
+  if (value is Map<String, dynamic>) return Map<String, dynamic>.from(value);
+  if (value is Map) {
+    return value.map((key, val) => MapEntry(key.toString(), val));
+  }
+  return {};
+}
+
 class AppNotificationModel {
   const AppNotificationModel({
     required this.id,
@@ -19,21 +50,25 @@ class AppNotificationModel {
 
   bool get isUnread => readAt == null;
 
-  String? get bookingId => data['bookingId'] as String?;
-  String get screen => data['screen'] as String? ?? '';
-  String get userRole => data['userRole'] as String? ?? '';
+  String? get bookingId {
+    final value = data['bookingId'];
+    if (value == null) return null;
+    final text = value.toString();
+    return text.isEmpty ? null : text;
+  }
+
+  String get screen => _asString(data['screen']);
+  String get userRole => _asString(data['userRole']);
 
   factory AppNotificationModel.fromJson(Map<String, dynamic> json) {
     return AppNotificationModel(
-      id: json['id'] as String,
-      type: json['type'] as String,
-      title: json['title'] as String,
-      body: json['body'] as String,
-      data: Map<String, dynamic>.from(json['data'] as Map? ?? {}),
-      readAt: json['read_at'] != null
-          ? DateTime.parse(json['read_at'] as String)
-          : null,
-      createdAt: DateTime.parse(json['created_at'] as String),
+      id: _asString(json['id']),
+      type: _asString(json['type'], fallback: 'general'),
+      title: _asString(json['title']),
+      body: _asString(json['body']),
+      data: _asDataMap(json['data']),
+      readAt: json['read_at'] != null ? _asDateTime(json['read_at']) : null,
+      createdAt: _asDateTime(json['created_at']),
     );
   }
 }
@@ -56,15 +91,28 @@ class NotificationsPageResult {
   bool get hasMore => page < totalPages;
 
   factory NotificationsPageResult.fromJson(Map<String, dynamic> json) {
-    final meta = json['meta'] as Map<String, dynamic>? ?? {};
+    final meta = _asDataMap(json['meta']);
+    final rawItems = json['data'];
+    final items = <AppNotificationModel>[];
+    if (rawItems is List) {
+      for (final entry in rawItems) {
+        if (entry is! Map) continue;
+        try {
+          items.add(
+            AppNotificationModel.fromJson(Map<String, dynamic>.from(entry)),
+          );
+        } catch (_) {
+          // Skip malformed rows instead of failing the whole inbox.
+        }
+      }
+    }
+
     return NotificationsPageResult(
-      items: (json['data'] as List<dynamic>? ?? [])
-          .map((e) => AppNotificationModel.fromJson(e as Map<String, dynamic>))
-          .toList(),
-      page: meta['page'] as int? ?? 1,
-      limit: meta['limit'] as int? ?? 20,
-      total: meta['total'] as int? ?? 0,
-      totalPages: meta['total_pages'] as int? ?? 0,
+      items: items,
+      page: _asInt(meta['page'], fallback: 1),
+      limit: _asInt(meta['limit'], fallback: 20),
+      total: _asInt(meta['total']),
+      totalPages: _asInt(meta['total_pages']),
     );
   }
 }

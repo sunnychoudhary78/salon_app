@@ -3,18 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:saloon_booking/core/location/selected_location.dart';
 import 'package:saloon_booking/core/location/selected_location_provider.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
+import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/features/customer/data/providers/salon_browse_filters_provider.dart';
+import 'package:saloon_booking/shared/widgets/glass_bottom_sheet.dart';
 import 'package:saloon_booking/shared/widgets/premium_button.dart';
 
 Future<void> showSalonFiltersSheet(BuildContext context, WidgetRef ref) {
-  return showModalBottomSheet<void>(
+  return showGlassBottomSheet<void>(
     context: context,
-    showDragHandle: true,
-    isScrollControlled: true,
-    backgroundColor: AppColors.backgroundDark,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
     builder: (ctx) => const _SalonFiltersSheet(),
   );
 }
@@ -29,6 +25,7 @@ class _SalonFiltersSheet extends ConsumerStatefulWidget {
 class _SalonFiltersSheetState extends ConsumerState<_SalonFiltersSheet> {
   double? _minRating;
   double? _maxDistanceKm;
+  bool _hasAvailableSlots = false;
   bool _initialized = false;
 
   @override
@@ -38,6 +35,7 @@ class _SalonFiltersSheetState extends ConsumerState<_SalonFiltersSheet> {
       final filters = ref.read(salonBrowseFiltersProvider);
       _minRating = filters.minRating;
       _maxDistanceKm = filters.maxDistanceKm;
+      _hasAvailableSlots = filters.hasAvailableSlots;
       _initialized = true;
     }
   }
@@ -54,6 +52,7 @@ class _SalonFiltersSheetState extends ConsumerState<_SalonFiltersSheet> {
     ref.read(salonBrowseFiltersProvider.notifier).applyFilters(
           minRating: _minRating,
           maxDistanceKm: _hasGpsLocation ? _maxDistanceKm : null,
+          hasAvailableSlots: _hasAvailableSlots,
         );
     Navigator.pop(context);
   }
@@ -81,22 +80,46 @@ class _SalonFiltersSheetState extends ConsumerState<_SalonFiltersSheet> {
           Text(
             'Filters',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: AppColors.textPrimary,
+                  color: context.appColors.textPrimary,
                   fontWeight: FontWeight.w700,
                 ),
           ),
           const SizedBox(height: 6),
           Text(
-            'Refine salons by distance and rating',
+            'Refine salons by distance, rating, and availability',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.textSecondary,
+                  color: context.appColors.textSecondary,
                 ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Availability',
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: context.appColors.textPrimary,
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Show salons with open slots today, most availability first',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: context.appColors.textMuted,
+                ),
+          ),
+          const SizedBox(height: 12),
+          _FilterChipRow(
+            options: const [
+              _FilterOption(label: 'All salons', value: null),
+              _FilterOption(label: 'Open today', value: 1.0),
+            ],
+            selected: _hasAvailableSlots ? 1.0 : null,
+            onSelected: (v) => setState(() => _hasAvailableSlots = v != null),
           ),
           const SizedBox(height: 24),
           Text(
             'Distance',
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: AppColors.textPrimary,
+                  color: context.appColors.textPrimary,
                   fontWeight: FontWeight.w600,
                 ),
           ),
@@ -105,7 +128,7 @@ class _SalonFiltersSheetState extends ConsumerState<_SalonFiltersSheet> {
             Text(
               'Enable GPS location to filter by distance',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textMuted,
+                    color: context.appColors.textMuted,
                   ),
             ),
           ] else ...[
@@ -125,7 +148,7 @@ class _SalonFiltersSheetState extends ConsumerState<_SalonFiltersSheet> {
           Text(
             'Rating',
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: AppColors.textPrimary,
+                  color: context.appColors.textPrimary,
                   fontWeight: FontWeight.w600,
                 ),
           ),
@@ -195,14 +218,14 @@ class _FilterChipRow extends StatelessWidget {
                     ? AppColors.accentGradient
                     : LinearGradient(
                         colors: [
-                          AppColors.surfaceElevated.withValues(alpha: 0.9),
-                          AppColors.surface.withValues(alpha: 0.7),
+                          context.appColors.surfaceElevated.withValues(alpha: 0.9),
+                          context.appColors.surface.withValues(alpha: 0.7),
                         ],
                       ),
                 border: Border.all(
                   color: isSelected
                       ? AppColors.accent.withValues(alpha: 0.6)
-                      : AppColors.glassBorder.withValues(alpha: 0.5),
+                      : context.appColors.glassBorder.withValues(alpha: 0.5),
                 ),
               ),
               child: Row(
@@ -212,8 +235,8 @@ class _FilterChipRow extends StatelessWidget {
                     option.label,
                     style: TextStyle(
                       color: isSelected
-                          ? AppColors.backgroundDark
-                          : AppColors.textPrimary,
+                          ? context.appColors.onAccent
+                          : context.appColors.textPrimary,
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),
@@ -223,7 +246,7 @@ class _FilterChipRow extends StatelessWidget {
                     Icon(
                       Icons.check_rounded,
                       size: 16,
-                      color: AppColors.backgroundDark,
+                      color: context.appColors.onAccent,
                     ),
                   ],
                 ],

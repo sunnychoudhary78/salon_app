@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
+import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/core/utils/image_url_utils.dart';
 
 class SalonImagePicker extends StatelessWidget {
@@ -55,6 +56,8 @@ class SalonImagePicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -66,7 +69,7 @@ class SalonImagePicker extends StatelessWidget {
         Text(
           'Add one or more photos. The first image is the cover photo.',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppColors.textSecondary,
+                color: colors.textSecondary,
               ),
         ),
         const SizedBox(height: 12),
@@ -228,6 +231,8 @@ class SalonImageEditor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -236,7 +241,7 @@ class SalonImageEditor extends StatelessWidget {
         Text(
           'First image is the cover photo. Changes apply after admin approval.',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppColors.textSecondary,
+                color: colors.textSecondary,
               ),
         ),
         const SizedBox(height: 12),

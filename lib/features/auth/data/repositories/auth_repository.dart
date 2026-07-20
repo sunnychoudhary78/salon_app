@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:saloon_booking/core/crash/crash_reporting.dart';
 import 'package:saloon_booking/core/storage/secure_storage.dart';
 import 'package:saloon_booking/features/auth/data/models/user_model.dart';
 import 'package:saloon_booking/features/auth/data/services/auth_service.dart';
@@ -17,10 +19,19 @@ class AuthRepository {
     required String otp,
   }) async {
     final result = await _service.verifyOtp(phone: phone, otp: otp);
-    if (!result.isNewUser && result.authState != null) {
-      await _storage.writeToken(result.authState!.token);
+    if (result.isNewUser) return result;
+
+    final auth = result.authResponse;
+    if (auth == null) {
+      throw StateError('OTP verification succeeded but auth data was missing');
     }
-    return result;
+
+    await _storage.writeToken(auth.token);
+    final profile = await _service.getProfile();
+    return OtpVerifyResult(
+      isNewUser: false,
+      authState: AuthState.fromProfile(auth.token, profile),
+    );
   }
 
   Future<AuthState> completeProfile({
@@ -28,49 +39,27 @@ class AuthRepository {
     required String name,
     String? email,
   }) async {
-    final authState = await _service.completeProfile(
+    final auth = await _service.completeProfile(
       signupToken: signupToken,
       name: name,
       email: email,
     );
-    await _storage.writeToken(authState.token);
-    return authState;
-  }
-
-  Future<AuthState> login({
-    required String email,
-    required String password,
-  }) async {
-    final response = await _service.login(email: email, password: password);
-    await _storage.writeToken(response.token);
+    await _storage.writeToken(auth.token);
     final profile = await _service.getProfile();
-    return AuthState.fromProfile(response.token, profile);
-  }
-
-  Future<AuthState> register({
-    required String name,
-    required String email,
-    required String password,
-    String? phone,
-  }) async {
-    final response = await _service.register(
-      name: name,
-      email: email,
-      password: password,
-      phone: phone,
-    );
-    await _storage.writeToken(response.token);
-    final profile = await _service.getProfile();
-    return AuthState.fromProfile(response.token, profile);
+    return AuthState.fromProfile(auth.token, profile);
   }
 
   Future<AuthState?> restoreSession() async {
+    CrashReporting.breadcrumb('restore_session_start');
     final token = await _storage.readToken();
     if (token == null || token.isEmpty) return null;
     try {
       final profile = await _service.getProfile();
+      CrashReporting.breadcrumb('restore_session_success');
       return AuthState.fromProfile(token, profile);
-    } catch (_) {
+    } catch (e, stack) {
+      debugPrint('[auth] restoreSession failed: $e');
+      CrashReporting.recordError(e, stack, reason: 'restoreSession');
       await _storage.deleteToken();
       return null;
     }
@@ -79,15 +68,6 @@ class AuthRepository {
   Future<void> logout() => _storage.deleteToken();
 
   Future<ProfileResponse> getProfile() => _service.getProfile();
-
-  Future<void> changePassword({
-    String? currentPassword,
-    required String newPassword,
-  }) =>
-      _service.changePassword(
-        currentPassword: currentPassword,
-        newPassword: newPassword,
-      );
 }
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {

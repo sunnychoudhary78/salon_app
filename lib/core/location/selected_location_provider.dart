@@ -1,9 +1,12 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:saloon_booking/core/location/location_service_provider.dart';
 import 'package:saloon_booking/core/location/selected_location.dart';
 import 'package:saloon_booking/core/location/user_location_service.dart';
+import 'package:saloon_booking/core/utils/salon_geocoding.dart';
 
 const _prefsKey = 'selected_location_v1';
 
@@ -12,31 +15,67 @@ class SelectedLocationState {
     this.location = const SelectedLocation.unset(),
     this.isLoading = false,
     this.gpsDenied = false,
+    this.lastGpsFailure,
   });
 
   final SelectedLocation location;
   final bool isLoading;
   final bool gpsDenied;
+  final LocationFetchFailure? lastGpsFailure;
 
   SelectedLocationState copyWith({
     SelectedLocation? location,
     bool? isLoading,
     bool? gpsDenied,
+    LocationFetchFailure? lastGpsFailure,
+    bool clearLastGpsFailure = false,
   }) {
     return SelectedLocationState(
       location: location ?? this.location,
       isLoading: isLoading ?? this.isLoading,
       gpsDenied: gpsDenied ?? this.gpsDenied,
+      lastGpsFailure: clearLastGpsFailure
+          ? null
+          : (lastGpsFailure ?? this.lastGpsFailure),
     );
   }
 }
 
+double _roundCoord(double value) => (value * 1000).roundToDouble() / 1000;
+
+/// Stable key for salon queries; only meaningful when location is settled.
+String salonLocationKey(SelectedLocation location) {
+  if (!location.isSet) return '';
+  if (location.source == LocationSource.manualCity) {
+    return 'city:${location.city ?? location.displayLabel}';
+  }
+  final lat = location.latitude;
+  final lng = location.longitude;
+  if (lat == null || lng == null) return '';
+  return 'gps:${_roundCoord(lat)},${_roundCoord(lng)}';
+}
+
+/// Location key used to drive salon list fetches. Empty while GPS is still
+/// resolving or when no location is selected.
+final settledSalonLocationKeyProvider = Provider<String>((ref) {
+  final state = ref.watch(selectedLocationProvider);
+  if (state.isLoading || !state.location.isSet) return '';
+  return salonLocationKey(state.location);
+});
+
 class SelectedLocationNotifier extends Notifier<SelectedLocationState> {
-  final _locationService = UserLocationService();
+  Future<bool>? _gpsRefreshFuture;
+  bool _bootstrapScheduled = false;
+
+  UserLocationService get _locationService =>
+      ref.read(userLocationServiceProvider);
 
   @override
   SelectedLocationState build() {
-    _loadPersisted();
+    if (!_bootstrapScheduled) {
+      _bootstrapScheduled = true;
+      Future.microtask(_loadPersisted);
+    }
     return const SelectedLocationState(isLoading: true);
   }
 
@@ -68,9 +107,8 @@ class SelectedLocationNotifier extends Notifier<SelectedLocationState> {
   }
 
   Future<void> setFromGps(UserLocation coords, {String? label}) async {
-    final displayLabel =
-        label ??
-        await _locationService.resolveLabel(coords.latitude, coords.longitude);
+    final displayLabel = label ??
+        formatCoordinatesLabel(coords.latitude, coords.longitude);
     final location = SelectedLocation(
       displayLabel: displayLabel,
       source: LocationSource.gps,
@@ -78,8 +116,33 @@ class SelectedLocationNotifier extends Notifier<SelectedLocationState> {
       longitude: coords.longitude,
       city: null,
     );
-    state = SelectedLocationState(location: location, gpsDenied: false);
+    state = SelectedLocationState(
+      location: location,
+      gpsDenied: false,
+    );
     await _persist(location);
+
+    if (label == null) {
+      unawaited(_resolveLabelInBackground(coords));
+    }
+  }
+
+  Future<void> _resolveLabelInBackground(UserLocation coords) async {
+    final resolved = await _locationService.resolveLabel(
+      coords.latitude,
+      coords.longitude,
+    );
+    if (resolved == 'Current location') return;
+
+    final current = state.location;
+    if (current.latitude != coords.latitude ||
+        current.longitude != coords.longitude) {
+      return;
+    }
+
+    final updated = current.copyWith(displayLabel: resolved);
+    state = state.copyWith(location: updated);
+    await _persist(updated);
   }
 
   Future<void> setManualCity(String city) async {
@@ -90,24 +153,67 @@ class SelectedLocationNotifier extends Notifier<SelectedLocationState> {
       source: LocationSource.manualCity,
       city: trimmed,
     );
-    state = SelectedLocationState(location: location);
+    state = SelectedLocationState(
+      location: location,
+      gpsDenied: false,
+    );
     await _persist(location);
   }
 
-  Future<bool> refreshGps() async {
-    state = state.copyWith(isLoading: true);
+  Future<bool> refreshGps({bool silent = false}) {
+    final inFlight = _gpsRefreshFuture;
+    if (inFlight != null) return inFlight;
+
+    final future = _refreshGps(silent: silent);
+    _gpsRefreshFuture = future;
+    return future.whenComplete(() {
+      if (identical(_gpsRefreshFuture, future)) {
+        _gpsRefreshFuture = null;
+      }
+    });
+  }
+
+  /// Refreshes GPS in the background after a short delay. Safe to call on
+  /// home open when a persisted location is already shown.
+  void scheduleBackgroundGpsRefresh() {
+    unawaited(_scheduleBackgroundGpsIfNeeded());
+  }
+
+  Future<void> _scheduleBackgroundGpsIfNeeded() async {
+    await Future<void>.delayed(const Duration(milliseconds: 500));
+    final loc = state.location;
+    if (!loc.isSet || loc.source != LocationSource.gps) return;
+    await refreshGps(silent: true);
+  }
+
+  Future<bool> _refreshGps({bool silent = false}) async {
+    final hasPersistedLocation = state.location.isSet;
+    if (!silent || !hasPersistedLocation) {
+      state = state.copyWith(isLoading: true, clearLastGpsFailure: true);
+    }
     try {
+      final ensure = await _locationService.ensureServiceAndPermission();
+      if (!ensure.ready) {
+        state = SelectedLocationState(
+          location: hasPersistedLocation
+              ? state.location
+              : const SelectedLocation.unset(),
+          isLoading: false,
+          gpsDenied: true,
+          lastGpsFailure: ensure.failure,
+        );
+        return false;
+      }
+
       final coords = await _locationService.getCurrentLocation();
       if (coords == null) {
         state = SelectedLocationState(
-          location: state.location.isSet
+          location: hasPersistedLocation
               ? state.location
-              : const SelectedLocation(
-                  displayLabel: 'Select location',
-                  source: LocationSource.gps,
-                ),
+              : const SelectedLocation.unset(),
           isLoading: false,
           gpsDenied: true,
+          lastGpsFailure: LocationFetchFailure.timeout,
         );
         return false;
       }
@@ -116,22 +222,14 @@ class SelectedLocationNotifier extends Notifier<SelectedLocationState> {
       return true;
     } catch (_) {
       state = SelectedLocationState(
-        location: state.location.isSet
+        location: hasPersistedLocation
             ? state.location
-            : const SelectedLocation(
-                displayLabel: 'Select location',
-                source: LocationSource.gps,
-              ),
+            : const SelectedLocation.unset(),
         isLoading: false,
         gpsDenied: true,
+        lastGpsFailure: LocationFetchFailure.unknown,
       );
       return false;
-    }
-  }
-
-  Future<void> ensureInitialized() async {
-    if (!state.location.isSet && !state.isLoading) {
-      await refreshGps();
     }
   }
 }

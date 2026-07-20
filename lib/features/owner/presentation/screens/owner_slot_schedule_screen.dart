@@ -5,11 +5,17 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:saloon_booking/core/network/dio_client.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
+import 'package:saloon_booking/core/theme/app_theme_extension.dart';
+import 'package:saloon_booking/core/theme/app_decorations.dart';
 import 'package:saloon_booking/features/customer/data/models/salon_model.dart';
 import 'package:saloon_booking/features/owner/data/services/owner_service.dart';
+import 'package:saloon_booking/shared/widgets/animated_entrance.dart';
 import 'package:saloon_booking/shared/widgets/async_value_widget.dart';
 import 'package:saloon_booking/shared/widgets/glass_card.dart';
 import 'package:saloon_booking/shared/widgets/premium_app_bar.dart';
+import 'package:saloon_booking/shared/widgets/premium_button.dart';
+import 'package:saloon_booking/shared/widgets/premium_dialog.dart';
+import 'package:saloon_booking/shared/widgets/premium_text_field.dart';
 import 'package:saloon_booking/shared/widgets/section_header.dart';
 import 'package:saloon_booking/shared/widgets/slot_picker_grid.dart';
 
@@ -51,20 +57,36 @@ class _OwnerSlotScheduleScreenState
       if (!mounted) return;
       await showDialog<void>(
         context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Booked slot'),
-          content: Text(
-            '${b['customer_name'] ?? 'Customer'}\n'
-            '${b['service_name'] ?? 'Service'}\n'
-            'Status: ${b['booking_status']}\n'
-            'Type: ${b['booking_type'] ?? 'STANDARD'}',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Close'),
+        builder: (ctx) => PremiumDialog(
+          title: 'Booked slot',
+          subtitle: slot.displayLabel,
+          content: GlassCard(
+            elevated: false,
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              children: [
+                _BookedSlotRow(
+                  label: 'Customer',
+                  value: b['customer_name']?.toString() ?? 'Customer',
+                ),
+                _BookedSlotRow(
+                  label: 'Service',
+                  value: b['service_name']?.toString() ?? 'Service',
+                ),
+                _BookedSlotRow(
+                  label: 'Status',
+                  value: b['booking_status']?.toString() ?? '—',
+                ),
+                _BookedSlotRow(
+                  label: 'Type',
+                  value: b['booking_type']?.toString() ?? 'STANDARD',
+                ),
+              ],
             ),
-          ],
+          ),
+          confirmLabel: 'Close',
+          showCancel: false,
+          onConfirm: () => Navigator.pop(ctx),
         ),
       );
       return;
@@ -126,16 +148,23 @@ class _OwnerSlotScheduleScreenState
         ),
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.fromLTRB(
+          16,
+          16,
+          16,
+          AppDecorations.scrollBottomPadding(context),
+        ),
         children: [
           const SectionHeader(
             title: 'Select date',
             subtitle: 'View and manage slots for a specific day',
           ),
           const SizedBox(height: 12),
-          GlassCard(
-            onTap: _pickDate,
-            child: Row(
+          AnimatedEntrance(
+            key: ValueKey(_dateStr),
+            child: GlassCard(
+              onTap: _pickDate,
+              child: Row(
               children: [
                 const Icon(
                   Icons.calendar_today_rounded,
@@ -153,18 +182,19 @@ class _OwnerSlotScheduleScreenState
                       Text(
                         'Tap to change date',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: AppColors.textMuted,
+                              color: context.appColors.textMuted,
                             ),
                       ),
                     ],
                   ),
                 ),
-                const Icon(
+                Icon(
                   Icons.chevron_right_rounded,
-                  color: AppColors.textMuted,
+                  color: context.appColors.textMuted,
                 ),
               ],
             ),
+          ),
           ),
           const SizedBox(height: 24),
           const SectionHeader(
@@ -174,7 +204,9 @@ class _OwnerSlotScheduleScreenState
           const SizedBox(height: 12),
           AsyncValueWidget(
             value: slotsAsync,
-            data: (data) => Column(
+            data: (data) => AnimatedEntrance(
+              key: ValueKey('slots_$_dateStr'),
+              child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 SlotPickerGrid(
@@ -186,26 +218,27 @@ class _OwnerSlotScheduleScreenState
                 Wrap(
                   spacing: 12,
                   runSpacing: 4,
-                  children: const [
-                    _ScheduleLegendDot(
+                  children: [
+                    const _ScheduleLegendDot(
                       color: AppColors.success,
                       label: 'Available',
                     ),
-                    _ScheduleLegendDot(
+                    const _ScheduleLegendDot(
                       color: AppColors.error,
                       label: 'Booked',
                     ),
-                    _ScheduleLegendDot(
+                    const _ScheduleLegendDot(
                       color: AppColors.warning,
                       label: 'Blocked',
                     ),
                     _ScheduleLegendDot(
-                      color: AppColors.textMuted,
+                      color: context.appColors.textMuted,
                       label: 'Past',
                     ),
                   ],
                 ),
               ],
+            ),
             ),
           ),
         ],
@@ -283,38 +316,59 @@ class _SlotBlockDialogState extends State<_SlotBlockDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.isBlocked ? 'Unblock slot?' : 'Block slot?'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            widget.isBlocked
-                ? 'Make ${widget.displayLabel} available for booking again.'
-                : 'Mark ${widget.displayLabel} unavailable for normal bookings.',
-          ),
-          if (!widget.isBlocked) ...[
-            const SizedBox(height: 12),
-            TextField(
+    return PremiumDialog(
+      title: widget.isBlocked ? 'Unblock slot?' : 'Block slot?',
+      subtitle: widget.isBlocked
+          ? 'Make ${widget.displayLabel} available for booking again.'
+          : 'Mark ${widget.displayLabel} unavailable for normal bookings.',
+      content: widget.isBlocked
+          ? null
+          : PremiumTextField(
               controller: _noteController,
-              decoration: const InputDecoration(
-                labelText: 'Reason (optional)',
-                border: OutlineInputBorder(),
-              ),
+              label: 'Reason (optional)',
             ),
-          ],
+      confirmLabel: widget.isBlocked ? 'Unblock' : 'Block',
+      cancelLabel: 'Cancel',
+      onConfirm: _confirm,
+      onCancel: () => Navigator.pop(context),
+      confirmVariant: widget.isBlocked
+          ? PremiumButtonVariant.primary
+          : PremiumButtonVariant.accent,
+    );
+  }
+}
+
+class _BookedSlotRow extends StatelessWidget {
+  const _BookedSlotRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 80,
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: context.appColors.textMuted,
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ),
         ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: _confirm,
-          child: Text(widget.isBlocked ? 'Unblock' : 'Block'),
-        ),
-      ],
     );
   }
 }

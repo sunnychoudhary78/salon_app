@@ -1,3 +1,4 @@
+import 'package:saloon_booking/core/utils/json_parse_utils.dart';
 import 'package:saloon_booking/features/payments/data/models/payment_model.dart';
 
 class ServiceCategoryModel {
@@ -9,7 +10,7 @@ class ServiceCategoryModel {
   factory ServiceCategoryModel.fromJson(Map<String, dynamic> json) =>
       ServiceCategoryModel(
         id: json['id'].toString(),
-        name: json['name'] as String,
+        name: requireString(json, 'name'),
       );
 }
 
@@ -58,7 +59,7 @@ class ServiceModel {
 
   factory ServiceModel.fromJson(Map<String, dynamic> json) => ServiceModel(
     id: json['id'].toString(),
-    serviceName: json['service_name'] as String,
+    serviceName: requireString(json, 'service_name'),
     price: _parseDouble(json['price']),
     durationMinutes: _parseInt(json['duration_minutes']),
     description: json['description'] as String?,
@@ -83,11 +84,66 @@ class ServiceModel {
     'category_id': categoryId,
     'service_name': serviceName,
     'price': price,
-    if (description != null) 'description': description,
-    if (durationMinutes != null) 'duration_minutes': durationMinutes,
-    if (discountPrice != null) 'discount_price': discountPrice,
-    if (status != null) 'status': status,
+    'description': ?description,
+    'duration_minutes': ?durationMinutes,
+    'discount_price': ?discountPrice,
+    'status': ?status,
   };
+}
+
+class StaffModel {
+  const StaffModel({
+    required this.id,
+    required this.name,
+    this.profileImage,
+    this.status,
+    this.sortOrder = 0,
+    this.averageRating,
+    this.reviewCount = 0,
+  });
+
+  final String id;
+  final String name;
+  final String? profileImage;
+  final String? status;
+  final int sortOrder;
+  final double? averageRating;
+  final int reviewCount;
+
+  bool get isActive => status == null || status == 'ACTIVE';
+
+  /// Higher rating first; unrated last. Ties: reviewCount, sortOrder, name.
+  static List<StaffModel> sortByRating(List<StaffModel> staff) {
+    if (staff.length <= 1) return List<StaffModel>.from(staff);
+    final sorted = List<StaffModel>.from(staff);
+    sorted.sort((a, b) {
+      final aRated = a.averageRating != null && a.reviewCount > 0;
+      final bRated = b.averageRating != null && b.reviewCount > 0;
+      if (aRated != bRated) return aRated ? -1 : 1;
+      if (aRated && bRated) {
+        final ratingDiff = b.averageRating!.compareTo(a.averageRating!);
+        if (ratingDiff != 0) return ratingDiff;
+        final countDiff = b.reviewCount.compareTo(a.reviewCount);
+        if (countDiff != 0) return countDiff;
+      }
+      final sortDiff = a.sortOrder.compareTo(b.sortOrder);
+      if (sortDiff != 0) return sortDiff;
+      return a.name.compareTo(b.name);
+    });
+    return sorted;
+  }
+
+  factory StaffModel.fromJson(Map<String, dynamic> json) => StaffModel(
+        id: json['id'].toString(),
+        name: requireString(json, 'name'),
+        profileImage: json['profile_image'] as String?,
+        status: json['status'] as String?,
+        sortOrder: _parseInt(json['sort_order']) ?? 0,
+        averageRating: json['average_rating'] == null
+            ? null
+            : _parseDouble(json['average_rating']),
+        reviewCount: _parseInt(json['review_count']) ?? 0,
+      );
 }
 
 class SlotsTodaySummary {
@@ -111,6 +167,15 @@ class SlotsTodaySummary {
       status: json['status'] as String? ?? 'unknown',
     );
   }
+
+  bool get shouldShowOnCard => status != 'unknown' && total > 0;
+
+  String get infoLineLabel => switch (status) {
+        'open' => '$available slot${available == 1 ? '' : 's'} open today',
+        'limited' => 'Limited slots today',
+        'full' => 'Fully booked today',
+        _ => '',
+      };
 }
 
 class PremiumConfigModel {
@@ -166,9 +231,9 @@ class SalonSlotModel {
   }
 
   factory SalonSlotModel.fromJson(Map<String, dynamic> json) => SalonSlotModel(
-    slotStart: json['slot_start'] as String,
-    slotEnd: json['slot_end'] as String,
-    status: json['status'] as String,
+    slotStart: requireString(json, 'slot_start'),
+    slotEnd: requireString(json, 'slot_end'),
+    status: requireString(json, 'status'),
     premiumEligible: json['premium_eligible'] as bool? ?? false,
     booking: json['booking'] as Map<String, dynamic>?,
     blockNote: json['block_note'] as String?,
@@ -210,8 +275,11 @@ class SalonModel {
     required this.salonName,
     this.description,
     this.address,
+    this.formattedAddress,
+    this.locality,
     this.city,
     this.state,
+    this.postalCode,
     this.coverImage,
     this.galleryImages = const [],
     this.previewImages = const [],
@@ -232,14 +300,19 @@ class SalonModel {
     this.latitude,
     this.longitude,
     this.distanceKm,
+    this.premiumBookingFee,
+    this.staff = const [],
   });
 
   final String id;
   final String salonName;
   final String? description;
   final String? address;
+  final String? formattedAddress;
+  final String? locality;
   final String? city;
   final String? state;
+  final String? postalCode;
   final String? coverImage;
   final List<String> galleryImages;
   final List<String> previewImages;
@@ -249,6 +322,7 @@ class SalonModel {
   final String? status;
   final bool isActive;
   final List<ServiceModel> services;
+  final List<StaffModel> staff;
   final SlotsTodaySummary? slotsToday;
   final bool isFeatured;
   final bool hasDiscount;
@@ -260,6 +334,7 @@ class SalonModel {
   final double? latitude;
   final double? longitude;
   final double? distanceKm;
+  final double? premiumBookingFee;
 
   bool get isActiveForCustomers => status == 'ACTIVE' && isActive;
 
@@ -267,9 +342,13 @@ class SalonModel {
       coverImage ?? (galleryImages.isNotEmpty ? galleryImages.first : null);
 
   List<String> get allDisplayImages {
-    if (galleryImages.isNotEmpty) return galleryImages;
-    if (coverImage != null) return [coverImage!];
-    return const [];
+    final seen = <String>{};
+    return [
+      if (coverImage != null && coverImage!.isNotEmpty && seen.add(coverImage!))
+        coverImage!,
+      for (final image in galleryImages)
+        if (image.isNotEmpty && seen.add(image)) image,
+    ];
   }
 
   List<String> get carouselImages {
@@ -303,11 +382,14 @@ class SalonModel {
 
   factory SalonModel.fromJson(Map<String, dynamic> json) => SalonModel(
     id: json['id'].toString(),
-    salonName: json['salon_name'] as String,
+    salonName: requireString(json, 'salon_name'),
     description: json['description'] as String?,
-    address: json['address'] as String?,
+    address: (json['street'] as String? ?? json['address'] as String?),
+    formattedAddress: json['formatted_address'] as String?,
+    locality: json['locality'] as String?,
     city: json['city'] as String?,
     state: json['state'] as String?,
+    postalCode: json['postal_code'] as String?,
     coverImage: _parseImageUrl(json['cover_image']),
     galleryImages: _parseImageUrlList(json['gallery_images'] as List<dynamic>?),
     previewImages: _parseImageUrlList(json['preview_images'] as List<dynamic>?),
@@ -334,9 +416,17 @@ class SalonModel {
     distanceKm: json['distance_km'] == null
         ? null
         : _parseDouble(json['distance_km']),
+    premiumBookingFee: json['premium_booking_fee'] == null
+        ? null
+        : _parseDouble(json['premium_booking_fee']),
     services: (json['services'] as List<dynamic>? ?? [])
         .map((e) => ServiceModel.fromJson(e as Map<String, dynamic>))
         .toList(),
+    staff: StaffModel.sortByRating(
+      (json['staff'] as List<dynamic>? ?? [])
+          .map((e) => StaffModel.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    ),
     slotsToday: json['slots_today'] != null
         ? SlotsTodaySummary.fromJson(
             json['slots_today'] as Map<String, dynamic>,
@@ -370,15 +460,21 @@ class BannerModel {
 }
 
 class BookingSalonRef {
-  const BookingSalonRef({required this.id, required this.salonName});
+  const BookingSalonRef({
+    required this.id,
+    required this.salonName,
+    this.phone,
+  });
 
   final String id;
   final String salonName;
+  final String? phone;
 
   factory BookingSalonRef.fromJson(Map<String, dynamic> json) =>
       BookingSalonRef(
         id: json['id'] as String,
-        salonName: json['salon_name'] as String,
+        salonName: requireString(json, 'salon_name'),
+        phone: json['phone'] as String?,
       );
 }
 
@@ -409,12 +505,31 @@ class BookingServiceRef {
 
   factory BookingServiceRef.fromJson(Map<String, dynamic> json) =>
       BookingServiceRef(
-        serviceName: json['service_name'] as String,
+        serviceName: requireString(json, 'service_name'),
         price: json['price'] == null ? null : _parseDouble(json['price']),
         discountPrice: json['discount_price'] == null
             ? null
             : _parseDouble(json['discount_price']),
         durationMinutes: _parseInt(json['duration_minutes']),
+      );
+}
+
+class BookingStaffRef {
+  const BookingStaffRef({
+    required this.id,
+    required this.name,
+    this.profileImage,
+  });
+
+  final String id;
+  final String name;
+  final String? profileImage;
+
+  factory BookingStaffRef.fromJson(Map<String, dynamic> json) =>
+      BookingStaffRef(
+        id: json['id'].toString(),
+        name: requireString(json, 'name'),
+        profileImage: json['profile_image'] as String?,
       );
 }
 
@@ -424,11 +539,13 @@ class BookingModel {
     required this.bookingStatus,
     required this.bookingDate,
     required this.bookingTime,
+    this.groupId,
     this.bookingNumber,
     this.bookingType,
     this.premiumAmount,
     this.salon,
     this.service,
+    this.staff,
     this.notes,
     this.rejectionReason,
     this.premiumPaymentStatus,
@@ -444,11 +561,13 @@ class BookingModel {
   final String bookingStatus;
   final String bookingDate;
   final String bookingTime;
+  final String? groupId;
   final String? bookingNumber;
   final String? bookingType;
   final double? premiumAmount;
   final BookingSalonRef? salon;
   final BookingServiceRef? service;
+  final BookingStaffRef? staff;
   final String? notes;
   final String? rejectionReason;
   final String? premiumPaymentStatus;
@@ -464,6 +583,7 @@ class BookingModel {
     bookingStatus: json['booking_status'] as String,
     bookingDate: json['booking_date']?.toString() ?? '',
     bookingTime: json['booking_time'] as String? ?? '',
+    groupId: json['booking_group_id']?.toString(),
     bookingNumber: json['booking_number'] as String?,
     bookingType: json['booking_type'] as String?,
     premiumAmount: json['premium_amount'] == null
@@ -491,6 +611,9 @@ class BookingModel {
     service: json['service'] != null
         ? BookingServiceRef.fromJson(json['service'] as Map<String, dynamic>)
         : null,
+    staff: json['staff'] != null
+        ? BookingStaffRef.fromJson(json['staff'] as Map<String, dynamic>)
+        : null,
     hasReview: json['has_review'] as bool? ?? json['review'] != null,
     canReview: json['can_review'] as bool? ?? false,
     slotEnded: json['slot_ended'] as bool? ?? false,
@@ -501,6 +624,8 @@ class BookingModel {
 
   bool get isPremium => bookingType == 'PREMIUM';
   bool get isAccepted => bookingStatus == 'ACCEPTED';
+  bool get isConfirmed =>
+      bookingStatus == 'ACCEPTED' || bookingStatus == 'COMPLETED';
   bool get isPremiumPaid => !isPremium || premiumPaymentStatus == 'PAID';
   bool get needsPremiumPayment =>
       isAccepted &&
@@ -532,7 +657,7 @@ class CouponModel {
   factory CouponModel.fromJson(Map<String, dynamic> json) => CouponModel(
     code: json['code'] as String,
     discountType: json['discount_type'] as String,
-    discountValue: (json['discount_value'] as num).toDouble(),
+    discountValue: _parseDouble(json['discount_value']),
   );
 }
 

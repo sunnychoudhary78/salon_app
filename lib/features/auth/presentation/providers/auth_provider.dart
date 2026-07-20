@@ -1,9 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:saloon_booking/core/crash/crash_reporting.dart';
 import 'package:saloon_booking/core/network/unauthorized_trigger.dart';
 import 'package:saloon_booking/core/notifications/notification_service.dart';
 import 'package:saloon_booking/core/providers/owner_approval_provider.dart';
+import 'package:saloon_booking/core/providers/user_data_invalidation.dart';
 import 'package:saloon_booking/features/auth/data/models/user_model.dart';
 import 'package:saloon_booking/features/auth/data/repositories/auth_repository.dart';
+import 'package:saloon_booking/main.dart';
 
 class PendingSignup {
   const PendingSignup({required this.signupToken, required this.phone});
@@ -35,12 +38,20 @@ class Auth extends AsyncNotifier<AuthState?> {
       ref.read(pendingSignupProvider.notifier).clear();
       state = const AsyncData(null);
     });
+
     final session = await ref.read(authRepositoryProvider).restoreSession();
+
     if (session?.salonOwner != null) {
-      await ref.read(hasApprovedSalonsProvider.notifier).refresh();
+      // Run after this build completes so authProvider.value is available.
+      Future.microtask(
+        () => ref
+            .read(hasApprovedSalonsProvider.notifier)
+            .refresh(authOverride: session),
+      );
     } else {
       ref.read(hasApprovedSalonsProvider.notifier).reset();
     }
+
     return session;
   }
 
@@ -62,7 +73,7 @@ class Auth extends AsyncNotifier<AuthState?> {
     } else if (result.authState != null) {
       ref.read(pendingSignupProvider.notifier).clear();
       state = AsyncData(result.authState);
-      await _syncApprovalState();
+      await _syncApprovalState(result.authState);
     }
 
     return result;
@@ -77,77 +88,52 @@ class Auth extends AsyncNotifier<AuthState?> {
       throw StateError('No pending signup session');
     }
 
-    state = const AsyncLoading();
-    state = await AsyncValue.guard(
-      () => ref.read(authRepositoryProvider).completeProfile(
-            signupToken: pending.signupToken,
-            name: name,
-            email: email,
-          ),
-    );
+    final authState = await ref.read(authRepositoryProvider).completeProfile(
+          signupToken: pending.signupToken,
+          name: name,
+          email: email,
+        );
     ref.read(pendingSignupProvider.notifier).clear();
-    await _syncApprovalState();
-  }
-
-  Future<void> login(String email, String password) async {
-    state = const AsyncLoading();
-    state = await AsyncValue.guard(
-      () => ref.read(authRepositoryProvider).login(
-            email: email,
-            password: password,
-          ),
-    );
-    await _syncApprovalState();
-  }
-
-  Future<void> register({
-    required String name,
-    required String email,
-    required String password,
-    String? phone,
-  }) async {
-    state = const AsyncLoading();
-    state = await AsyncValue.guard(
-      () => ref.read(authRepositoryProvider).register(
-            name: name,
-            email: email,
-            password: password,
-            phone: phone,
-          ),
-    );
-    await _syncApprovalState();
+    state = AsyncData(authState);
+    await _syncApprovalState(authState);
   }
 
   Future<void> refreshProfile() async {
     final current = state.value;
     if (current == null) return;
-    final profile = await ref.read(authRepositoryProvider).getProfile();
-    state = AsyncData(
-      AuthState.fromProfile(current.token, profile),
-    );
-    await _syncApprovalState();
+    try {
+      CrashReporting.breadcrumb('refresh_profile');
+      final profile = await ref.read(authRepositoryProvider).getProfile();
+      state = AsyncData(
+        AuthState.fromProfile(current.token, profile),
+      );
+      await _syncApprovalState(state.value);
+    } catch (e, stack) {
+      CrashReporting.recordError(e, stack, reason: 'refreshProfile');
+      rethrow;
+    }
   }
 
   Future<void> logout({bool silent = false}) async {
+    invalidateAllUserScopedData(ref);
     await ref.read(notificationServiceProvider).unregisterCurrentDevice();
     await ref.read(authRepositoryProvider).logout();
     ref.read(hasApprovedSalonsProvider.notifier).reset();
     ref.read(pendingSignupProvider.notifier).clear();
-    if (!silent) {
-      state = const AsyncData(null);
-    } else {
-      state = const AsyncData(null);
-    }
+    state = const AsyncData(null);
+    Root.restartApp();
   }
 
   void updateAuthState(AuthState authState) {
     state = AsyncData(authState);
   }
 
-  Future<void> _syncApprovalState() async {
-    final current = state.value;
+  Future<void> _syncApprovalState([AuthState? session]) async {
+    final current = session ?? state.value;
     if (current?.salonOwner != null) {
-      await ref.read(hasApprovedSalonsProvider.notifier).refresh();
+      await ref
+          .read(hasApprovedSalonsProvider.notifier)
+          .refresh(authOverride: current);
     } else {
       ref.read(hasApprovedSalonsProvider.notifier).reset();
     }

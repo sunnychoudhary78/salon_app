@@ -7,19 +7,22 @@ import 'package:saloon_booking/core/network/dio_client.dart';
 import 'package:saloon_booking/core/providers/owner_approval_provider.dart';
 import 'package:saloon_booking/core/routing/route_paths.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
+import 'package:saloon_booking/core/theme/app_theme_extension.dart';
+import 'package:saloon_booking/core/utils/phone_validation.dart';
+import 'package:saloon_booking/core/utils/salon_geocoding.dart';
 import 'package:saloon_booking/core/utils/salon_time_utils.dart';
 import 'package:saloon_booking/features/auth/presentation/providers/auth_provider.dart';
-import 'package:saloon_booking/features/owner/data/models/place_suggestion.dart';
+import 'package:saloon_booking/features/owner/data/models/salon_location_selection.dart';
 import 'package:saloon_booking/features/owner/data/services/owner_service.dart';
 import 'package:saloon_booking/shared/widgets/animated_entrance.dart';
 import 'package:saloon_booking/shared/widgets/glass_card.dart';
 import 'package:saloon_booking/shared/widgets/gradient_background.dart';
+import 'package:saloon_booking/shared/widgets/owner_salon_location_card.dart';
 import 'package:saloon_booking/shared/widgets/premium_button.dart';
 import 'package:saloon_booking/shared/widgets/premium_text_field.dart';
 import 'package:saloon_booking/shared/widgets/salon_hours_picker_row.dart';
 import 'package:saloon_booking/shared/widgets/salon_image_picker.dart';
-import 'package:saloon_booking/shared/widgets/salon_address_autocomplete_field.dart';
-import 'package:saloon_booking/shared/widgets/salon_location_picker.dart';
+import 'package:saloon_booking/shared/widgets/section_header.dart';
 import 'package:saloon_booking/shared/widgets/step_progress_header.dart';
 
 class SalonOwnerWizardScreen extends ConsumerStatefulWidget {
@@ -41,15 +44,11 @@ class _SalonOwnerWizardScreenState
   final _gstController = TextEditingController();
   final _salonNameController = TextEditingController();
   final _descriptionController = TextEditingController();
-  final _addressController = TextEditingController();
-  final _cityController = TextEditingController();
-  final _stateController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _premiumFeeController = TextEditingController();
   TimeOfDay? _openingTime = const TimeOfDay(hour: 9, minute: 0);
   TimeOfDay? _closingTime = const TimeOfDay(hour: 21, minute: 0);
-  double? _latitude;
-  double? _longitude;
-  String? _locationLabel;
+  SalonLocationSelection? _location;
   List<XFile> _selectedImages = [];
 
   static const _stepTitles = [
@@ -78,10 +77,8 @@ class _SalonOwnerWizardScreenState
     _gstController.dispose();
     _salonNameController.dispose();
     _descriptionController.dispose();
-    _addressController.dispose();
-    _cityController.dispose();
-    _stateController.dispose();
     _phoneController.dispose();
+    _premiumFeeController.dispose();
     super.dispose();
   }
 
@@ -94,50 +91,29 @@ class _SalonOwnerWizardScreenState
     );
   }
 
-  void _clearLocationOnManualEdit() {
-    if (_latitude == null && _longitude == null) return;
-    setState(() {
-      _latitude = null;
-      _longitude = null;
-      _locationLabel = null;
-    });
-  }
-
-  void _onPlaceSelected(PlaceSuggestion place) {
-    setState(() {
-      _addressController.text = place.address;
-      _cityController.text = place.city;
-      _stateController.text = place.state;
-      _latitude = place.latitude;
-      _longitude = place.longitude;
-      _locationLabel = place.label;
-      _error = null;
-    });
-  }
-
   bool _validateStep(int step) {
     if (step == 0 && _businessController.text.trim().isEmpty) {
       setState(() => _error = 'Business name is required');
       return false;
     }
     if (step == 1) {
-      final phone = _phoneController.text.trim().replaceAll(RegExp(r'\D'), '');
+      final phone = normalizePhoneDigits(_phoneController.text);
       if (_salonNameController.text.trim().isEmpty ||
-          _addressController.text.trim().isEmpty ||
-          _cityController.text.trim().isEmpty ||
-          _stateController.text.trim().isEmpty ||
-          phone.length < 10 ||
           _openingTime == null ||
           _closingTime == null) {
         setState(() => _error = 'Please fill all required salon fields');
+        return false;
+      }
+      if (!isValidPhoneDigits(phone)) {
+        setState(() => _error = 'Enter a valid 10-digit phone number');
         return false;
       }
       if (!isClosingAfterOpening(_openingTime!, _closingTime!)) {
         setState(() => _error = 'Closing time must be after opening time');
         return false;
       }
-      if (_latitude == null || _longitude == null) {
-        setState(() => _error = 'Please set salon location');
+      if (_location?.isConfirmed != true || _location?.isComplete != true) {
+        setState(() => _error = 'Please set and confirm salon location');
         return false;
       }
     }
@@ -147,6 +123,32 @@ class _SalonOwnerWizardScreenState
 
   Future<void> _next() async {
     if (!_validateStep(_step)) return;
+    if (_step == 0) {
+      final auth = ref.read(authProvider).value;
+      if (auth?.salonOwner == null) {
+        setState(() {
+          _loading = true;
+          _error = null;
+        });
+        try {
+          await ref.read(ownerOnboardingActionsProvider).registerOwner(
+                businessName: _businessController.text.trim(),
+                gstNumber: _gstController.text.trim().isEmpty
+                    ? null
+                    : _gstController.text.trim(),
+              );
+          await ref.read(authProvider.notifier).refreshProfile();
+        } on DioException catch (e) {
+          if (mounted) setState(() => _error = e.apiException.message);
+          return;
+        } catch (e) {
+          if (mounted) setState(() => _error = e.toString());
+          return;
+        } finally {
+          if (mounted) setState(() => _loading = false);
+        }
+      }
+    }
     if (_step < 2) {
       _goToStep(_step + 1);
       return;
@@ -155,6 +157,9 @@ class _SalonOwnerWizardScreenState
   }
 
   Future<void> _submit() async {
+    final location = _location;
+    if (location == null) return;
+
     setState(() {
       _loading = true;
       _error = null;
@@ -171,21 +176,26 @@ class _SalonOwnerWizardScreenState
         await ref.read(authProvider.notifier).refreshProfile();
       }
 
-      await ref.read(ownerOnboardingActionsProvider).submitApplication({
+      final body = <String, dynamic>{
         'salon_name': _salonNameController.text.trim(),
         'description': _descriptionController.text.trim().isEmpty
             ? null
             : _descriptionController.text.trim(),
-        'address': _addressController.text.trim(),
-        'city': _cityController.text.trim(),
-        'state': _stateController.text.trim(),
-        'phone': _phoneController.text.trim().replaceAll(RegExp(r'\D'), ''),
+        ...location.toApiPayload(),
+        'phone': normalizePhoneDigits(_phoneController.text),
         'opening_time': formatSalonTimeForApi(_openingTime!),
         'closing_time': formatSalonTimeForApi(_closingTime!),
-        'latitude': _latitude,
-        'longitude': _longitude,
         ...await _imagePayload(),
-      });
+      };
+      final premiumRaw = _premiumFeeController.text.trim();
+      if (premiumRaw.isNotEmpty) {
+        final fee = double.tryParse(premiumRaw);
+        if (fee != null && fee > 0 && fee <= 10000) {
+          body['premium_booking_fee'] = fee;
+        }
+      }
+
+      await ref.read(ownerOnboardingActionsProvider).submitApplication(body);
 
       if (!mounted) return;
       await ref.read(authProvider.notifier).refreshProfile();
@@ -319,16 +329,11 @@ class _SalonOwnerWizardScreenState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Tell us about your business',
-                style: Theme.of(context).textTheme.titleMedium,
+              const SectionHeader(
+                title: 'Business details',
+                subtitle: 'Register as a salon owner',
               ),
-              const SizedBox(height: 8),
-              Text(
-                'This registers you as a salon owner. Your salon listing will be reviewed separately.',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
               PremiumTextField(
                 controller: _businessController,
                 label: 'Business name *',
@@ -353,16 +358,11 @@ class _SalonOwnerWizardScreenState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Salon details',
-                style: Theme.of(context).textTheme.titleMedium,
+              const SectionHeader(
+                title: 'Salon information',
+                subtitle: 'Details sent to admin for approval',
               ),
-              const SizedBox(height: 8),
-              Text(
-                'This information is sent to admin for approval.',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
               PremiumTextField(
                 controller: _salonNameController,
                 label: 'Salon name *',
@@ -374,45 +374,11 @@ class _SalonOwnerWizardScreenState
                 maxLines: 3,
               ),
               const SizedBox(height: 16),
-              SalonAddressAutocompleteField(
-                onPlaceSelected: _onPlaceSelected,
-              ),
-              const SizedBox(height: 16),
-              PremiumTextField(
-                controller: _addressController,
-                label: 'Address *',
-                onChanged: (_) => _clearLocationOnManualEdit(),
-              ),
-              const SizedBox(height: 16),
-              PremiumTextField(
-                controller: _cityController,
-                label: 'City *',
-                onChanged: (_) => _clearLocationOnManualEdit(),
-              ),
-              const SizedBox(height: 16),
-              PremiumTextField(
-                controller: _stateController,
-                label: 'State *',
-                onChanged: (_) => _clearLocationOnManualEdit(),
-              ),
-              const SizedBox(height: 16),
-              SalonLocationPicker(
-                addressController: _addressController,
-                cityController: _cityController,
-                stateController: _stateController,
-                latitude: _latitude,
-                longitude: _longitude,
-                locationLabel: _locationLabel,
-                onLocationSet: (lat, lng, label) => setState(() {
-                  _latitude = lat;
-                  _longitude = lng;
-                  _locationLabel = label;
+              OwnerSalonLocationCard(
+                value: _location,
+                onChanged: (location) => setState(() {
+                  _location = location;
                   _error = null;
-                }),
-                onClear: () => setState(() {
-                  _latitude = null;
-                  _longitude = null;
-                  _locationLabel = null;
                 }),
               ),
               const SizedBox(height: 16),
@@ -420,6 +386,7 @@ class _SalonOwnerWizardScreenState
                 controller: _phoneController,
                 label: 'Salon phone *',
                 keyboardType: TextInputType.phone,
+                inputFormatters: phoneDigitInputFormatters,
               ),
               const SizedBox(height: 16),
               SalonHoursPickerRow(
@@ -427,6 +394,19 @@ class _SalonOwnerWizardScreenState
                 closingTime: _closingTime,
                 onOpeningChanged: (time) => setState(() => _openingTime = time),
                 onClosingChanged: (time) => setState(() => _closingTime = time),
+              ),
+              const SizedBox(height: 16),
+              PremiumTextField(
+                controller: _premiumFeeController,
+                label: 'Urgent booking fee (₹, optional)',
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Optional. Leave empty to use the platform default after approval.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: context.appColors.textMuted,
+                    ),
               ),
               const SizedBox(height: 16),
               SalonImagePicker(
@@ -442,6 +422,8 @@ class _SalonOwnerWizardScreenState
   }
 
   Widget _buildStep2() {
+    final location = _location;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: AnimatedEntrance(
@@ -449,36 +431,60 @@ class _SalonOwnerWizardScreenState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Review your application',
-                style: Theme.of(context).textTheme.titleMedium,
+              const SectionHeader(
+                title: 'Review & submit',
+                subtitle: 'Confirm your application details',
               ),
               const SizedBox(height: 16),
-              _reviewRow('Business', _businessController.text.trim()),
-              if (_gstController.text.trim().isNotEmpty)
-                _reviewRow('GST', _gstController.text.trim()),
-              const Divider(height: 24),
-              _reviewRow('Salon', _salonNameController.text.trim()),
-              _reviewRow('Address', _addressController.text.trim()),
-              _reviewRow(
-                'Location',
-                '${_cityController.text.trim()}, ${_stateController.text.trim()}',
+              GlassCard(
+                elevated: false,
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  children: [
+                    _reviewRow('Business', _businessController.text.trim()),
+                    if (_gstController.text.trim().isNotEmpty)
+                      _reviewRow('GST', _gstController.text.trim()),
+                  ],
+                ),
               ),
-              if (_locationLabel != null)
-                _reviewRow('Salon pin', _locationLabel!)
-              else if (_latitude != null && _longitude != null)
-                _reviewRow(
-                  'Salon pin',
-                  '${_latitude!.toStringAsFixed(4)}, ${_longitude!.toStringAsFixed(4)}',
+              const SizedBox(height: 12),
+              GlassCard(
+                elevated: false,
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  children: [
+                    _reviewRow('Salon', _salonNameController.text.trim()),
+                    if (location != null) ...[
+                      _reviewRow('Location', location.displayLabel),
+                      if (location.cityStateLine.isNotEmpty)
+                        _reviewRow('Area', location.cityStateLine),
+                      _reviewRow(
+                        'Salon pin',
+                        formatCoordinatesLabel(
+                          location.latitude,
+                          location.longitude,
+                        ),
+                      ),
+                    ],
+                    _reviewRow('Phone', _phoneController.text.trim()),
+                    if (_openingTime != null && _closingTime != null)
+                      _reviewRow(
+                        'Hours',
+                        '${formatTimeOfDayLabel(_openingTime!)} – ${formatTimeOfDayLabel(_closingTime!)}',
+                      ),
+                    if (_premiumFeeController.text.trim().isNotEmpty)
+                      _reviewRow(
+                        'Urgent fee',
+                        '₹${_premiumFeeController.text.trim()}',
+                      ),
+                    if (_descriptionController.text.trim().isNotEmpty)
+                      _reviewRow(
+                        'Description',
+                        _descriptionController.text.trim(),
+                      ),
+                  ],
                 ),
-              _reviewRow('Phone', _phoneController.text.trim()),
-              if (_openingTime != null && _closingTime != null)
-                _reviewRow(
-                  'Hours',
-                  '${formatTimeOfDayLabel(_openingTime!)} – ${formatTimeOfDayLabel(_closingTime!)}',
-                ),
-              if (_descriptionController.text.trim().isNotEmpty)
-                _reviewRow('Description', _descriptionController.text.trim()),
+              ),
               if (_selectedImages.isNotEmpty) ...[
                 const SizedBox(height: 10),
                 SalonImageReviewStrip(images: _selectedImages),
@@ -503,13 +509,19 @@ class _SalonOwnerWizardScreenState
         children: [
           SizedBox(
             width: 90,
-            child: Text(label, style: Theme.of(context).textTheme.bodySmall),
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: context.appColors.textMuted,
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
           ),
           Expanded(
             child: Text(
               value,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textPrimary,
+                    color: context.appColors.textPrimary,
                   ),
             ),
           ),

@@ -1,22 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:saloon_booking/core/location/selected_location.dart';
 import 'package:saloon_booking/core/location/selected_location_provider.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
+import 'package:saloon_booking/core/theme/app_theme_extension.dart';
+import 'package:saloon_booking/shared/widgets/glass_bottom_sheet.dart';
 import 'package:saloon_booking/shared/widgets/glass_card.dart';
+import 'package:saloon_booking/shared/widgets/location_error_hint.dart';
 import 'package:saloon_booking/shared/widgets/premium_button.dart';
 import 'package:saloon_booking/shared/widgets/premium_text_field.dart';
 
 Future<void> showLocationPickerSheet(BuildContext context, WidgetRef ref) {
-  return showModalBottomSheet<void>(
+  return showGlassBottomSheet<void>(
     context: context,
-    showDragHandle: true,
-    isScrollControlled: true,
-    backgroundColor: AppColors.backgroundDark,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
     builder: (ctx) => const _LocationPickerSheet(),
   );
 }
@@ -78,7 +74,7 @@ class _LocationPickerSheetState extends ConsumerState<_LocationPickerSheet> {
           Text(
             'Choose location',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: AppColors.textPrimary,
+                  color: context.appColors.textPrimary,
                   fontWeight: FontWeight.w700,
                 ),
           ),
@@ -86,7 +82,7 @@ class _LocationPickerSheetState extends ConsumerState<_LocationPickerSheet> {
           Text(
             'See salons near you or filter by city',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.textSecondary,
+                  color: context.appColors.textSecondary,
                 ),
           ),
           const SizedBox(height: 20),
@@ -100,23 +96,14 @@ class _LocationPickerSheetState extends ConsumerState<_LocationPickerSheet> {
           ),
           if (locationState.gpsDenied) ...[
             const SizedBox(height: 10),
-            Text(
-              'Location permission is off. Enable it in settings or search by city.',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.warning,
-                  ),
-            ),
-            TextButton(
-              onPressed: Geolocator.openAppSettings,
-              child: const Text('Open settings'),
-            ),
+            LocationErrorHint(failure: locationState.lastGpsFailure),
           ],
           const SizedBox(height: 20),
           Row(
             children: [
               Expanded(
                 child: Divider(
-                  color: AppColors.glassBorder.withValues(alpha: 0.6),
+                  color: context.appColors.glassBorder.withValues(alpha: 0.6),
                 ),
               ),
               Padding(
@@ -124,13 +111,13 @@ class _LocationPickerSheetState extends ConsumerState<_LocationPickerSheet> {
                 child: Text(
                   'OR',
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: AppColors.textMuted,
+                        color: context.appColors.textMuted,
                       ),
                 ),
               ),
               Expanded(
                 child: Divider(
-                  color: AppColors.glassBorder.withValues(alpha: 0.6),
+                  color: context.appColors.glassBorder.withValues(alpha: 0.6),
                 ),
               ),
             ],
@@ -195,23 +182,23 @@ class _LocationOptionCard extends StatelessWidget {
                   ? AppColors.accentGradient
                   : LinearGradient(
                       colors: [
-                        AppColors.surfaceElevated,
-                        AppColors.surface,
+                        context.appColors.surfaceElevated,
+                        context.appColors.surface,
                       ],
                     ),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: isActive
                     ? AppColors.accent.withValues(alpha: 0.5)
-                    : AppColors.glassBorder.withValues(alpha: 0.5),
+                    : context.appColors.glassBorder.withValues(alpha: 0.5),
               ),
             ),
             child: Icon(
               icon,
               size: 20,
               color: isActive
-                  ? AppColors.backgroundDark
-                  : AppColors.textSecondary,
+                  ? context.appColors.onAccent
+                  : context.appColors.textSecondary,
             ),
           ),
           const SizedBox(width: 14),
@@ -222,7 +209,7 @@ class _LocationOptionCard extends StatelessWidget {
                 Text(
                   title,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: AppColors.textPrimary,
+                        color: context.appColors.textPrimary,
                         fontWeight: FontWeight.w700,
                       ),
                 ),
@@ -232,7 +219,7 @@ class _LocationOptionCard extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textSecondary,
+                        color: context.appColors.textSecondary,
                       ),
                 ),
               ],

@@ -3,40 +3,47 @@ import 'dart:math' as math;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:saloon_booking/core/lifecycle/user_activity_provider.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
+import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/core/utils/image_url_utils.dart';
+import 'package:visibility_detector/visibility_detector.dart';
 
-class SalonCubeImageSlider extends StatefulWidget {
+class SalonCubeImageSlider extends ConsumerStatefulWidget {
   const SalonCubeImageSlider({
     super.key,
     required this.images,
     this.height = 260,
     this.borderRadius = const BorderRadius.all(Radius.circular(16)),
     this.autoPlayInterval = const Duration(seconds: 4),
+    this.sliderKey,
   });
 
   final List<String> images;
   final double height;
   final BorderRadius borderRadius;
   final Duration autoPlayInterval;
+  final String? sliderKey;
 
   @override
-  State<SalonCubeImageSlider> createState() => _SalonCubeImageSliderState();
+  ConsumerState<SalonCubeImageSlider> createState() =>
+      _SalonCubeImageSliderState();
 }
 
-class _SalonCubeImageSliderState extends State<SalonCubeImageSlider> {
+class _SalonCubeImageSliderState extends ConsumerState<SalonCubeImageSlider> {
   static const _transitionDuration = Duration(milliseconds: 650);
 
   late final PageController _pageController;
   Timer? _autoPlayTimer;
   int _currentIndex = 0;
   bool _userDragging = false;
+  bool _isVisible = false;
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController();
-    _pageController.addListener(() => setState(() {}));
     _startAutoPlay();
   }
 
@@ -50,12 +57,29 @@ class _SalonCubeImageSliderState extends State<SalonCubeImageSlider> {
     }
   }
 
+  void _setVisible(bool visible) {
+    if (_isVisible == visible) return;
+    _isVisible = visible;
+    if (visible) {
+      _startAutoPlay();
+    } else {
+      _autoPlayTimer?.cancel();
+      _autoPlayTimer = null;
+    }
+  }
+
+  bool get _shouldAutoPlay =>
+      _isVisible &&
+      !_userDragging &&
+      widget.images.length > 1 &&
+      !ref.read(userIdleProvider);
+
   void _startAutoPlay() {
     _autoPlayTimer?.cancel();
-    if (widget.images.length <= 1) return;
+    if (!_shouldAutoPlay) return;
 
     _autoPlayTimer = Timer.periodic(widget.autoPlayInterval, (_) {
-      if (!mounted || _userDragging || widget.images.length <= 1) return;
+      if (!mounted || !_shouldAutoPlay) return;
       final next = (_currentIndex + 1) % widget.images.length;
       _pageController.animateToPage(
         next,
@@ -79,6 +103,15 @@ class _SalonCubeImageSliderState extends State<SalonCubeImageSlider> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(userIdleProvider, (previous, next) {
+      if (next) {
+        _autoPlayTimer?.cancel();
+        _autoPlayTimer = null;
+      } else if (_isVisible) {
+        _startAutoPlay();
+      }
+    });
+
     final images = widget.images;
     if (images.isEmpty) return const SizedBox.shrink();
 
@@ -89,66 +122,77 @@ class _SalonCubeImageSliderState extends State<SalonCubeImageSlider> {
       );
     }
 
-    return ClipRRect(
-      borderRadius: widget.borderRadius,
-      child: SizedBox(
-        height: widget.height,
-        width: double.infinity,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            NotificationListener<ScrollNotification>(
-              onNotification: (notification) {
-                if (notification is ScrollStartNotification &&
-                    notification.dragDetails != null) {
-                  _userDragging = true;
-                } else if (notification is ScrollEndNotification) {
-                  _userDragging = false;
-                  _restartAutoPlay();
-                }
-                return false;
-              },
-              child: PageView.builder(
-                controller: _pageController,
-                itemCount: images.length,
-                onPageChanged: (index) => setState(() => _currentIndex = index),
-                itemBuilder: (context, index) {
-                  return AnimatedBuilder(
-                    animation: _pageController,
-                    builder: (context, child) {
-                      double offset = 0;
-                      if (_pageController.position.haveDimensions) {
-                        offset =
-                            (_pageController.page ?? _currentIndex.toDouble()) -
-                                index;
-                      }
-                      final angle = offset.clamp(-1.0, 1.0) * math.pi * 0.45;
-                      final scale = 1 - (offset.abs() * 0.08);
+    final visibilityKey = widget.sliderKey ?? images.first;
 
-                      return Transform(
-                        alignment: offset < 0
-                            ? Alignment.centerRight
-                            : Alignment.centerLeft,
-                        transform: Matrix4.identity()
-                          ..setEntry(3, 2, 0.001)
-                          ..rotateY(angle),
-                        child: Transform.scale(
-                          scale: scale.clamp(0.85, 1.0),
-                          child: child,
-                        ),
-                      );
-                    },
-                    child: _networkImage(images[index]),
-                  );
+    return VisibilityDetector(
+      key: Key('salon-cube-slider-$visibilityKey'),
+      onVisibilityChanged: (info) {
+        _setVisible(info.visibleFraction > 0.5);
+      },
+      child: ClipRRect(
+        borderRadius: widget.borderRadius,
+        child: SizedBox(
+          height: widget.height,
+          width: double.infinity,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              NotificationListener<ScrollNotification>(
+                onNotification: (notification) {
+                  if (notification is ScrollStartNotification &&
+                      notification.dragDetails != null) {
+                    _userDragging = true;
+                  } else if (notification is ScrollEndNotification) {
+                    _userDragging = false;
+                    _restartAutoPlay();
+                  }
+                  return false;
                 },
+                child: PageView.builder(
+                  controller: _pageController,
+                  itemCount: images.length,
+                  onPageChanged: (index) =>
+                      setState(() => _currentIndex = index),
+                  itemBuilder: (context, index) {
+                    return AnimatedBuilder(
+                      animation: _pageController,
+                      builder: (context, child) {
+                        double offset = 0;
+                        if (_pageController.position.haveDimensions) {
+                          offset =
+                              (_pageController.page ??
+                                      _currentIndex.toDouble()) -
+                                  index;
+                        }
+                        final angle =
+                            offset.clamp(-1.0, 1.0) * math.pi * 0.45;
+                        final scale = 1 - (offset.abs() * 0.08);
+
+                        return Transform(
+                          alignment: offset < 0
+                              ? Alignment.centerRight
+                              : Alignment.centerLeft,
+                          transform: Matrix4.identity()
+                            ..setEntry(3, 2, 0.001)
+                            ..rotateY(angle),
+                          child: Transform.scale(
+                            scale: scale.clamp(0.85, 1.0),
+                            child: child,
+                          ),
+                        );
+                      },
+                      child: _networkImage(images[index]),
+                    );
+                  },
+                ),
               ),
-            ),
-            const _BottomGradientOverlay(),
-            _DotIndicator(
-              count: images.length,
-              currentIndex: _currentIndex,
-            ),
-          ],
+              const _BottomGradientOverlay(),
+              _DotIndicator(
+                count: images.length,
+                currentIndex: _currentIndex,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -162,7 +206,7 @@ class _SalonCubeImageSliderState extends State<SalonCubeImageSlider> {
       fit: BoxFit.cover,
       errorWidget: (context, error, stackTrace) => Container(
         height: widget.height,
-        color: AppColors.surface,
+        color: context.appColors.surface,
         child: const Center(
           child: Icon(
             Icons.storefront_rounded,

@@ -1,7 +1,14 @@
+import 'dart:io';
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
+import 'package:saloon_booking/core/theme/app_theme_extension.dart';
+import 'package:saloon_booking/core/theme/app_decorations.dart';
+import 'package:saloon_booking/core/utils/image_url_utils.dart';
 import 'package:saloon_booking/features/auth/presentation/providers/auth_provider.dart';
 import 'package:saloon_booking/features/profile/data/services/profile_service.dart';
 import 'package:saloon_booking/shared/widgets/animated_entrance.dart';
@@ -22,8 +29,11 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
-  final _profileImageController = TextEditingController();
-  final _genderController = TextEditingController();
+  final _imagePicker = ImagePicker();
+
+  String? _existingImageUrl;
+  XFile? _pickedImage;
+  bool _removedImage = false;
   bool _saving = false;
 
   @override
@@ -38,8 +48,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     _nameController.text = auth.user.name;
     _emailController.text = auth.user.email ?? '';
     _phoneController.text = auth.user.phone ?? '';
-    _profileImageController.text = auth.customer?.profileImage ?? '';
-    _genderController.text = auth.customer?.gender ?? '';
+    _existingImageUrl = auth.customer?.profileImage;
   }
 
   @override
@@ -47,26 +56,51 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     _nameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
-    _profileImageController.dispose();
-    _genderController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickFromGallery() async {
+    final picked = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 2048,
+      maxHeight: 2048,
+      imageQuality: 90,
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _pickedImage = picked;
+      _removedImage = false;
+    });
+  }
+
+  void _removePhoto() {
+    setState(() {
+      _pickedImage = null;
+      _removedImage = true;
+    });
   }
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
     try {
-      await ref.read(profileActionsProvider).updateProfileFields(
-            name: _nameController.text.trim(),
-            email: _emailController.text.trim(),
-            phone: _phoneController.text.trim(),
-            profileImage: _profileImageController.text.trim().isEmpty
-                ? null
-                : _profileImageController.text.trim(),
-            gender: _genderController.text.trim().isEmpty
-                ? null
-                : _genderController.text.trim(),
-          );
+      final actions = ref.read(profileActionsProvider);
+      String? profileImageUrl;
+      var clearProfileImage = false;
+
+      if (_pickedImage != null) {
+        profileImageUrl = await actions.uploadProfileImage(_pickedImage!);
+      } else if (_removedImage) {
+        clearProfileImage = true;
+      }
+
+      await actions.updateProfileFields(
+        name: _nameController.text.trim(),
+        email: _emailController.text.trim(),
+        phone: _phoneController.text.trim(),
+        profileImage: profileImageUrl,
+        clearProfileImage: clearProfileImage,
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Profile updated')),
@@ -82,6 +116,12 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  String get _initials {
+    final name = _nameController.text.trim();
+    if (name.isEmpty) return '?';
+    return name.substring(0, 1).toUpperCase();
   }
 
   @override
@@ -102,13 +142,62 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
           : Form(
               key: _formKey,
               child: ListView(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.fromLTRB(
+                  16,
+                  16,
+                  16,
+                  AppDecorations.scrollBottomPadding(context),
+                ),
                 children: [
                   AnimatedEntrance(
                     child: GlassCard(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
+                          Text(
+                            'Profile photo',
+                            style: Theme.of(context).textTheme.titleSmall,
+                          ),
+                          const SizedBox(height: 16),
+                          Center(
+                            child: _ProfilePhotoPreview(
+                              pickedImage: _pickedImage,
+                              existingImageUrl: _removedImage
+                                  ? null
+                                  : _existingImageUrl,
+                              initials: _initials,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: PremiumButton(
+                                  label: 'Choose photo',
+                                  icon: Icons.photo_library_rounded,
+                                  variant: PremiumButtonVariant.ghost,
+                                  expand: false,
+                                  onPressed: _saving ? null : _pickFromGallery,
+                                ),
+                              ),
+                              if (_pickedImage != null ||
+                                  (!_removedImage &&
+                                      (_existingImageUrl?.isNotEmpty ??
+                                          false))) ...[
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: PremiumButton(
+                                    label: 'Remove',
+                                    icon: Icons.delete_outline_rounded,
+                                    variant: PremiumButtonVariant.ghost,
+                                    expand: false,
+                                    onPressed: _saving ? null : _removePhoto,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 20),
                           Text(
                             'Personal details',
                             style: Theme.of(context).textTheme.titleMedium,
@@ -121,6 +210,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                                 v == null || v.trim().isEmpty
                                     ? 'Name is required'
                                     : null,
+                            onChanged: (_) => setState(() {}),
                           ),
                           const SizedBox(height: 12),
                           PremiumTextField(
@@ -149,20 +239,11 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                             padding: const EdgeInsets.only(top: 4),
                             child: Text(
                               'Phone is verified at login and cannot be changed here.',
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: AppColors.textMuted,
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: context.appColors.textMuted,
                                   ),
                             ),
-                          ),
-                          const SizedBox(height: 12),
-                          PremiumTextField(
-                            controller: _genderController,
-                            label: 'Gender',
-                          ),
-                          const SizedBox(height: 12),
-                          PremiumTextField(
-                            controller: _profileImageController,
-                            label: 'Profile image URL',
                           ),
                         ],
                       ),
@@ -178,6 +259,73 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                 ],
               ),
             ),
+    );
+  }
+}
+
+class _ProfilePhotoPreview extends StatelessWidget {
+  const _ProfilePhotoPreview({
+    required this.pickedImage,
+    required this.existingImageUrl,
+    required this.initials,
+  });
+
+  final XFile? pickedImage;
+  final String? existingImageUrl;
+  final String initials;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 112,
+      height: 112,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: pickedImage == null &&
+                (existingImageUrl == null || existingImageUrl!.isEmpty)
+            ? AppColors.accentGradient
+            : null,
+        border: Border.all(color: context.appColors.glassBorder, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.accent.withValues(alpha: 0.2),
+            blurRadius: 16,
+            spreadRadius: 1,
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: pickedImage != null
+          ? Image.file(
+              File(pickedImage!.path),
+              fit: BoxFit.cover,
+            )
+          : existingImageUrl != null && existingImageUrl!.isNotEmpty
+              ? CachedNetworkImage(
+                  imageUrl: resolveImageUrl(existingImageUrl!),
+                  fit: BoxFit.cover,
+                  errorWidget: (_, __, ___) => _InitialsAvatar(initials: initials),
+                )
+              : _InitialsAvatar(initials: initials),
+    );
+  }
+}
+
+class _InitialsAvatar extends StatelessWidget {
+  const _InitialsAvatar({required this.initials});
+
+  final String initials;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Text(
+        initials,
+        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+              color: context.appColors.onAccent,
+              fontWeight: FontWeight.bold,
+            ),
+      ),
     );
   }
 }

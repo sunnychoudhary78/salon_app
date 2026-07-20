@@ -18,12 +18,17 @@ class PaymentService {
   final Dio _dio;
 
   Future<PaymentModel> createRazorpayOrder({
-    required String bookingId,
-    required String paymentType,
+    String? bookingId,
+    String? bookingGroupId,
+    required String checkoutKind,
   }) async {
     final response = await _dio.post(
       '${AppConfig.appPrefix}/payments/razorpay/order',
-      data: {'booking_id': bookingId, 'payment_type': paymentType},
+      data: {
+        if (bookingGroupId != null) 'booking_group_id': bookingGroupId,
+        if (bookingId != null) 'booking_id': bookingId,
+        'checkout_kind': checkoutKind,
+      },
     );
     final data = (response.data as Map<String, dynamic>)['data'];
     return PaymentModel.fromJson(data as Map<String, dynamic>);
@@ -45,10 +50,58 @@ class PaymentService {
     return _parseResult(response.data as Map<String, dynamic>);
   }
 
-  Future<PaymentActionResult> selectPayAtShop(String bookingId) async {
+  Future<PaymentActionResult> verifyRazorpayPaymentWithRetry({
+    required String orderId,
+    required String paymentId,
+    required String signature,
+    int maxAttempts = 4,
+  }) async {
+    Object? lastError;
+    for (var attempt = 0; attempt < maxAttempts; attempt++) {
+      if (attempt > 0) {
+        await Future<void>.delayed(Duration(seconds: attempt * 2));
+      }
+      try {
+        return await verifyRazorpayPayment(
+          orderId: orderId,
+          paymentId: paymentId,
+          signature: signature,
+        );
+      } on DioException catch (error) {
+        lastError = error;
+        if (!_shouldRetryVerify(error) || attempt == maxAttempts - 1) {
+          rethrow;
+        }
+      }
+    }
+    throw lastError ?? Exception('Payment verification failed');
+  }
+
+  bool _shouldRetryVerify(DioException error) {
+    switch (error.type) {
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.sendTimeout:
+      case DioExceptionType.receiveTimeout:
+      case DioExceptionType.connectionError:
+        return true;
+      case DioExceptionType.badResponse:
+        final statusCode = error.response?.statusCode;
+        return statusCode != null && statusCode >= 500;
+      default:
+        return false;
+    }
+  }
+
+  Future<PaymentActionResult> selectPayAtShop({
+    String? bookingId,
+    String? bookingGroupId,
+  }) async {
     final response = await _dio.post(
       '${AppConfig.appPrefix}/payments/pay-at-shop',
-      data: {'booking_id': bookingId},
+      data: {
+        if (bookingGroupId != null) 'booking_group_id': bookingGroupId,
+        if (bookingId != null) 'booking_id': bookingId,
+      },
     );
     return _parseResult(response.data as Map<String, dynamic>);
   }

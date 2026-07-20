@@ -4,12 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:saloon_booking/core/routing/navigation_utils.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
+import 'package:saloon_booking/features/customer/data/models/salon_model.dart';
 import 'package:saloon_booking/features/customer/data/services/customer_service.dart';
 import 'package:saloon_booking/shared/widgets/animated_entrance.dart';
 import 'package:saloon_booking/shared/widgets/glass_card.dart';
 import 'package:saloon_booking/shared/widgets/premium_app_bar.dart';
 import 'package:saloon_booking/shared/widgets/premium_button.dart';
 import 'package:saloon_booking/shared/widgets/premium_text_field.dart';
+import 'package:saloon_booking/shared/widgets/staff_avatar.dart';
 
 class WriteReviewScreen extends ConsumerStatefulWidget {
   const WriteReviewScreen({super.key, required this.bookingId});
@@ -75,8 +77,29 @@ class _WriteReviewScreenState extends ConsumerState<WriteReviewScreen> {
     }
   }
 
+  String _ratingLabel(int rating) {
+    return switch (rating) {
+      1 => 'Poor',
+      2 => 'Fair',
+      3 => 'Good',
+      4 => 'Great',
+      _ => 'Excellent',
+    };
+  }
+
+  BookingStaffRef? _staffFromBookings(List<BookingModel>? bookings) {
+    if (bookings == null) return null;
+    for (final booking in bookings) {
+      if (booking.id == widget.bookingId) return booking.staff;
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final bookingsAsync = ref.watch(myBookingsProvider);
+    final staff = _staffFromBookings(bookingsAsync.asData?.value);
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
@@ -91,47 +114,115 @@ class _WriteReviewScreenState extends ConsumerState<WriteReviewScreen> {
             onPressed: () => popOrGoHome(context),
           ),
         ),
-      body: Padding(
-        padding: const EdgeInsets.all(24),
-        child: AnimatedEntrance(
-          child: GlassCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('Rating', style: Theme.of(context).textTheme.titleMedium),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(5, (i) {
-                    return IconButton(
-                      onPressed: () => setState(() => _rating = i + 1),
-                      icon: Icon(
-                        i < _rating
-                            ? Icons.star_rounded
-                            : Icons.star_border_rounded,
-                        color: AppColors.accent,
-                        size: 32,
-                      ),
-                    );
-                  }),
-                ),
-                PremiumTextField(
-                  controller: _reviewController,
-                  label: 'Review (optional)',
-                  maxLines: 4,
-                ),
-                const SizedBox(height: 24),
-                PremiumButton(
-                  label: 'Submit review',
-                  loading: _loading,
-                  variant: PremiumButtonVariant.accent,
-                  onPressed: _loading ? null : _submit,
-                ),
-              ],
+        body: Padding(
+          padding: const EdgeInsets.all(24),
+          child: AnimatedEntrance(
+            child: GlassCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (staff != null) ...[
+                    Row(
+                      children: [
+                        StaffAvatar(
+                          name: staff.name,
+                          imageUrl: staff.profileImage,
+                          size: 56,
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Rate ${staff.name}',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleMedium
+                                    ?.copyWith(fontWeight: FontWeight.w700),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'How was your experience with this stylist?',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(
+                                      color: AppColors.textSecondary,
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                  ] else ...[
+                    Text(
+                      'Rating',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                  Text(
+                    _ratingLabel(_rating),
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          color: AppColors.accent,
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(5, (i) {
+                      final selected = i < _rating;
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: IconButton(
+                          onPressed: () => setState(() => _rating = i + 1),
+                          icon: Icon(
+                            selected
+                                ? Icons.star_rounded
+                                : Icons.star_border_rounded,
+                            color: AppColors.accent,
+                            size: 44,
+                            shadows: selected
+                                ? [
+                                    Shadow(
+                                      color: AppColors.accent.withValues(
+                                        alpha: 0.6,
+                                      ),
+                                      blurRadius: 12,
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                  PremiumTextField(
+                    controller: _reviewController,
+                    label: 'Review (optional)',
+                    hint: staff != null
+                        ? 'Share what you loved about ${staff.name}'
+                        : 'Share what you loved about your visit',
+                    maxLines: 4,
+                  ),
+                  const SizedBox(height: 24),
+                  PremiumButton(
+                    label: 'Submit review',
+                    loading: _loading,
+                    variant: PremiumButtonVariant.accent,
+                    onPressed: _loading ? null : _submit,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
-      ),
       ),
     );
   }

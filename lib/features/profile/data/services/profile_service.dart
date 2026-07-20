@@ -1,9 +1,10 @@
 import 'package:dio/dio.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';import 'package:saloon_booking/core/config/app_config.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:saloon_booking/core/config/app_config.dart';
 import 'package:saloon_booking/core/network/dio_client.dart';
-import 'package:saloon_booking/features/auth/data/models/user_model.dart';
-import 'package:saloon_booking/features/auth/data/repositories/auth_repository.dart';
 import 'package:saloon_booking/core/providers/owner_approval_provider.dart';
+import 'package:saloon_booking/features/auth/data/models/user_model.dart';
 import 'package:saloon_booking/features/auth/presentation/providers/auth_provider.dart';
 
 class ProfileService {
@@ -15,6 +16,23 @@ class ProfileService {
     final response =
         await _dio.patch('${AppConfig.appPrefix}/profile', data: body);
     return ProfileResponse.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<String> uploadProfileImage(XFile file) async {
+    final formData = FormData.fromMap({
+      'image': await MultipartFile.fromFile(file.path, filename: file.name),
+    });
+
+    final response = await _dio.post(
+      '${AppConfig.appPrefix}/uploads/profile-image',
+      data: formData,
+      options: Options(
+        contentType: 'multipart/form-data',
+        headers: {'Content-Type': 'multipart/form-data'},
+      ),
+    );
+
+    return (response.data as Map<String, dynamic>)['data']['url'] as String;
   }
 }
 
@@ -33,15 +51,16 @@ class ProfileActions {
     String? phone,
     String? email,
     String? profileImage,
-    String? gender,
+    bool clearProfileImage = false,
     String? dob,
   }) async {
     final response = await _ref.read(profileServiceProvider).updateProfile({
       if (name != null) 'name': name,
       if (phone != null) 'phone': phone,
       if (email != null) 'email': email.isEmpty ? null : email,
-      if (profileImage != null) 'profile_image': profileImage,
-      if (gender != null) 'gender': gender,
+      if (clearProfileImage) 'profile_image': null,
+      if (!clearProfileImage && profileImage != null)
+        'profile_image': profileImage,
       if (dob != null) 'dob': dob,
     });
     final current = _ref.read(authProvider).value;
@@ -53,14 +72,8 @@ class ProfileActions {
     }
   }
 
-  Future<void> changePassword({
-    String? currentPassword,
-    required String newPassword,
-  }) async {
-    await _ref.read(authRepositoryProvider).changePassword(
-          currentPassword: currentPassword,
-          newPassword: newPassword,
-        );
+  Future<String> uploadProfileImage(XFile file) {
+    return _ref.read(profileServiceProvider).uploadProfileImage(file);
   }
 }
 

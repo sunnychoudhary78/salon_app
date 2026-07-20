@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
+import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/features/customer/data/providers/salon_browse_filters_provider.dart';
 
 class HomeSearchHeader extends ConsumerStatefulWidget {
@@ -46,22 +47,23 @@ class _HomeSearchHeaderState extends ConsumerState<HomeSearchHeader> {
     final filters = ref.watch(salonBrowseFiltersProvider);
     final hasActiveFilters = filters.hasActiveFilters;
     final hasText = widget.searchController.text.isNotEmpty;
+    final colors = context.appColors;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Hello, ${widget.firstName}',
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                color: AppColors.textSecondary,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: colors.textSecondary,
                 fontWeight: FontWeight.w500,
               ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
         Row(
           children: [
             Expanded(
-              child: _SearchPill(
+              child: _SearchField(
                 controller: widget.searchController,
                 hasText: hasText,
                 onChanged: widget.onSearchChanged,
@@ -69,7 +71,7 @@ class _HomeSearchHeaderState extends ConsumerState<HomeSearchHeader> {
               ),
             ),
             const SizedBox(width: 10),
-            _NeumorphicFilterButton(
+            _FilterButton(
               hasActiveFilters: hasActiveFilters,
               onTap: widget.onFilterTap,
             ),
@@ -80,8 +82,8 @@ class _HomeSearchHeaderState extends ConsumerState<HomeSearchHeader> {
   }
 }
 
-class _SearchPill extends StatelessWidget {
-  const _SearchPill({
+class _SearchField extends StatelessWidget {
+  const _SearchField({
     required this.controller,
     required this.hasText,
     required this.onChanged,
@@ -95,77 +97,60 @@ class _SearchPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(25),
-      child: SizedBox(
-        height: 52,
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                    colors: [
-                      AppColors.surfaceElevated.withValues(alpha: 0.55),
-                      AppColors.surface.withValues(alpha: 0.25),
-                      Colors.transparent,
-                    ],
-                    stops: const [0.0, 0.5, 1.0],
-                  ),
-                ),
-              ),
+    final colors = context.appColors;
+
+    return SizedBox(
+      height: 48,
+      child: TextField(
+        controller: controller,
+        onChanged: onChanged,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: colors.textPrimary,
             ),
-            TextField(
-              controller: controller,
-              onChanged: onChanged,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textPrimary,
-                  ),
-              decoration: InputDecoration(
-                hintText: 'Search salons…',
-                hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.textMuted,
-                    ),
-                contentPadding: const EdgeInsets.fromLTRB(18, 15, 8, 15),
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                disabledBorder: InputBorder.none,
-                filled: false,
-                isDense: true,
-                suffixIcon: hasText
-                    ? IconButton(
-                        icon: Icon(
-                          Icons.close_rounded,
-                          size: 20,
-                          color: AppColors.textMuted,
-                        ),
-                        onPressed: onClear,
-                      )
-                    : Padding(
-                        padding: const EdgeInsets.only(right: 14),
-                        child: Icon(
-                          Icons.search_rounded,
-                          color: AppColors.textMuted.withValues(alpha: 0.85),
-                          size: 20,
-                        ),
-                      ),
-                suffixIconConstraints: hasText
-                    ? null
-                    : const BoxConstraints(minWidth: 40, minHeight: 40),
+        decoration: InputDecoration(
+          hintText: 'Search salons…',
+          hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: colors.textMuted,
               ),
-            ),
-          ],
+          contentPadding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+          filled: true,
+          fillColor: colors.surface,
+          isDense: true,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(AppColors.radiusControl),
+            borderSide: BorderSide(color: colors.glassBorder),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(AppColors.radiusControl),
+            borderSide: BorderSide(color: colors.glassBorder),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(AppColors.radiusControl),
+            borderSide: BorderSide(color: colors.primary, width: 1.5),
+          ),
+          prefixIcon: Icon(
+            Icons.search_rounded,
+            color: colors.textMuted,
+            size: 20,
+          ),
+          suffixIcon: hasText
+              ? IconButton(
+                  icon: Icon(
+                    Icons.close_rounded,
+                    size: 20,
+                    color: colors.textSecondary,
+                  ),
+                  onPressed: onClear,
+                )
+              : null,
         ),
       ),
     );
   }
 }
 
-class _NeumorphicFilterButton extends StatelessWidget {
-  const _NeumorphicFilterButton({
+class _FilterButton extends StatelessWidget {
+  const _FilterButton({
     required this.hasActiveFilters,
     required this.onTap,
   });
@@ -175,29 +160,20 @@ class _NeumorphicFilterButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
         customBorder: const CircleBorder(),
         child: Ink(
-          width: 50,
-          height: 50,
+          width: 48,
+          height: 48,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: AppColors.surfaceElevated.withValues(alpha: 0.85),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.white.withValues(alpha: 0.06),
-                offset: const Offset(-2, -2),
-                blurRadius: 6,
-              ),
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.25),
-                offset: const Offset(2, 2),
-                blurRadius: 6,
-              ),
-            ],
+            color: colors.surface,
+            border: Border.all(color: colors.glassBorder),
           ),
           child: Stack(
             alignment: Alignment.center,
@@ -206,8 +182,8 @@ class _NeumorphicFilterButton extends StatelessWidget {
                 Icons.tune_rounded,
                 size: 22,
                 color: hasActiveFilters
-                    ? AppColors.accent
-                    : AppColors.textSecondary,
+                    ? colors.primary
+                    : colors.textSecondary,
               ),
               if (hasActiveFilters)
                 Positioned(
@@ -217,10 +193,10 @@ class _NeumorphicFilterButton extends StatelessWidget {
                     width: 8,
                     height: 8,
                     decoration: BoxDecoration(
-                      color: AppColors.accent,
+                      color: colors.accent,
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: AppColors.backgroundDark,
+                        color: colors.surface,
                         width: 1.5,
                       ),
                     ),

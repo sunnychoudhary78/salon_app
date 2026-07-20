@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:saloon_booking/core/routing/route_paths.dart';
-import 'package:saloon_booking/core/theme/app_colors.dart';
+import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/features/onboarding/data/onboarding_constants.dart';
 import 'package:saloon_booking/features/onboarding/presentation/providers/onboarding_provider.dart';
 import 'package:saloon_booking/features/onboarding/presentation/widgets/onboarding_bottom_bar.dart';
@@ -58,7 +58,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     final isLastPage = _currentIndex == _slides.length - 1;
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: context.appColors.surface,
       body: Stack(
         fit: StackFit.expand,
         children: [
@@ -85,7 +85,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   child: TextButton(
                     onPressed: _completing ? null : _completeOnboarding,
                     style: TextButton.styleFrom(
-                      foregroundColor: AppColors.textSecondary,
+                      foregroundColor: context.appColors.textSecondary,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 16,
                         vertical: 8,
@@ -94,7 +94,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     child: Text(
                       'Skip',
                       style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                            color: AppColors.textSecondary,
+                            color: context.appColors.textSecondary,
                             letterSpacing: 1.2,
                           ),
                     ),

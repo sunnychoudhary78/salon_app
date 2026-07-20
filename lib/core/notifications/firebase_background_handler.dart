@@ -12,7 +12,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   final payload = NotificationPayload.fromRemoteMessage(message);
-  if (payload.title == null && payload.body == null) return;
+  if (!payload.hasDisplayContent) return;
 
   final local = LocalNotificationService();
   await local.initialize(onTap: (_) {});

@@ -7,9 +7,11 @@ import 'package:go_router/go_router.dart';
 import 'package:saloon_booking/core/network/dio_client.dart';
 import 'package:saloon_booking/core/routing/route_paths.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
+import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/core/utils/role_utils.dart';
 import 'package:saloon_booking/features/auth/presentation/providers/auth_provider.dart';
 import 'package:saloon_booking/features/auth/presentation/utils/otp_sms_listener.dart';
+import 'package:saloon_booking/core/theme/app_animations.dart';
 import 'package:saloon_booking/shared/widgets/animated_entrance.dart';
 import 'package:saloon_booking/shared/widgets/auth_scaffold.dart';
 import 'package:saloon_booking/shared/widgets/otp_pin_input.dart';
@@ -155,6 +157,7 @@ class _OtpVerifyScreenState extends ConsumerState<OtpVerifyScreen> {
       subtitle: 'Sent to $_maskedPhone',
       onBack: () => context.pop(),
       child: AnimatedEntrance(
+        style: EntranceStyle.scaleIn,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -170,7 +173,7 @@ class _OtpVerifyScreenState extends ConsumerState<OtpVerifyScreen> {
                   : 'Code expired',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: _secondsLeft > 0
-                        ? AppColors.textSecondary
+                        ? context.appColors.textSecondary
                         : AppColors.error,
                   ),
               textAlign: TextAlign.center,

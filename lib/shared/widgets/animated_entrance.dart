@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
+import 'package:saloon_booking/core/theme/app_animations.dart';
 
 class AnimatedEntrance extends StatelessWidget {
   const AnimatedEntrance({
@@ -7,22 +7,24 @@ class AnimatedEntrance extends StatelessWidget {
     required this.child,
     this.delay = Duration.zero,
     this.index = 0,
+    this.style = EntranceStyle.fadeUp,
+    this.animateKey,
   });
 
   final Widget child;
   final Duration delay;
   final int index;
+  final EntranceStyle style;
+  final Key? animateKey;
 
   @override
   Widget build(BuildContext context) {
-    return child
-        .animate(delay: delay + Duration(milliseconds: index * 50))
-        .fadeIn(duration: 300.ms, curve: Curves.easeOut)
-        .slideY(begin: 0.06, end: 0, duration: 300.ms, curve: Curves.easeOut)
-        .scale(
-          begin: const Offset(0.98, 0.98),
-          end: const Offset(1, 1),
-          duration: 300.ms,
-        );
+    return child.appEntrance(
+      context: context,
+      style: style,
+      index: index,
+      delay: delay,
+      animateKey: animateKey,
+    );
   }
 }

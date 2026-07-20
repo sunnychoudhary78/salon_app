@@ -1,25 +1,30 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:saloon_booking/core/routing/navigation_utils.dart';
 import 'package:saloon_booking/core/routing/route_paths.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
+import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/core/utils/image_url_utils.dart';
 import 'package:saloon_booking/core/utils/phone_utils.dart';
 import 'package:saloon_booking/core/utils/salon_time_utils.dart';
 import 'package:saloon_booking/features/customer/data/models/salon_model.dart';
 import 'package:saloon_booking/features/customer/data/services/customer_service.dart';
+import 'package:saloon_booking/shared/widgets/animated_entrance.dart';
 import 'package:saloon_booking/shared/widgets/async_value_widget.dart';
 import 'package:saloon_booking/shared/widgets/empty_state.dart';
 import 'package:saloon_booking/shared/widgets/glass_card.dart';
+import 'package:saloon_booking/shared/widgets/rating_histogram.dart';
 import 'package:saloon_booking/shared/widgets/salon_cube_image_slider.dart';
 import 'package:saloon_booking/shared/widgets/salon_distance_badge.dart';
 import 'package:saloon_booking/shared/widgets/salon_rating_badge.dart';
 import 'package:saloon_booking/shared/widgets/screen_action_bar.dart';
 import 'package:saloon_booking/shared/widgets/section_header.dart';
 import 'package:saloon_booking/shared/widgets/service_tile.dart';
+import 'package:saloon_booking/shared/widgets/staff_avatar.dart';
 
 class SalonDetailScreen extends ConsumerWidget {
   const SalonDetailScreen({super.key, required this.salonId});
@@ -42,22 +47,67 @@ class SalonDetailScreen extends ConsumerWidget {
         .reduce((a, b) => a < b ? a : b);
   }
 
-  void _openBooking(BuildContext context, {String? serviceId}) {
+  void _openBooking(BuildContext context, {String? serviceId, String? staffId}) {
     final base = '${RoutePaths.customerSalons}/$salonId/book';
+    final params = <String, String>{};
     if (serviceId != null && serviceId.isNotEmpty) {
-      context.push('$base?serviceId=$serviceId');
-    } else {
+      params['serviceId'] = serviceId;
+    }
+    if (staffId != null && staffId.isNotEmpty) {
+      params['staffId'] = staffId;
+    }
+    if (params.isEmpty) {
       context.push(base);
+    } else {
+      final query = params.entries
+          .map((e) => '${e.key}=${Uri.encodeQueryComponent(e.value)}')
+          .join('&');
+      context.push('$base?$query');
     }
   }
 
-  Future<void> _callSalon(BuildContext context, String phone) async {
-    final launched = await launchPhoneCall(phone);
-    if (!launched && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not open phone dialer')),
+  Future<void> _openDirections(BuildContext context, SalonModel salon) async {
+    final lat = salon.latitude;
+    final lng = salon.longitude;
+    final Uri mapsUri;
+    if (lat != null && lng != null) {
+      mapsUri = Uri.parse(
+        'https://www.google.com/maps/search/?api=1&query=$lat,$lng',
+      );
+    } else {
+      final query = Uri.encodeComponent(
+        (salon.formattedAddress?.isNotEmpty == true)
+            ? salon.formattedAddress!
+            : [salon.address, salon.city, salon.state]
+                .where((s) => s != null && s.isNotEmpty)
+                .join(', '),
+      );
+      if (query.isEmpty) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No location available for directions')),
+        );
+        return;
+      }
+      mapsUri = Uri.parse(
+        'https://www.google.com/maps/search/?api=1&query=$query',
       );
     }
+    final launched = await launchWebUrl(mapsUri.toString());
+    if (!launched && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open maps')),
+      );
+    }
+  }
+
+  void _shareSalon(BuildContext context, SalonModel salon) {
+    final link = '${RoutePaths.customerSalons}/$salonId';
+    final text = 'Check out ${salon.salonName} on CATCHY\n$link';
+    Clipboard.setData(ClipboardData(text: text));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Salon link copied to clipboard')),
+    );
   }
 
   String _relativeDate(DateTime date) {
@@ -85,16 +135,24 @@ class SalonDetailScreen extends ConsumerWidget {
           value: salonAsync,
           data: (salon) {
             final grouped = _groupByCategory(salon);
-            final hasPhone =
-                salon.phone != null && salon.phone!.trim().isNotEmpty;
             final hoursLabel = salon.openingTime != null &&
                     salon.closingTime != null
                 ? '${formatSalonTimeDisplay(salon.openingTime)} – ${formatSalonTimeDisplay(salon.closingTime)}'
                 : null;
             final locationLine = [
+              if (salon.locality != null && salon.locality!.isNotEmpty)
+                salon.locality,
               if (salon.city != null) salon.city,
               if (salon.state != null) salon.state,
+              if (salon.postalCode != null && salon.postalCode!.isNotEmpty)
+                salon.postalCode,
             ].join(', ');
+            final locationValue = (salon.formattedAddress?.isNotEmpty == true)
+                ? salon.formattedAddress!
+                : (salon.address?.isNotEmpty == true
+                    ? '${salon.address}\n$locationLine'
+                    : locationLine);
+            final isOpen = isSalonOpenNow(salon.openingTime, salon.closingTime);
 
             return CustomScrollView(
               slivers: [
@@ -102,7 +160,7 @@ class SalonDetailScreen extends ConsumerWidget {
                   expandedHeight: salon.allDisplayImages.isNotEmpty ? 280 : 120,
                   pinned: true,
                   stretch: true,
-                  backgroundColor: AppColors.backgroundDark.withValues(alpha: 0.9),
+                  backgroundColor: context.appColors.surface.withValues(alpha: 0.9),
                   leading: IconButton(
                     icon: const Icon(Icons.arrow_back_rounded),
                     onPressed: () => popOrGoHome(context),
@@ -116,7 +174,7 @@ class SalonDetailScreen extends ConsumerWidget {
                     title: Text(
                       salon.salonName,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: AppColors.textPrimary,
+                            color: context.appColors.textPrimary,
                             fontWeight: FontWeight.w700,
                           ),
                     ),
@@ -131,7 +189,7 @@ class SalonDetailScreen extends ConsumerWidget {
                                   ),
                                   fit: BoxFit.cover,
                                   errorWidget: (_, __, ___) =>
-                                      _heroPlaceholder(),
+                                      _heroPlaceholder(context),
                                 )
                               else
                                 SalonCubeImageSlider(
@@ -147,7 +205,7 @@ class SalonDetailScreen extends ConsumerWidget {
                                     colors: [
                                       Colors.black.withValues(alpha: 0.35),
                                       Colors.transparent,
-                                      AppColors.backgroundDark
+                                      context.appColors.surface
                                           .withValues(alpha: 0.92),
                                     ],
                                     stops: const [0, 0.45, 1],
@@ -181,7 +239,7 @@ class SalonDetailScreen extends ConsumerWidget {
                                 end: Alignment.bottomRight,
                                 colors: [
                                   AppColors.primary.withValues(alpha: 0.35),
-                                  AppColors.backgroundDark,
+                                  context.appColors.surface,
                                 ],
                               ),
                             ),
@@ -213,14 +271,49 @@ class SalonDetailScreen extends ConsumerWidget {
                     delegate: SliverChildListDelegate([
                       GlassCard(
                         child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            if (locationLine.isNotEmpty || salon.address != null)
+                            if (hoursLabel != null) ...[
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: (isOpen
+                                              ? AppColors.success
+                                              : context.appColors.textSecondary)
+                                          .withValues(alpha: 0.18),
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(
+                                        color: (isOpen
+                                                ? AppColors.success
+                                                : context.appColors.textSecondary)
+                                            .withValues(alpha: 0.4),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      isOpen ? 'Open now' : 'Closed',
+                                      style: TextStyle(
+                                        color: isOpen
+                                            ? AppColors.success
+                                            : context.appColors.textSecondary,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                            ],
+                            if (locationValue.isNotEmpty)
                               _InfoRow(
                                 icon: Icons.location_on_outlined,
                                 label: 'Location',
-                                value: salon.address?.isNotEmpty == true
-                                    ? '${salon.address}\n$locationLine'
-                                    : locationLine,
+                                value: locationValue,
                               ),
                             if (hoursLabel != null)
                               _InfoRow(
@@ -228,16 +321,12 @@ class SalonDetailScreen extends ConsumerWidget {
                                 label: 'Hours',
                                 value: hoursLabel,
                               ),
-                            if (hasPhone)
-                              _InfoRow(
-                                icon: Icons.phone_outlined,
-                                label: 'Phone',
-                                value: salon.phone!,
-                                trailing: _SalonCallButton(
-                                  onTap: () =>
-                                      _callSalon(context, salon.phone!),
-                                ),
-                              ),
+                            _InfoRow(
+                              icon: Icons.phone_outlined,
+                              label: 'Phone',
+                              value:
+                                  'Available after your booking is confirmed',
+                            ),
                             if (salon.description != null &&
                                 salon.description!.isNotEmpty)
                               _InfoRow(
@@ -245,34 +334,59 @@ class SalonDetailScreen extends ConsumerWidget {
                                 label: 'About',
                                 value: salon.description!,
                               ),
+                            const SizedBox(height: 14),
+                            Row(
+                              children: [
+                                _QuickActionChip(
+                                  icon: Icons.directions_rounded,
+                                  label: 'Directions',
+                                  onTap: () => _openDirections(context, salon),
+                                ),
+                                const SizedBox(width: 10),
+                                _QuickActionChip(
+                                  icon: Icons.ios_share_rounded,
+                                  label: 'Share',
+                                  onTap: () => _shareSalon(context, salon),
+                                ),
+                              ],
+                            ),
                           ],
                         ),
                       ),
                       const SizedBox(height: 28),
-                      SectionHeader(
+                      AnimatedEntrance(
+                        index: 1,
+                        child: SectionHeader(
                         title: 'Services',
                         subtitle: salon.services.isEmpty
                             ? null
                             : 'Tap a service to book it directly',
                       ),
+                      ),
                       const SizedBox(height: 12),
                       if (salon.services.isEmpty)
-                        const EmptyState(
+                        const AnimatedEntrance(
+                          index: 2,
+                          child: EmptyState(
                           icon: Icons.spa_outlined,
                           title: 'No services yet',
                           subtitle: 'Check back later for available treatments.',
                           compact: true,
+                        ),
                         )
                       else
-                        ...grouped.entries.map((entry) {
-                          return Padding(
+                        ...grouped.entries.toList().asMap().entries.map((entry) {
+                          final categoryEntry = entry.value;
+                          return AnimatedEntrance(
+                            index: 3 + entry.key,
+                            child: Padding(
                             padding: const EdgeInsets.only(bottom: 12),
                             child: GlassCard(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    entry.key,
+                                    categoryEntry.key,
                                     style: Theme.of(context)
                                         .textTheme
                                         .titleSmall
@@ -282,7 +396,7 @@ class SalonDetailScreen extends ConsumerWidget {
                                         ),
                                   ),
                                   const SizedBox(height: 8),
-                                  ...entry.value.map(
+                                  ...categoryEntry.value.map(
                                     (service) => ServiceTile(
                                       service: service,
                                       showBookAffordance: true,
@@ -295,17 +409,87 @@ class SalonDetailScreen extends ConsumerWidget {
                                 ],
                               ),
                             ),
+                          ),
                           );
-                        }),
+                        }                      ),
                       const SizedBox(height: 28),
-                      SectionHeader(
+                      if (salon.staff.isNotEmpty) ...[
+                        AnimatedEntrance(
+                          index: 7,
+                          child: SectionHeader(
+                            title: 'Our staff',
+                            subtitle: 'Choose a preferred stylist when you book',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        AnimatedEntrance(
+                          index: 7,
+                          child: SizedBox(
+                            height: 132,
+                            child: ListView.separated(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: salon.staff.length,
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(width: 12),
+                              itemBuilder: (context, index) {
+                                final member = salon.staff[index];
+                                return SizedBox(
+                                  width: 112,
+                                  child: GlassCard(
+                                    onTap: () => _openBooking(
+                                      context,
+                                      staffId: member.id,
+                                    ),
+                                    padding: const EdgeInsets.all(12),
+                                    child: Column(
+                                      children: [
+                                        StaffAvatar(
+                                          name: member.name,
+                                          imageUrl: member.profileImage,
+                                          size: 56,
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          member.name,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          textAlign: TextAlign.center,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .labelLarge
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        SalonRatingBadge(
+                                          averageRating: member.averageRating,
+                                          reviewCount: member.reviewCount,
+                                          size: SalonRatingBadgeSize.compact,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 28),
+                      ],
+                      AnimatedEntrance(
+                        index: 8,
+                        child: SectionHeader(
                         title: 'Customer reviews',
                         subtitle: salon.reviewCount > 0
                             ? '${salon.reviewCount} review${salon.reviewCount == 1 ? '' : 's'}'
                             : 'Be the first after your visit',
                       ),
+                      ),
                       const SizedBox(height: 12),
-                      AsyncValueWidget(
+                      AnimatedEntrance(
+                        index: 9,
+                        child: AsyncValueWidget(
                         value: reviewsAsync,
                         data: (result) {
                           if (result.reviews.isEmpty) {
@@ -318,8 +502,23 @@ class SalonDetailScreen extends ConsumerWidget {
                             );
                           }
 
+                          final starCounts = RatingHistogram.countsFromRatings(
+                            result.reviews.map((r) => r.rating).toList(),
+                          );
+
                           return Column(
-                            children: result.reviews.map((review) {
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              if (salon.reviewCount > 0)
+                                GlassCard(
+                                  margin: const EdgeInsets.only(bottom: 16),
+                                  child: RatingHistogram(
+                                    averageRating: salon.averageRating ?? 0,
+                                    reviewCount: salon.reviewCount,
+                                    starCounts: starCounts,
+                                  ),
+                                ),
+                              ...result.reviews.map((review) {
                               return GlassCard(
                                 margin: const EdgeInsets.only(bottom: 12),
                                 child: Row(
@@ -366,7 +565,7 @@ class SalonDetailScreen extends ConsumerWidget {
                                                       .labelSmall
                                                       ?.copyWith(
                                                         color:
-                                                            AppColors.textMuted,
+                                                            context.appColors.textMuted,
                                                       ),
                                                 ),
                                             ],
@@ -386,9 +585,11 @@ class SalonDetailScreen extends ConsumerWidget {
                                   ],
                                 ),
                               );
-                            }).toList(),
+                            }),
+                            ],
                           );
                         },
+                      ),
                       ),
                       const SizedBox(height: 80),
                     ]),
@@ -402,11 +603,11 @@ class SalonDetailScreen extends ConsumerWidget {
           data: (salon) {
             if (salon.services.isEmpty) return null;
             final minPrice = _minServicePrice(salon);
-            final label = minPrice != null
-                ? 'Book appointment · from ₹${minPrice.toStringAsFixed(0)}'
-                : 'Book appointment';
             return ScreenActionBar(
-              label: label,
+              label: 'Book appointment',
+              subtitle: minPrice != null
+                  ? 'From ₹${minPrice.toStringAsFixed(0)}'
+                  : null,
               icon: Icons.calendar_today_rounded,
               onPressed: () => _openBooking(context),
             );
@@ -423,13 +624,11 @@ class _InfoRow extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.value,
-    this.trailing,
   });
 
   final IconData icon;
   final String label;
   final String value;
-  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -455,7 +654,7 @@ class _InfoRow extends StatelessWidget {
                 Text(
                   label,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: AppColors.textMuted,
+                        color: context.appColors.textMuted,
                       ),
                 ),
                 const SizedBox(height: 2),
@@ -466,55 +665,72 @@ class _InfoRow extends StatelessWidget {
               ],
             ),
           ),
-          if (trailing != null) trailing!,
         ],
       ),
     );
   }
 }
 
-Widget _heroPlaceholder() {
-  return Container(
-    color: AppColors.glassFill,
-    child: const Center(
-      child: Icon(Icons.store_rounded, size: 48, color: AppColors.textMuted),
-    ),
-  );
-}
+class _QuickActionChip extends StatelessWidget {
+  const _QuickActionChip({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
 
-class _SalonCallButton extends StatelessWidget {
-  const _SalonCallButton({required this.onTap});
-
+  final IconData icon;
+  final String label;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        customBorder: const CircleBorder(),
-        child: Ink(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                AppColors.accent.withValues(alpha: 0.95),
-                AppColors.primary.withValues(alpha: 0.9),
+    final colors = context.appColors;
+
+    return Expanded(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            decoration: BoxDecoration(
+              color: colors.surfaceElevated.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: colors.glassBorder.withValues(alpha: 0.5),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 18, color: AppColors.accent),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: colors.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
               ],
             ),
-          ),
-          child: const Icon(
-            Icons.phone_rounded,
-            color: Colors.white,
-            size: 18,
           ),
         ),
       ),
     );
   }
+}
+
+Widget _heroPlaceholder(BuildContext context) {
+  return Container(
+    color: context.appColors.glassFill,
+    child: Center(
+      child: Icon(
+        Icons.store_rounded,
+        size: 48,
+        color: context.appColors.textMuted,
+      ),
+    ),
+  );
 }

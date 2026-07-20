@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:saloon_booking/core/theme/app_colors.dart';
-import 'package:saloon_booking/core/theme/app_decorations.dart';
+import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 
 class SectionHeader extends StatelessWidget {
   const SectionHeader({
@@ -16,6 +15,8 @@ class SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
@@ -23,25 +24,25 @@ class SectionHeader extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              AppDecorations.sectionHeaderAccent(),
-              const SizedBox(height: 8),
               Text(
                 title,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      color: AppColors.textPrimary,
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: colors.textPrimary,
                     ),
               ),
               if (subtitle != null) ...[
                 const SizedBox(height: 4),
                 Text(
                   subtitle!,
-                  style: Theme.of(context).textTheme.bodySmall,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colors.textSecondary,
+                      ),
                 ),
               ],
             ],
           ),
         ),
-        if (trailing != null) trailing!,
+        ?trailing,
       ],
     );
   }

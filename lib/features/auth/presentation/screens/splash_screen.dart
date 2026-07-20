@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:saloon_booking/core/theme/app_colors.dart';
+import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/features/auth/presentation/providers/auth_provider.dart';
 import 'package:saloon_booking/shared/widgets/app_logo.dart';
 
@@ -14,6 +14,7 @@ class SplashScreen extends ConsumerWidget {
       if (next.isLoading) return;
     });
 
+    final colors = context.appColors;
     final logoWidth = MediaQuery.sizeOf(context).width * 0.65;
 
     return Scaffold(
@@ -21,27 +22,7 @@ class SplashScreen extends ConsumerWidget {
         fit: StackFit.expand,
         children: [
           DecoratedBox(
-            decoration: BoxDecoration(gradient: AppColors.authGradient),
-          ),
-          Positioned(
-            top: 60,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: Container(
-                width: 300,
-                height: 300,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      AppColors.glowAccent.withValues(alpha: 0.25),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
-              ),
-            ),
+            decoration: BoxDecoration(gradient: colors.authGradient),
           ),
           Center(
             child: Column(
@@ -50,7 +31,7 @@ class SplashScreen extends ConsumerWidget {
                 AppLogo(
                   size: 140,
                   maxWidth: logoWidth.clamp(200.0, 280.0),
-                  showGlow: true,
+                  showGlow: false,
                 )
                     .animate()
                     .scale(
@@ -65,7 +46,7 @@ class SplashScreen extends ConsumerWidget {
                   height: 32,
                   child: CircularProgressIndicator(
                     strokeWidth: 2.5,
-                    color: AppColors.accent.withValues(alpha: 0.9),
+                    color: colors.primary,
                   ),
                 ).animate().fadeIn(delay: 400.ms),
               ],

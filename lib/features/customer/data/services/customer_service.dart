@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:saloon_booking/core/config/app_config.dart';
 import 'package:saloon_booking/core/location/selected_location.dart';
 import 'package:saloon_booking/core/location/selected_location_provider.dart';
-import 'package:saloon_booking/core/location/user_location_service.dart';
 import 'package:saloon_booking/core/network/dio_client.dart';
 import 'package:saloon_booking/features/customer/data/models/salon_model.dart';
 import 'package:saloon_booking/features/customer/data/providers/salon_browse_filters_provider.dart';
@@ -25,6 +24,7 @@ class CustomerService {
     String? city,
     bool featured = false,
     bool hasDiscount = false,
+    bool hasAvailableSlots = false,
     int limit = 20,
     int offset = 0,
     double? userLat,
@@ -39,6 +39,7 @@ class CustomerService {
         if (city != null && city.isNotEmpty) 'city': city,
         if (featured) 'featured': true,
         if (hasDiscount) 'has_discount': true,
+        if (hasAvailableSlots) 'has_available_slots': true,
         if (userLat != null && userLng != null) ...{
           'user_lat': userLat,
           'user_lng': userLng,
@@ -93,38 +94,13 @@ class CustomerService {
     return PremiumConfigModel.fromJson(data as Map<String, dynamic>);
   }
 
-  Future<BookingModel> createBooking({
-    required String salonId,
-    required List<String> serviceIds,
-    required String bookingDate,
-    required String bookingTime,
-    String? notes,
-    bool isPremium = false,
-  }) async {
-    final response = await _dio.post(
-      '${AppConfig.appPrefix}/bookings',
-      data: {
-        'salon_id': salonId,
-        'service_ids': serviceIds,
-        'booking_date': bookingDate,
-        'booking_time': bookingTime,
-        if (notes != null && notes.isNotEmpty) 'notes': notes,
-        if (isPremium) 'is_premium': true,
-      },
-    );
-    final data = (response.data as Map<String, dynamic>)['data'];
-    if (data is List) {
-      return BookingModel.fromJson(data.first as Map<String, dynamic>);
-    }
-    return BookingModel.fromJson(data as Map<String, dynamic>);
-  }
-
   Future<List<BookingModel>> createBookings({
     required String salonId,
     required List<String> serviceIds,
     required String bookingDate,
     required String bookingTime,
     String? notes,
+    String? staffId,
     bool isPremium = false,
   }) async {
     final response = await _dio.post(
@@ -135,6 +111,7 @@ class CustomerService {
         'booking_date': bookingDate,
         'booking_time': bookingTime,
         if (notes != null && notes.isNotEmpty) 'notes': notes,
+        if (staffId != null && staffId.isNotEmpty) 'staff_id': staffId,
         if (isPremium) 'is_premium': true,
       },
     );
@@ -217,14 +194,15 @@ final customerServiceProvider = Provider<CustomerService>((ref) {
   return CustomerService(ref.watch(dioProvider));
 });
 
-final userLocationProvider = FutureProvider<UserLocation?>((ref) async {
-  ref.keepAlive();
-  try {
-    return await UserLocationService().getCurrentLocation();
-  } catch (_) {
-    return null;
-  }
-});
+class CustomerShellTabIndex extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  void select(int index) => state = index;
+}
+
+final customerShellTabIndexProvider =
+    NotifierProvider<CustomerShellTabIndex, int>(CustomerShellTabIndex.new);
 
 class SalonLocationContext {
   const SalonLocationContext({
@@ -239,7 +217,7 @@ class SalonLocationContext {
 }
 
 SalonLocationContext _readSalonLocationContext(Ref ref) {
-  ref.watch(selectedLocationProvider);
+  ref.watch(settledSalonLocationKeyProvider);
   final selected = ref.read(selectedLocationProvider).location;
   if (!selected.isSet) return const SalonLocationContext();
   if (selected.source == LocationSource.manualCity) {
@@ -250,6 +228,14 @@ SalonLocationContext _readSalonLocationContext(Ref ref) {
     userLng: selected.longitude,
   );
 }
+
+
+/// When false (user is searching), for-you rail skips network fetches.
+final homeForYouEnabledProvider = Provider<bool>((ref) {
+  return ref.watch(
+    salonBrowseFiltersProvider.select((filters) => filters.search.isEmpty),
+  );
+});
 
 final bannersProvider = FutureProvider.autoDispose<List<BannerModel>>((ref) {
   return ref.watch(customerServiceProvider).getBanners();
@@ -273,8 +259,11 @@ SalonModel _mergeSalonEntry(SalonModel primary, SalonModel secondary) {
     salonName: primary.salonName,
     description: primary.description ?? secondary.description,
     address: primary.address ?? secondary.address,
+    formattedAddress: primary.formattedAddress ?? secondary.formattedAddress,
+    locality: primary.locality ?? secondary.locality,
     city: primary.city ?? secondary.city,
     state: primary.state ?? secondary.state,
+    postalCode: primary.postalCode ?? secondary.postalCode,
     coverImage: primary.coverImage ?? secondary.coverImage,
     galleryImages: primary.galleryImages.isNotEmpty
         ? primary.galleryImages
@@ -342,8 +331,13 @@ List<SalonModel> _mergeForYouSalons(
 final forYouSalonsProvider = FutureProvider.autoDispose<List<SalonModel>>((
   ref,
 ) async {
+  if (!ref.watch(homeForYouEnabledProvider)) return [];
+
+  final locationKey = ref.watch(settledSalonLocationKeyProvider);
+  if (locationKey.isEmpty) return [];
+
   final ctx = _readSalonLocationContext(ref);
-  final service = ref.watch(customerServiceProvider);
+  final service = ref.read(customerServiceProvider);
   final results = await Future.wait([
     service.browseSalons(
       featured: true,
@@ -400,18 +394,63 @@ class PaginatedSalonsNotifier extends AsyncNotifier<PaginatedSalonsState> {
           userLng: ctx.userLng,
           minRating: filters.minRating,
           maxDistanceKm: filters.maxDistanceKm,
+          hasAvailableSlots: filters.hasAvailableSlots,
         );
   }
 
-  @override
-  Future<PaginatedSalonsState> build() async {
-    ref.keepAlive();
-    ref.watch(salonBrowseFiltersProvider);
+  Future<PaginatedSalonsState> _loadFirstPage() async {
+    final locationKey = ref.read(settledSalonLocationKeyProvider);
+    if (locationKey.isEmpty) {
+      return const PaginatedSalonsState(items: [], hasMore: true);
+    }
+
     final page = await _fetchPage(0);
     return PaginatedSalonsState(
       items: page.salons,
       hasMore: page.hasMore,
     );
+  }
+
+  @override
+  Future<PaginatedSalonsState> build() async {
+    ref.keepAlive();
+
+    ref.listen(salonBrowseFiltersProvider, (previous, next) {
+      if (previous != next) unawaited(reload());
+    });
+    ref.listen(settledSalonLocationKeyProvider, (previous, next) {
+      if (previous != next) unawaited(reload());
+    });
+
+    return _loadFirstPage();
+  }
+
+  /// Refreshes page 1 while keeping existing items visible when possible.
+  Future<void> reload() async {
+    final previous = state.value;
+    final locationKey = ref.read(settledSalonLocationKeyProvider);
+    if (locationKey.isEmpty) {
+      state = const AsyncData(
+        PaginatedSalonsState(items: [], hasMore: true),
+      );
+      return;
+    }
+
+    try {
+      final page = await _fetchPage(0);
+      state = AsyncData(
+        PaginatedSalonsState(
+          items: page.salons,
+          hasMore: page.hasMore,
+        ),
+      );
+    } catch (error, stackTrace) {
+      if (previous != null) {
+        state = AsyncData(previous);
+      } else {
+        state = AsyncError(error, stackTrace);
+      }
+    }
   }
 
   Future<void> loadMore() async {
@@ -487,6 +526,7 @@ class BookingActions extends AsyncNotifier<void> {
     required String bookingDate,
     required String bookingTime,
     String? notes,
+    String? staffId,
     bool isPremium = false,
   }) async {
     state = const AsyncLoading();
@@ -500,11 +540,14 @@ class BookingActions extends AsyncNotifier<void> {
             bookingDate: bookingDate,
             bookingTime: bookingTime,
             notes: notes,
+            staffId: staffId,
             isPremium: isPremium,
           );
     });
     state = result;
     ref.invalidate(myBookingsProvider);
+    // A new booking changes slot availability, so refresh slot data too.
+    ref.invalidate(salonSlotsProvider);
     if (result.hasError) {
       throw result.error!;
     }
@@ -517,6 +560,8 @@ class BookingActions extends AsyncNotifier<void> {
       () => ref.read(customerServiceProvider).cancelBooking(bookingId),
     );
     ref.invalidate(myBookingsProvider);
+    // Cancelling frees the slot, so refresh slot availability.
+    ref.invalidate(salonSlotsProvider);
     if (state.hasError) throw state.error!;
   }
 }

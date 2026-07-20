@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
+import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/features/customer/data/models/salon_model.dart';
 import 'package:saloon_booking/shared/widgets/glass_card.dart';
 
@@ -21,6 +22,7 @@ class ServiceTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     final hasDiscount = service.hasActiveDiscount;
 
     return Padding(
@@ -37,7 +39,7 @@ class ServiceTile extends StatelessWidget {
                   selected
                       ? Icons.check_box_rounded
                       : Icons.check_box_outline_blank_rounded,
-                  color: selected ? AppColors.accent : AppColors.textMuted,
+                  color: selected ? AppColors.accent : colors.textMuted,
                   size: 22,
                 ),
               ),
@@ -48,7 +50,7 @@ class ServiceTile extends StatelessWidget {
                   Text(
                     service.serviceName,
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: AppColors.textPrimary,
+                      color: colors.textPrimary,
                     ),
                   ),
                   Text(
@@ -65,7 +67,7 @@ class ServiceTile extends StatelessWidget {
                   Text(
                     '₹${service.price.toStringAsFixed(0)}',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textMuted,
+                      color: colors.textMuted,
                       decoration: TextDecoration.lineThrough,
                     ),
                   ),

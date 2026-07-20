@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
+import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/features/notifications/data/models/notification_model.dart';
 import 'package:saloon_booking/shared/widgets/glass_card.dart';
 
@@ -24,26 +25,48 @@ class NotificationTile extends StatelessWidget {
     return DateFormat('MMM d, yyyy').format(dateTime);
   }
 
+  (IconData, Color) _typeIcon(String type) {
+    return switch (type) {
+      'new_booking' ||
+      'booking_confirmed' ||
+      'booking_rejected' ||
+      'booking_completed' ||
+      'booking_cancelled' ||
+      'appointment_reminder' =>
+        (Icons.calendar_month_rounded, AppColors.primary),
+      'payment_successful' || 'payment_received' =>
+        (Icons.payments_rounded, AppColors.success),
+      'promotional_offer' => (Icons.local_offer_rounded, AppColors.accent),
+      _ when type.contains('review') =>
+        (Icons.star_rounded, AppColors.accent),
+      _ when type.contains('salon') =>
+        (Icons.store_rounded, AppColors.primaryLight),
+      _ => (Icons.notifications_rounded, AppColors.accent),
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final (icon, iconColor) = _typeIcon(notification.type);
+
     return GlassCard(
       onTap: onTap,
       margin: const EdgeInsets.only(bottom: 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (notification.isUnread)
-            Container(
-              width: 8,
-              height: 8,
-              margin: const EdgeInsets.only(top: 6, right: 10),
-              decoration: const BoxDecoration(
-                color: AppColors.accent,
-                shape: BoxShape.circle,
-              ),
-            )
-          else
-            const SizedBox(width: 18),
+          Container(
+            width: 40,
+            height: 40,
+            margin: const EdgeInsets.only(right: 12),
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: iconColor.withValues(alpha: 0.25)),
+            ),
+            child: Icon(icon, size: 20, color: iconColor),
+          ),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -54,17 +77,27 @@ class NotificationTile extends StatelessWidget {
                       child: Text(
                         notification.title,
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              color: AppColors.textPrimary,
+                              color: colors.textPrimary,
                               fontWeight: notification.isUnread
                                   ? FontWeight.w600
                                   : FontWeight.w500,
                             ),
                       ),
                     ),
+                    if (notification.isUnread)
+                      Container(
+                        width: 8,
+                        height: 8,
+                        margin: const EdgeInsets.only(right: 6),
+                        decoration: const BoxDecoration(
+                          color: AppColors.accent,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
                     Text(
                       _formatTime(notification.createdAt),
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: AppColors.textMuted,
+                            color: colors.textMuted,
                           ),
                     ),
                   ],
@@ -73,7 +106,7 @@ class NotificationTile extends StatelessWidget {
                 Text(
                   notification.body,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppColors.textSecondary,
+                        color: colors.textSecondary,
                       ),
                 ),
               ],

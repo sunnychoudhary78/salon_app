@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
+import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/features/customer/data/models/salon_model.dart';
 
 class SlotPickerGrid extends StatelessWidget {
@@ -21,11 +23,11 @@ class SlotPickerGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (slots.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 12),
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
         child: Text(
           'No operating hours configured for this salon.',
-          style: TextStyle(color: AppColors.textMuted),
+          style: TextStyle(color: context.appColors.textMuted),
         ),
       );
     }
@@ -70,13 +72,18 @@ class _SlotChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = _colorsFor(slot.status, selected);
+    final colors = _colorsFor(context, slot.status, selected);
 
     return Material(
       color: colors.background,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
-        onTap: _isTappable ? onTap : null,
+        onTap: _isTappable
+            ? () {
+                HapticFeedback.lightImpact();
+                onTap?.call();
+              }
+            : null,
         borderRadius: BorderRadius.circular(12),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -113,7 +120,7 @@ class _SlotChip extends StatelessWidget {
                   ),
                 ],
               ),
-              if (_isPremiumEligible) ...[
+              if (_isPremiumEligible && premiumFee != null && premiumFee! > 0) ...[
                 const SizedBox(height: 4),
                 Row(
                   mainAxisSize: MainAxisSize.min,
@@ -121,13 +128,34 @@ class _SlotChip extends StatelessWidget {
                     Icon(
                       Icons.bolt_rounded,
                       size: 12,
-                      color: selected ? AppColors.backgroundDark : AppColors.accent,
+                      color: selected ? context.appColors.onAccent : AppColors.accent,
                     ),
                     const SizedBox(width: 2),
                     Text(
-                      'Urgent · ₹${(premiumFee ?? 199).toStringAsFixed(0)}',
+                      'Urgent · ₹${premiumFee!.toStringAsFixed(0)}',
                       style: TextStyle(
-                        color: selected ? AppColors.backgroundDark : AppColors.accent,
+                        color: selected ? context.appColors.onAccent : AppColors.accent,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ] else if (_isPremiumEligible) ...[
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.bolt_rounded,
+                      size: 12,
+                      color: selected ? context.appColors.onAccent : AppColors.accent,
+                    ),
+                    const SizedBox(width: 2),
+                    Text(
+                      'Urgent',
+                      style: TextStyle(
+                        color: selected ? context.appColors.onAccent : AppColors.accent,
                         fontSize: 10,
                         fontWeight: FontWeight.w600,
                       ),
@@ -150,11 +178,13 @@ class _SlotChip extends StatelessWidget {
         _ => Icons.schedule,
       };
 
-  _SlotColors _colorsFor(String status, bool selected) {
+  _SlotColors _colorsFor(BuildContext context, String status, bool selected) {
+    final themeColors = context.appColors;
+
     if (selected) {
-      return const _SlotColors(
+      return _SlotColors(
         background: AppColors.accent,
-        foreground: AppColors.backgroundDark,
+        foreground: themeColors.onAccent,
         border: AppColors.accent,
       );
     }
@@ -174,15 +204,15 @@ class _SlotChip extends StatelessWidget {
         foreground: AppColors.warning,
         border: AppColors.warning.withValues(alpha: 0.4),
       ),
-      'past' => const _SlotColors(
-        background: AppColors.surface,
-        foreground: AppColors.textMuted,
-        border: AppColors.glassBorder,
+      'past' => _SlotColors(
+        background: themeColors.surface,
+        foreground: themeColors.textSecondary.withValues(alpha: 0.7),
+        border: themeColors.glassBorder,
       ),
-      _ => const _SlotColors(
-        background: AppColors.surface,
-        foreground: AppColors.textMuted,
-        border: AppColors.glassBorder,
+      _ => _SlotColors(
+        background: themeColors.surface,
+        foreground: themeColors.textSecondary.withValues(alpha: 0.7),
+        border: themeColors.glassBorder,
       ),
     };
   }
@@ -207,13 +237,15 @@ class SlotsAvailabilityBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (summary == null || summary!.total == 0) return const SizedBox.shrink();
+    if (summary == null || !summary!.shouldShowOnCard) {
+      return const SizedBox.shrink();
+    }
 
     final (label, color) = switch (summary!.status) {
       'open' => ('Open', AppColors.success),
       'limited' => ('Limited', AppColors.warning),
       'full' => ('Full', AppColors.error),
-      _ => ('Slots', AppColors.textMuted),
+      _ => ('Slots', context.appColors.textMuted),
     };
 
     return Container(
@@ -231,6 +263,52 @@ class SlotsAvailabilityBadge extends StatelessWidget {
           fontWeight: FontWeight.w600,
         ),
       ),
+    );
+  }
+}
+
+class SlotsAvailabilityInfoLine extends StatelessWidget {
+  const SlotsAvailabilityInfoLine({super.key, required this.summary});
+
+  final SlotsTodaySummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!summary.shouldShowOnCard) return const SizedBox.shrink();
+
+    final label = summary.infoLineLabel;
+    if (label.isEmpty) return const SizedBox.shrink();
+
+    final color = switch (summary.status) {
+      'open' => AppColors.success,
+      'limited' => AppColors.warning,
+      'full' => context.appColors.textMuted,
+      _ => context.appColors.textSecondary,
+    };
+
+    final icon = switch (summary.status) {
+      'open' => Icons.event_available_outlined,
+      'limited' => Icons.schedule_outlined,
+      'full' => Icons.event_busy_outlined,
+      _ => Icons.calendar_today_outlined,
+    };
+
+    return Row(
+      children: [
+        Icon(icon, size: 14, color: color),
+        const SizedBox(width: 4),
+        Expanded(
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.w500,
+                ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
     );
   }
 }

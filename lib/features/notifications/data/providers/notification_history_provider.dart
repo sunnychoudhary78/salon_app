@@ -1,6 +1,14 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:saloon_booking/core/utils/role_utils.dart';
+import 'package:saloon_booking/features/auth/presentation/providers/auth_provider.dart';
+import 'package:saloon_booking/features/customer/data/services/customer_service.dart';
 import 'package:saloon_booking/features/notifications/data/models/notification_model.dart';
 import 'package:saloon_booking/features/notifications/data/services/notification_history_service.dart';
+import 'package:saloon_booking/features/owner/data/services/owner_service.dart';
+
+const customerNotificationsTabIndex = 3;
+const ownerNotificationsTabIndex = 3;
 
 class NotificationsListState {
   const NotificationsListState({
@@ -46,18 +54,26 @@ class NotificationsList extends AsyncNotifier<NotificationsListState> {
   }
 
   Future<void> refresh() async {
-    state = const AsyncLoading();
-    state = await AsyncValue.guard(() async {
+    final previous = state.value;
+    try {
       final result = await ref
           .read(notificationHistoryServiceProvider)
           .listNotifications(page: 1, limit: _pageSize);
-      return NotificationsListState(
-        items: result.items,
-        page: 1,
-        hasMore: result.hasMore,
+      state = AsyncData(
+        NotificationsListState(
+          items: result.items,
+          page: 1,
+          hasMore: result.hasMore,
+        ),
       );
-    });
-    ref.invalidate(unreadCountProvider);
+      ref.invalidate(unreadCountProvider);
+    } catch (error, stackTrace) {
+      if (previous != null) {
+        state = AsyncData(previous);
+      } else {
+        state = AsyncError(error, stackTrace);
+      }
+    }
   }
 
   Future<void> loadMore() async {
@@ -70,16 +86,19 @@ class NotificationsList extends AsyncNotifier<NotificationsListState> {
       final result = await ref
           .read(notificationHistoryServiceProvider)
           .listNotifications(page: nextPage, limit: _pageSize);
+      final latest = state.value ?? current;
       state = AsyncData(
-        current.copyWith(
-          items: [...current.items, ...result.items],
+        latest.copyWith(
+          items: [...latest.items, ...result.items],
           page: nextPage,
           hasMore: result.hasMore,
           isLoadingMore: false,
         ),
       );
     } catch (e, st) {
-      state = AsyncError(e, st);
+      final latest = state.value ?? current;
+      state = AsyncData(latest.copyWith(isLoadingMore: false));
+      debugPrint('notifications loadMore failed: $e\n$st');
     }
   }
 }
@@ -91,6 +110,18 @@ final notificationsProvider =
 
 final unreadCountProvider = FutureProvider.autoDispose<int>((ref) {
   return ref.watch(notificationHistoryServiceProvider).getUnreadCount();
+});
+
+/// True while the notifications shell tab is selected. Derived from tab index
+/// so we never toggle state from widget lifecycle methods.
+final notificationsScreenActiveProvider = Provider<bool>((ref) {
+  final auth = ref.watch(authProvider).value;
+  if (auth == null) return false;
+  if (isSalonOwnerAccount(auth)) {
+    return ref.watch(ownerShellTabIndexProvider) == ownerNotificationsTabIndex;
+  }
+  return ref.watch(customerShellTabIndexProvider) ==
+      customerNotificationsTabIndex;
 });
 
 class NotificationActions {

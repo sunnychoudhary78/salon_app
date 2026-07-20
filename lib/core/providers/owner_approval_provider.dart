@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:saloon_booking/features/auth/data/models/user_model.dart';
 import 'package:saloon_booking/features/auth/presentation/providers/auth_provider.dart';
 import 'package:saloon_booking/features/owner/data/services/owner_service.dart';
 
@@ -6,8 +7,8 @@ class HasApprovedSalons extends Notifier<bool> {
   @override
   bool build() => false;
 
-  Future<bool> refresh() async {
-    final auth = ref.read(authProvider).value;
+  Future<bool> refresh({AuthState? authOverride}) async {
+    final auth = authOverride ?? ref.read(authProvider).value;
     if (auth?.salonOwner == null) {
       state = false;
       return false;

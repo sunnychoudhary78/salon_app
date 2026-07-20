@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:saloon_booking/core/routing/route_paths.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
+import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/features/auth/data/models/user_model.dart';
 import 'package:saloon_booking/features/auth/presentation/providers/auth_provider.dart';
 import 'package:saloon_booking/shared/widgets/glass_card.dart';
@@ -55,21 +56,18 @@ class SalonApplicationStatusCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (application.isPending) {
-      return GlassCard(
+      return _ApplicationStatusShell(
+        accentColor: AppColors.warning,
+        icon: Icons.hourglass_top_rounded,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Icon(Icons.hourglass_top_rounded, color: AppColors.warning),
-                const SizedBox(width: 8),
-                Text(
-                  _pendingTitle,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: AppColors.textPrimary,
-                      ),
-                ),
-              ],
+            Text(
+              _pendingTitle,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: context.appColors.textPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
             ),
             const SizedBox(height: 8),
             Text('Salon: ${application.salonName}'),
@@ -111,21 +109,18 @@ class SalonApplicationStatusCard extends ConsumerWidget {
     }
 
     if (application.isRejected) {
-      return GlassCard(
+      return _ApplicationStatusShell(
+        accentColor: AppColors.error,
+        icon: Icons.cancel_outlined,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                const Icon(Icons.cancel_outlined, color: AppColors.error),
-                const SizedBox(width: 8),
-                Text(
-                  _rejectedTitle,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: AppColors.textPrimary,
-                      ),
-                ),
-              ],
+            Text(
+              _rejectedTitle,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: context.appColors.textPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
             ),
             const SizedBox(height: 8),
             Text('Salon: ${application.salonName}'),
@@ -170,5 +165,64 @@ class SalonApplicationStatusCard extends ConsumerWidget {
     } catch (_) {
       return iso;
     }
+  }
+}
+
+class _ApplicationStatusShell extends StatelessWidget {
+  const _ApplicationStatusShell({
+    required this.accentColor,
+    required this.icon,
+    required this.child,
+  });
+
+  final Color accentColor;
+  final IconData icon;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      shadowColor: accentColor,
+      padding: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            height: 4,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  accentColor,
+                  accentColor.withValues(alpha: 0.4),
+                ],
+              ),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(16)),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: accentColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: accentColor.withValues(alpha: 0.35),
+                    ),
+                  ),
+                  child: Icon(icon, color: accentColor, size: 24),
+                ),
+                const SizedBox(width: 14),
+                Expanded(child: child),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

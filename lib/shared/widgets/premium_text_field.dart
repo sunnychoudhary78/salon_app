@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:saloon_booking/core/theme/app_decorations.dart';
+import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 
 class PremiumTextField extends StatelessWidget {
   const PremiumTextField({
@@ -19,6 +20,7 @@ class PremiumTextField extends StatelessWidget {
     this.textAlign = TextAlign.start,
     this.enabled = true,
     this.underline = false,
+    this.focusNode,
   });
 
   final TextEditingController controller;
@@ -35,11 +37,15 @@ class PremiumTextField extends StatelessWidget {
   final TextAlign textAlign;
   final bool enabled;
   final bool underline;
+  final FocusNode? focusNode;
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
+
     return TextFormField(
       controller: controller,
+      focusNode: focusNode,
       enabled: enabled,
       obscureText: obscureText,
       keyboardType: keyboardType,
@@ -48,8 +54,9 @@ class PremiumTextField extends StatelessWidget {
       onChanged: onChanged,
       inputFormatters: inputFormatters,
       textAlign: textAlign,
-      style: const TextStyle(color: Colors.white),
+      style: TextStyle(color: colors.textPrimary),
       decoration: AppDecorations.inputDecoration(
+        context,
         label: label,
         hint: hint,
         prefixIcon: prefixIcon,

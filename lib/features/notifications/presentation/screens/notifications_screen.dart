@@ -3,9 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:saloon_booking/core/notifications/notification_payload.dart';
 import 'package:saloon_booking/core/notifications/notification_router.dart';
 import 'package:saloon_booking/core/theme/app_decorations.dart';
+import 'package:saloon_booking/features/customer/data/services/customer_service.dart';
 import 'package:saloon_booking/features/notifications/data/models/notification_model.dart';
 import 'package:saloon_booking/features/notifications/data/providers/notification_history_provider.dart';
 import 'package:saloon_booking/features/notifications/presentation/widgets/notification_tile.dart';
+import 'package:saloon_booking/features/owner/data/services/owner_service.dart';
+import 'package:saloon_booking/shared/widgets/animated_list_item.dart';
 import 'package:saloon_booking/shared/widgets/async_value_widget.dart';
 import 'package:saloon_booking/shared/widgets/premium_app_bar.dart';
 import 'package:saloon_booking/shared/widgets/section_header.dart';
@@ -23,22 +26,38 @@ class NotificationsScreen extends ConsumerStatefulWidget {
 class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   final _scrollController = ScrollController();
 
+  int get _notificationsTabIndex => widget.isOwnerMode
+      ? ownerNotificationsTabIndex
+      : customerNotificationsTabIndex;
+
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final tabIndex = widget.isOwnerMode
+          ? ref.read(ownerShellTabIndexProvider)
+          : ref.read(customerShellTabIndexProvider);
+      if (tabIndex == _notificationsTabIndex) {
+        ref.read(notificationsProvider.notifier).refresh();
+      }
+    });
   }
 
   @override
   void dispose() {
+    _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     super.dispose();
   }
 
   void _onScroll() {
     if (!_scrollController.hasClients) return;
-    final max = _scrollController.position.maxScrollExtent;
-    if (_scrollController.position.pixels >= max - 200) {
+    final position = _scrollController.position;
+    if (!position.hasContentDimensions) return;
+    if (position.maxScrollExtent <= 0) return;
+    if (position.pixels >= position.maxScrollExtent - 200) {
       ref.read(notificationsProvider.notifier).loadMore();
     }
   }
@@ -64,6 +83,18 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   Widget build(BuildContext context) {
     final notifications = ref.watch(notificationsProvider);
     final unreadCount = ref.watch(unreadCountProvider);
+    final tabIndexProvider = widget.isOwnerMode
+        ? ownerShellTabIndexProvider
+        : customerShellTabIndexProvider;
+
+    ref.listen(tabIndexProvider, (previous, next) {
+      if (next == _notificationsTabIndex && previous != _notificationsTabIndex) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          ref.read(notificationsProvider.notifier).refresh();
+        });
+      }
+    });
 
     return Scaffold(
       appBar: PremiumAppBar(
@@ -88,25 +119,43 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         onRefresh: () => ref.read(notificationsProvider.notifier).refresh(),
         child: AsyncValueWidget(
           value: notifications,
+          error: (e, _) => ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(24),
+            children: [
+              ErrorView(
+                message: e.toString(),
+                onRetry: () =>
+                    ref.read(notificationsProvider.notifier).refresh(),
+              ),
+            ],
+          ),
           data: (state) {
             if (state.items.isEmpty) {
+              final emptySubtitle = widget.isOwnerMode
+                  ? 'Booking requests, reviews, and salon updates'
+                  : 'Booking updates and offers';
+              final emptyIcon = widget.isOwnerMode
+                  ? Icons.storefront_rounded
+                  : Icons.notifications_none_rounded;
+
               return ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(
+                padding: EdgeInsets.fromLTRB(
                   16,
                   16,
                   16,
-                  AppDecorations.shellBottomInset,
+                  AppDecorations.scrollBottomPadding(context),
                 ),
-                children: const [
+                children: [
                   SectionHeader(
                     title: 'Inbox',
-                    subtitle: 'Booking updates and offers',
+                    subtitle: emptySubtitle,
                   ),
-                  SizedBox(height: 32),
+                  const SizedBox(height: 32),
                   EmptyView(
                     message: 'No notifications yet',
-                    icon: Icons.notifications_none_rounded,
+                    icon: emptyIcon,
                   ),
                 ],
               );
@@ -115,11 +164,11 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
             return ListView(
               controller: _scrollController,
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(
+              padding: EdgeInsets.fromLTRB(
                 16,
                 8,
                 16,
-                AppDecorations.shellBottomInset,
+                AppDecorations.scrollBottomPadding(context),
               ),
               children: [
                 SectionHeader(
@@ -127,10 +176,13 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                   subtitle: '${state.items.length} notification${state.items.length == 1 ? '' : 's'}',
                 ),
                 const SizedBox(height: 14),
-                ...state.items.map(
-                  (n) => NotificationTile(
-                    notification: n,
-                    onTap: () => _onTap(n),
+                ...state.items.asMap().entries.map(
+                  (entry) => AnimatedListItem(
+                    index: entry.key,
+                    child: NotificationTile(
+                      notification: entry.value,
+                      onTap: () => _onTap(entry.value),
+                    ),
                   ),
                 ),
                 if (state.isLoadingMore)

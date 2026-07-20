@@ -1,30 +1,63 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
+import 'package:saloon_booking/core/theme/app_theme_extension.dart';
+import 'package:saloon_booking/core/utils/phone_utils.dart';
 import 'package:saloon_booking/features/customer/data/models/salon_model.dart';
 import 'package:saloon_booking/shared/widgets/booking_when_badge.dart';
 import 'package:saloon_booking/shared/widgets/glass_card.dart';
 import 'package:saloon_booking/shared/widgets/status_badge.dart';
 
-class BookingCard extends StatelessWidget {
+class BookingCard extends StatefulWidget {
   const BookingCard({
     super.key,
     required this.booking,
     this.onTap,
     this.trailing,
+    this.serviceNames = const [],
   });
 
   final BookingModel booking;
   final VoidCallback? onTap;
   final Widget? trailing;
 
-  Color get _accentColor => switch (booking.bookingStatus.toUpperCase()) {
-    'PENDING' => AppColors.warning,
-    'ACCEPTED' => AppColors.success,
-    'COMPLETED' => AppColors.primaryLight,
-    'CANCELLED' => AppColors.textMuted,
-    'REJECTED' => AppColors.error,
-    _ => AppColors.accent,
-  };
+  /// All service names in this request. When more than one is provided the card
+  /// shows the combined list instead of the single [booking] service.
+  final List<String> serviceNames;
+
+  @override
+  State<BookingCard> createState() => _BookingCardState();
+}
+
+class _BookingCardState extends State<BookingCard> {
+  bool _detailsExpanded = false;
+
+  BookingModel get booking => widget.booking;
+
+  Future<void> _callSalon(BuildContext context, String phone) async {
+    final launched = await launchPhoneCall(phone);
+    if (!launched && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open phone dialer')),
+      );
+    }
+  }
+
+  String? get _salonPhone {
+    final phone = booking.salon?.phone?.trim();
+    if (phone == null || phone.isEmpty) return null;
+    return phone;
+  }
+
+  Color _accentColor(BuildContext context) =>
+      switch (booking.bookingStatus.toUpperCase()) {
+        'PENDING' => AppColors.warning,
+        'ACCEPTED' => AppColors.success,
+        'COMPLETED' => AppColors.primaryLight,
+        'CANCELLED' => context.appColors.textMuted,
+        'REJECTED' => AppColors.error,
+        _ => AppColors.accent,
+      };
 
   String _paymentStatusLabel() {
     final payment = booking.salonFeePayment;
@@ -42,23 +75,47 @@ class BookingCard extends StatelessWidget {
     return 'Premium payment: pending';
   }
 
+  String _formatDateTime() {
+    try {
+      final parsed = DateTime.parse(booking.bookingDate);
+      final dateLabel = DateFormat('EEE, d MMM').format(parsed);
+      final time = booking.bookingTime.length >= 5
+          ? booking.bookingTime.substring(0, 5)
+          : booking.bookingTime;
+      return '$dateLabel · $time';
+    } catch (_) {
+      return '${booking.bookingDate} at ${booking.bookingTime}';
+    }
+  }
+
+  bool get _hasDetailRows {
+    return booking.bookingNumber != null ||
+        booking.premiumAmount != null ||
+        booking.isPremium ||
+        booking.service?.price != null ||
+        booking.bookingStatus.toUpperCase() == 'ACCEPTED';
+  }
+
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final accentColor = _accentColor(context);
+
     return GlassCard(
-      onTap: onTap,
+      onTap: widget.onTap,
       margin: const EdgeInsets.only(bottom: 12),
-      shadowColor: _accentColor,
+      shadowColor: accentColor,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             width: 4,
-            height: 80,
+            height: 100,
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [_accentColor, _accentColor.withValues(alpha: 0.2)],
+                colors: [accentColor, accentColor.withValues(alpha: 0.2)],
               ),
               borderRadius: BorderRadius.circular(2),
             ),
@@ -74,11 +131,30 @@ class BookingCard extends StatelessWidget {
                       child: Text(
                         booking.salon?.salonName ?? 'Salon',
                         style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(color: AppColors.textPrimary),
+                            ?.copyWith(color: colors.textPrimary),
                       ),
                     ),
                     StatusBadge(status: booking.bookingStatus),
-                    const SizedBox(width: 6),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.schedule_rounded,
+                      size: 18,
+                      color: AppColors.accent,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _formatDateTime(),
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              color: colors.textPrimary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                      ),
+                    ),
                     BookingWhenBadge(
                       date: booking.bookingDate,
                       time: booking.bookingTime,
@@ -112,19 +188,15 @@ class BookingCard extends StatelessWidget {
                 const SizedBox(height: 10),
                 _InfoRow(
                   icon: Icons.spa_outlined,
-                  text: booking.service?.serviceName ?? 'Service',
+                  text: widget.serviceNames.length > 1
+                      ? widget.serviceNames.join(', ')
+                      : (booking.service?.serviceName ?? 'Service'),
                 ),
-                const SizedBox(height: 6),
-                _InfoRow(
-                  icon: Icons.calendar_today_rounded,
-                  text: '${booking.bookingDate} at ${booking.bookingTime}',
-                ),
-                if (booking.bookingNumber != null) ...[
+                if (booking.staff != null) ...[
                   const SizedBox(height: 6),
                   _InfoRow(
-                    icon: Icons.confirmation_number_outlined,
-                    text: '#${booking.bookingNumber}',
-                    accent: true,
+                    icon: Icons.person_outline_rounded,
+                    text: 'Preferred: ${booking.staff!.name}',
                   ),
                 ],
                 if (booking.bookingStatus.toUpperCase() == 'PENDING') ...[
@@ -148,44 +220,91 @@ class BookingCard extends StatelessWidget {
                     ).textTheme.bodySmall?.copyWith(color: AppColors.error),
                   ),
                 ],
-                if (booking.premiumAmount != null) ...[
+                if (_hasDetailRows) ...[
+                  const SizedBox(height: 8),
+                  InkWell(
+                    onTap: () =>
+                        setState(() => _detailsExpanded = !_detailsExpanded),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        children: [
+                          Text(
+                            'Details',
+                            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                                  color: AppColors.accent,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(
+                            _detailsExpanded
+                                ? Icons.expand_less_rounded
+                                : Icons.expand_more_rounded,
+                            size: 18,
+                            color: AppColors.accent,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (_detailsExpanded) ...[
+                    if (booking.bookingNumber != null) ...[
+                      const SizedBox(height: 6),
+                      _InfoRow(
+                        icon: Icons.confirmation_number_outlined,
+                        text: '#${booking.bookingNumber}',
+                        accent: true,
+                      ),
+                    ],
+                    if (booking.premiumAmount != null) ...[
+                      const SizedBox(height: 6),
+                      _InfoRow(
+                        icon: Icons.bolt_rounded,
+                        text:
+                            'Premium: ₹${booking.premiumAmount!.toStringAsFixed(0)}',
+                        accent: true,
+                      ),
+                    ],
+                    if (booking.isPremium) ...[
+                      const SizedBox(height: 6),
+                      _InfoRow(
+                        icon: Icons.lock_clock_rounded,
+                        text: _premiumStatusLabel(),
+                        accent: booking.premiumPaymentStatus == 'PAID',
+                      ),
+                    ],
+                    if (booking.service?.price != null) ...[
+                      const SizedBox(height: 6),
+                      _InfoRow(
+                        icon: Icons.payments_outlined,
+                        text:
+                            'Service: ₹${booking.service!.effectivePrice!.toStringAsFixed(2)}',
+                        accent: true,
+                      ),
+                    ],
+                    if (booking.bookingStatus.toUpperCase() == 'ACCEPTED') ...[
+                      const SizedBox(height: 6),
+                      _InfoRow(
+                        icon: Icons.account_balance_wallet_outlined,
+                        text: _paymentStatusLabel(),
+                      ),
+                    ],
+                  ],
+                ],
+                if (booking.isConfirmed && _salonPhone != null) ...[
                   const SizedBox(height: 6),
-                  _InfoRow(
-                    icon: Icons.bolt_rounded,
-                    text:
-                        'Premium: ₹${booking.premiumAmount!.toStringAsFixed(0)}',
-                    accent: true,
+                  _PhoneRow(
+                    phone: _salonPhone!,
+                    onTap: () => _callSalon(context, _salonPhone!),
                   ),
                 ],
-                if (booking.isPremium) ...[
-                  const SizedBox(height: 6),
-                  _InfoRow(
-                    icon: Icons.lock_clock_rounded,
-                    text: _premiumStatusLabel(),
-                    accent: booking.premiumPaymentStatus == 'PAID',
-                  ),
-                ],
-                if (booking.service?.price != null) ...[
-                  const SizedBox(height: 6),
-                  _InfoRow(
-                    icon: Icons.payments_outlined,
-                    text:
-                        'Service: ₹${booking.service!.effectivePrice!.toStringAsFixed(2)}',
-                    accent: true,
-                  ),
-                ],
-                if (booking.bookingStatus.toUpperCase() == 'ACCEPTED') ...[
-                  const SizedBox(height: 6),
-                  _InfoRow(
-                    icon: Icons.account_balance_wallet_outlined,
-                    text: _paymentStatusLabel(),
-                  ),
-                ],
-                if (trailing != null) ...[
+                if (widget.trailing != null) ...[
                   const SizedBox(height: 14),
-                  const Divider(color: AppColors.glassBorder, height: 1),
+                  Divider(color: colors.glassBorder, height: 1),
                   const SizedBox(height: 10),
-                  trailing!,
+                  widget.trailing!,
                 ],
               ],
             ),
@@ -205,24 +324,70 @@ class _InfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
+
     return Row(
       children: [
         Icon(
           icon,
           size: 14,
-          color: accent ? AppColors.accent : AppColors.textMuted,
+          color: accent ? AppColors.accent : colors.textMuted,
         ),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
             text,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: accent ? AppColors.accent : AppColors.textSecondary,
+              color: accent ? AppColors.accent : colors.textSecondary,
               fontWeight: accent ? FontWeight.w600 : FontWeight.normal,
             ),
           ),
         ),
       ],
+    );
+  }
+}
+
+class _PhoneRow extends StatelessWidget {
+  const _PhoneRow({required this.phone, required this.onTap});
+
+  final String phone;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.phone_outlined,
+              size: 14,
+              color: AppColors.accent,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                phone,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppColors.accent,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            Icon(
+              Icons.call_rounded,
+              size: 16,
+              color: colors.textMuted,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

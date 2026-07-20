@@ -1,23 +1,90 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:saloon_booking/core/config/app_config.dart';
+import 'package:saloon_booking/core/lifecycle/idle_debug_overlay.dart';
+import 'package:saloon_booking/core/lifecycle/user_activity_scope.dart';
+import 'package:saloon_booking/core/network/session_expired_notifier.dart';
 import 'package:saloon_booking/core/notifications/notification_providers.dart';
+import 'package:saloon_booking/core/providers/user_data_invalidation.dart';
 import 'package:saloon_booking/core/routing/app_router.dart';
 import 'package:saloon_booking/core/theme/app_theme.dart';
+import 'package:saloon_booking/core/theme/theme_mode_provider.dart';
+import 'package:saloon_booking/core/ui/system_ui_scope.dart';
+import 'package:saloon_booking/features/auth/data/models/user_model.dart';
+import 'package:saloon_booking/features/auth/presentation/providers/auth_provider.dart';
 
-class SalonApp extends ConsumerWidget {
+final rootScaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
+
+class SalonApp extends ConsumerStatefulWidget {
   const SalonApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    ref.watch(notificationLifecycleProvider);
-    final router = ref.watch(appRouterProvider);
+  ConsumerState<SalonApp> createState() => _SalonAppState();
+}
 
-    return MaterialApp.router(
-      title: AppConfig.appName,
-      theme: AppTheme.dark,
-      routerConfig: router,
-      debugShowCheckedModeBanner: false,
+class _SalonAppState extends ConsumerState<SalonApp> {
+  ProviderSubscription<AsyncValue<AuthState?>>? _authSubscription;
+  ProviderSubscription<int>? _sessionExpiredSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(notificationLifecycleProvider);
+      _authSubscription = ref.listenManual(authProvider, (previous, next) {
+        invalidateOnUserIdChange(
+          ref,
+          previous?.value?.user.id,
+          next.value?.user.id,
+        );
+      });
+      _sessionExpiredSubscription = ref.listenManual(
+        sessionExpiredProvider,
+        (previous, next) {
+          rootScaffoldMessengerKey.currentState?.showSnackBar(
+            const SnackBar(
+              content: Text('Session expired. Please log in again.'),
+              duration: Duration(seconds: 4),
+            ),
+          );
+        },
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.close();
+    _sessionExpiredSubscription?.close();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final router = ref.watch(appRouterProvider);
+    final themeMode = ref.watch(themeModeProvider).value ?? ThemeMode.dark;
+
+    return SystemUiScope(
+      brightness: themeMode == ThemeMode.light
+          ? Brightness.light
+          : Brightness.dark,
+      child: MaterialApp.router(
+        scaffoldMessengerKey: rootScaffoldMessengerKey,
+        title: AppConfig.appName,
+        theme: AppTheme.light,
+        darkTheme: AppTheme.dark,
+        themeMode: themeMode,
+        routerConfig: router,
+        debugShowCheckedModeBanner: false,
+        builder: (context, child) {
+          return UserActivityScope(
+            child: IdleDebugOverlay(
+              child: child ?? const SizedBox.shrink(),
+            ),
+          );
+        },
+      ),
     );
   }
 }

@@ -5,27 +5,34 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:saloon_booking/core/network/dio_client.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
-import 'package:saloon_booking/core/utils/salon_geocoding.dart';
+import 'package:saloon_booking/core/theme/app_decorations.dart';
+import 'package:saloon_booking/core/theme/app_theme_extension.dart';
+import 'package:saloon_booking/core/utils/phone_validation.dart';
 import 'package:saloon_booking/core/utils/salon_time_utils.dart';
 import 'package:saloon_booking/features/auth/presentation/providers/auth_provider.dart';
 import 'package:saloon_booking/features/customer/data/models/salon_model.dart';
-import 'package:saloon_booking/features/owner/data/models/place_suggestion.dart';
+import 'package:saloon_booking/features/owner/data/models/salon_location_selection.dart';
 import 'package:saloon_booking/features/owner/data/services/owner_service.dart';
 import 'package:saloon_booking/shared/widgets/animated_entrance.dart';
 import 'package:saloon_booking/shared/widgets/glass_card.dart';
 import 'package:saloon_booking/shared/widgets/gradient_background.dart';
-import 'package:saloon_booking/shared/widgets/premium_button.dart';
+import 'package:saloon_booking/shared/widgets/owner_salon_location_card.dart';
+import 'package:saloon_booking/shared/widgets/premium_app_bar.dart';
 import 'package:saloon_booking/shared/widgets/premium_text_field.dart';
+import 'package:saloon_booking/shared/widgets/screen_action_bar.dart';
 import 'package:saloon_booking/shared/widgets/salon_hours_picker_row.dart';
 import 'package:saloon_booking/shared/widgets/salon_image_picker.dart';
-import 'package:saloon_booking/shared/widgets/salon_address_autocomplete_field.dart';
-import 'package:saloon_booking/shared/widgets/salon_location_picker.dart';
 import 'package:saloon_booking/shared/widgets/section_header.dart';
 
 class EditSalonScreen extends ConsumerStatefulWidget {
-  const EditSalonScreen({super.key, required this.salonId});
+  const EditSalonScreen({
+    super.key,
+    required this.salonId,
+    this.focusField,
+  });
 
   final String salonId;
+  final String? focusField;
 
   @override
   ConsumerState<EditSalonScreen> createState() => _EditSalonScreenState();
@@ -34,31 +41,42 @@ class EditSalonScreen extends ConsumerStatefulWidget {
 class _EditSalonScreenState extends ConsumerState<EditSalonScreen> {
   final _salonNameController = TextEditingController();
   final _descriptionController = TextEditingController();
-  final _addressController = TextEditingController();
-  final _cityController = TextEditingController();
-  final _stateController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _premiumFeeController = TextEditingController();
+  final _descriptionFocus = FocusNode();
+  final _phoneFocus = FocusNode();
+  final _basicInfoKey = GlobalKey();
+  final _hoursKey = GlobalKey();
+  final _imagesKey = GlobalKey();
   TimeOfDay? _openingTime;
   TimeOfDay? _closingTime;
-  double? _latitude;
-  double? _longitude;
-  String? _locationLabel;
+  SalonLocationSelection? _location;
 
   List<String> _existingImageUrls = [];
   List<XFile> _newImages = [];
   bool _loading = false;
+  bool _savingPremiumFee = false;
   String? _error;
+  String? _premiumError;
   bool _initialized = false;
+  bool _didApplyFocus = false;
 
   @override
   void dispose() {
     _salonNameController.dispose();
     _descriptionController.dispose();
-    _addressController.dispose();
-    _cityController.dispose();
-    _stateController.dispose();
     _phoneController.dispose();
+    _premiumFeeController.dispose();
+    _descriptionFocus.dispose();
+    _phoneFocus.dispose();
     super.dispose();
+  }
+
+  String? get _normalizedFocusField {
+    final field = widget.focusField;
+    if (field == null || field.isEmpty) return null;
+    if (field == 'opening_time' || field == 'closing_time') return 'hours';
+    return field;
   }
 
   void _initializeFromSalon(SalonModel salon) {
@@ -66,43 +84,61 @@ class _EditSalonScreenState extends ConsumerState<EditSalonScreen> {
     _initialized = true;
     _salonNameController.text = salon.salonName;
     _descriptionController.text = salon.description ?? '';
-    _addressController.text = salon.address ?? '';
-    _cityController.text = salon.city ?? '';
-    _stateController.text = salon.state ?? '';
     _phoneController.text = salon.phone ?? '';
+    if (salon.premiumBookingFee != null) {
+      _premiumFeeController.text =
+          salon.premiumBookingFee!.toStringAsFixed(0);
+    }
     _openingTime = parseSalonTime(salon.openingTime) ??
         const TimeOfDay(hour: 9, minute: 0);
     _closingTime = parseSalonTime(salon.closingTime) ??
         const TimeOfDay(hour: 21, minute: 0);
-    _latitude = salon.latitude;
-    _longitude = salon.longitude;
-    if (_latitude != null && _longitude != null) {
-      resolveSalonLocationLabel(_latitude!, _longitude!).then((label) {
-        if (mounted) setState(() => _locationLabel = label);
-      });
-    }
+    _location = SalonLocationSelection.fromSalonFields(
+      address: salon.address,
+      street: salon.address,
+      formattedAddress: salon.formattedAddress,
+      locality: salon.locality,
+      city: salon.city,
+      state: salon.state,
+      postalCode: salon.postalCode,
+      latitude: salon.latitude,
+      longitude: salon.longitude,
+      isConfirmed: true,
+    );
     _existingImageUrls = List<String>.from(salon.allDisplayImages);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _applyFocusTarget());
   }
 
-  void _clearLocationOnManualEdit() {
-    if (_latitude == null && _longitude == null) return;
-    setState(() {
-      _latitude = null;
-      _longitude = null;
-      _locationLabel = null;
-    });
-  }
+  void _applyFocusTarget() {
+    if (_didApplyFocus || !mounted) return;
+    final focus = _normalizedFocusField;
+    if (focus == null) return;
 
-  void _onPlaceSelected(PlaceSuggestion place) {
-    setState(() {
-      _addressController.text = place.address;
-      _cityController.text = place.city;
-      _stateController.text = place.state;
-      _latitude = place.latitude;
-      _longitude = place.longitude;
-      _locationLabel = place.label;
-      _error = null;
-    });
+    final GlobalKey? sectionKey = switch (focus) {
+      'description' || 'phone' => _basicInfoKey,
+      'hours' => _hoursKey,
+      'cover_image' || 'gallery_images' => _imagesKey,
+      _ => null,
+    };
+    if (sectionKey?.currentContext != null) {
+      Scrollable.ensureVisible(
+        sectionKey!.currentContext!,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeOutCubic,
+        alignment: 0.1,
+      );
+    }
+
+    final FocusNode? fieldFocus = switch (focus) {
+      'description' => _descriptionFocus,
+      'phone' => _phoneFocus,
+      _ => null,
+    };
+    if (fieldFocus != null) {
+      fieldFocus.requestFocus();
+    }
+
+    _didApplyFocus = true;
   }
 
   Future<Map<String, dynamic>> _imagePayload() async {
@@ -121,24 +157,71 @@ class _EditSalonScreenState extends ConsumerState<EditSalonScreen> {
     };
   }
 
+  Future<void> _savePremiumFee() async {
+    final raw = _premiumFeeController.text.trim();
+    double? fee;
+    if (raw.isNotEmpty) {
+      fee = double.tryParse(raw);
+      if (fee == null || fee <= 0 || fee > 10000) {
+        setState(() => _premiumError = 'Enter a fee between 1 and 10000');
+        return;
+      }
+    }
+
+    setState(() {
+      _savingPremiumFee = true;
+      _premiumError = null;
+    });
+
+    try {
+      await ref.read(ownerServiceProvider).updatePremiumBookingFee(
+            salonId: widget.salonId,
+            fee: fee,
+          );
+      ref.invalidate(ownerSalonsProvider);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            fee == null
+                ? 'Urgent fee reset to platform default'
+                : 'Urgent booking fee updated',
+          ),
+        ),
+      );
+    } on DioException catch (e) {
+      setState(() => _premiumError = e.apiException.message);
+    } catch (e) {
+      setState(() => _premiumError = e.toString());
+    } finally {
+      if (mounted) setState(() => _savingPremiumFee = false);
+    }
+  }
+
+  Future<void> _resetPremiumFee() async {
+    _premiumFeeController.clear();
+    await _savePremiumFee();
+  }
+
   Future<void> _submit() async {
-    final phone = _phoneController.text.trim().replaceAll(RegExp(r'\D'), '');
+    final phone = normalizePhoneDigits(_phoneController.text);
+    final location = _location;
     if (_salonNameController.text.trim().isEmpty ||
-        _addressController.text.trim().isEmpty ||
-        _cityController.text.trim().isEmpty ||
-        _stateController.text.trim().isEmpty ||
-        phone.length < 10 ||
         _openingTime == null ||
         _closingTime == null) {
       setState(() => _error = 'Please fill all required fields');
+      return;
+    }
+    if (!isValidPhoneDigits(phone)) {
+      setState(() => _error = 'Enter a valid 10-digit phone number');
       return;
     }
     if (!isClosingAfterOpening(_openingTime!, _closingTime!)) {
       setState(() => _error = 'Closing time must be after opening time');
       return;
     }
-    if (_latitude == null || _longitude == null) {
-      setState(() => _error = 'Please set salon location');
+    if (location?.isConfirmed != true || location?.isComplete != true) {
+      setState(() => _error = 'Please set and confirm salon location');
       return;
     }
 
@@ -155,14 +238,10 @@ class _EditSalonScreenState extends ConsumerState<EditSalonScreen> {
               'description': _descriptionController.text.trim().isEmpty
                   ? null
                   : _descriptionController.text.trim(),
-              'address': _addressController.text.trim(),
-              'city': _cityController.text.trim(),
-              'state': _stateController.text.trim(),
+              ...location!.toApiPayload(),
               'phone': phone,
               'opening_time': formatSalonTimeForApi(_openingTime!),
               'closing_time': formatSalonTimeForApi(_closingTime!),
-              'latitude': _latitude,
-              'longitude': _longitude,
               ...await _imagePayload(),
             },
           );
@@ -188,36 +267,58 @@ class _EditSalonScreenState extends ConsumerState<EditSalonScreen> {
   @override
   Widget build(BuildContext context) {
     final salonsAsync = ref.watch(ownerSalonsProvider);
+    final platformPremiumAsync = ref.watch(ownerPremiumConfigProvider);
 
     return Scaffold(
       body: GradientBackground(
-        child: SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8, 8, 16, 0),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back_rounded),
-                      onPressed: _loading ? null : () => context.pop(),
-                    ),
-                    Expanded(
-                      child: Text(
-                        'Edit salon',
-                        style: Theme.of(context).textTheme.headlineSmall,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            PremiumAppBar(
+              title: 'Edit salon',
+              subtitle: 'Request changes for admin approval',
+              showMenu: false,
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back_rounded),
+                onPressed: _loading ? null : () => context.pop(),
+              ),
+            ),
+            Expanded(
+              child: salonsAsync.when(
+                loading: () =>
+                    const Center(child: CircularProgressIndicator()),
+                error: (e, _) => Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: GlassCard(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.error_outline_rounded,
+                            color: AppColors.error,
+                            size: 40,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Could not load salon',
+                            style: Theme.of(context).textTheme.titleSmall,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            '$e',
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(color: context.appColors.textMuted),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
+                  ),
                 ),
-              ),
-              Expanded(
-                child: salonsAsync.when(
-                  loading: () =>
-                      const Center(child: CircularProgressIndicator()),
-                  error: (e, _) => Center(child: Text('$e')),
-                  data: (salons) {
+                data: (salons) {
                     SalonModel? salon;
                     for (final item in salons) {
                       if (item.id == widget.salonId) {
@@ -227,13 +328,36 @@ class _EditSalonScreenState extends ConsumerState<EditSalonScreen> {
                     }
 
                     if (salon == null) {
-                      return const Center(child: Text('Salon not found'));
+                      return Center(
+                        child: GlassCard(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.store_outlined,
+                                size: 40,
+                                color: context.appColors.textMuted,
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'Salon not found',
+                                style: Theme.of(context).textTheme.titleSmall,
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
                     }
 
                     _initializeFromSalon(salon);
 
                     return SingleChildScrollView(
-                      padding: const EdgeInsets.all(20),
+                      padding: EdgeInsets.fromLTRB(
+                        20,
+                        8,
+                        20,
+                        AppDecorations.scrollBottomPadding(context) + 80,
+                      ),
                       child: AnimatedEntrance(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -245,6 +369,7 @@ class _EditSalonScreenState extends ConsumerState<EditSalonScreen> {
                             ),
                             const SizedBox(height: 12),
                             GlassCard(
+                              key: _basicInfoKey,
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -261,14 +386,17 @@ class _EditSalonScreenState extends ConsumerState<EditSalonScreen> {
                                   const SizedBox(height: 16),
                                   PremiumTextField(
                                     controller: _descriptionController,
+                                    focusNode: _descriptionFocus,
                                     label: 'Description',
                                     maxLines: 3,
                                   ),
                                   const SizedBox(height: 16),
                                   PremiumTextField(
                                     controller: _phoneController,
+                                    focusNode: _phoneFocus,
                                     label: 'Salon phone *',
                                     keyboardType: TextInputType.phone,
+                                    inputFormatters: phoneDigitInputFormatters,
                                   ),
                                 ],
                               ),
@@ -284,49 +412,11 @@ class _EditSalonScreenState extends ConsumerState<EditSalonScreen> {
                                         Theme.of(context).textTheme.titleSmall,
                                   ),
                                   const SizedBox(height: 16),
-                                  SalonAddressAutocompleteField(
-                                    onPlaceSelected: _onPlaceSelected,
-                                  ),
-                                  const SizedBox(height: 16),
-                                  PremiumTextField(
-                                    controller: _addressController,
-                                    label: 'Address *',
-                                    onChanged: (_) =>
-                                        _clearLocationOnManualEdit(),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  PremiumTextField(
-                                    controller: _cityController,
-                                    label: 'City *',
-                                    onChanged: (_) =>
-                                        _clearLocationOnManualEdit(),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  PremiumTextField(
-                                    controller: _stateController,
-                                    label: 'State *',
-                                    onChanged: (_) =>
-                                        _clearLocationOnManualEdit(),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  SalonLocationPicker(
-                                    addressController: _addressController,
-                                    cityController: _cityController,
-                                    stateController: _stateController,
-                                    latitude: _latitude,
-                                    longitude: _longitude,
-                                    locationLabel: _locationLabel,
-                                    onLocationSet: (lat, lng, label) =>
-                                        setState(() {
-                                      _latitude = lat;
-                                      _longitude = lng;
-                                      _locationLabel = label;
+                                  OwnerSalonLocationCard(
+                                    value: _location,
+                                    onChanged: (location) => setState(() {
+                                      _location = location;
                                       _error = null;
-                                    }),
-                                    onClear: () => setState(() {
-                                      _latitude = null;
-                                      _longitude = null;
-                                      _locationLabel = null;
                                     }),
                                   ),
                                 ],
@@ -334,6 +424,7 @@ class _EditSalonScreenState extends ConsumerState<EditSalonScreen> {
                             ),
                             const SizedBox(height: 12),
                             GlassCard(
+                              key: _hoursKey,
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -360,6 +451,102 @@ class _EditSalonScreenState extends ConsumerState<EditSalonScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
+                                    'Urgent booking',
+                                    style:
+                                        Theme.of(context).textTheme.titleSmall,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  platformPremiumAsync.when(
+                                    loading: () => Text(
+                                      'Loading platform default…',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            color: context.appColors.textMuted,
+                                          ),
+                                    ),
+                                    error: (_, __) => Text(
+                                      'Fee customers pay to book occupied slots urgently.',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            color: context.appColors.textSecondary,
+                                          ),
+                                    ),
+                                    data: (config) => Text(
+                                      config.enabled
+                                          ? 'Leave empty to use platform default '
+                                              '(₹${config.fee.toStringAsFixed(0)}). '
+                                              'Changes apply immediately.'
+                                          : 'Urgent bookings are disabled platform-wide.',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            color: context.appColors.textSecondary,
+                                          ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  PremiumTextField(
+                                    controller: _premiumFeeController,
+                                    label: 'Urgent booking fee (₹)',
+                                    keyboardType: TextInputType.number,
+                                    enabled: !_savingPremiumFee,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: OutlinedButton(
+                                          onPressed: _savingPremiumFee
+                                              ? null
+                                              : _resetPremiumFee,
+                                          child: const Text('Use default'),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: FilledButton(
+                                          onPressed: _savingPremiumFee
+                                              ? null
+                                              : _savePremiumFee,
+                                          child: _savingPremiumFee
+                                              ? const SizedBox(
+                                                  width: 18,
+                                                  height: 18,
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                    strokeWidth: 2,
+                                                  ),
+                                                )
+                                              : const Text('Save fee'),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  if (_premiumError != null) ...[
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      _premiumError!,
+                                      style: const TextStyle(
+                                        color: AppColors.error,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            GlassCard(
+                              key: _imagesKey,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
                                     'Images',
                                     style:
                                         Theme.of(context).textTheme.titleSmall,
@@ -376,6 +563,29 @@ class _EditSalonScreenState extends ConsumerState<EditSalonScreen> {
                                 ],
                               ),
                             ),
+                            if (_error != null) ...[
+                              const SizedBox(height: 12),
+                              GlassCard(
+                                shadowColor: AppColors.error,
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.error_outline_rounded,
+                                      color: AppColors.error,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        _error!,
+                                        style: const TextStyle(
+                                          color: AppColors.error,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -383,31 +593,13 @@ class _EditSalonScreenState extends ConsumerState<EditSalonScreen> {
                   },
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (_error != null) ...[
-                      Text(
-                        _error!,
-                        style: const TextStyle(color: AppColors.error),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-                    PremiumButton(
-                      label: 'Submit for approval',
-                      variant: PremiumButtonVariant.accent,
-                      loading: _loading,
-                      onPressed: _loading ? null : _submit,
-                    ),
-                  ],
-                ),
-              ),
             ],
           ),
         ),
+      bottomNavigationBar: ScreenActionBar(
+        label: 'Submit for approval',
+        loading: _loading,
+        onPressed: _loading ? null : _submit,
       ),
     );
   }

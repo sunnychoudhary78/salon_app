@@ -36,13 +36,23 @@ class RazorpayCheckout {
 
     razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, (PaymentSuccessResponse res) {
       if (!completer.isCompleted) {
-        completer.complete(
-          RazorpayCheckoutResult(
-            orderId: res.orderId ?? orderId,
-            paymentId: res.paymentId ?? '',
-            signature: res.signature ?? '',
-          ),
-        );
+        final paymentId = res.paymentId?.trim();
+        final signature = res.signature?.trim();
+        final resolvedOrderId = res.orderId?.trim() ?? orderId;
+        if (paymentId == null ||
+            paymentId.isEmpty ||
+            signature == null ||
+            signature.isEmpty) {
+          completer.completeError('Payment response was incomplete');
+        } else {
+          completer.complete(
+            RazorpayCheckoutResult(
+              orderId: resolvedOrderId,
+              paymentId: paymentId,
+              signature: signature,
+            ),
+          );
+        }
       }
       cleanup();
     });
@@ -74,6 +84,12 @@ class RazorpayCheckout {
       if (!completer.isCompleted) completer.completeError(error);
     }
 
-    return completer.future;
+    return completer.future.timeout(
+      const Duration(minutes: 10),
+      onTimeout: () {
+        cleanup();
+        throw TimeoutException('Payment timed out');
+      },
+    );
   }
 }

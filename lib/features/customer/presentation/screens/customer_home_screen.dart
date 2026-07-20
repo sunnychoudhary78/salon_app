@@ -9,9 +9,9 @@ import 'package:saloon_booking/core/location/selected_location.dart';
 import 'package:saloon_booking/core/location/selected_location_provider.dart';
 import 'package:saloon_booking/core/routing/route_paths.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
+import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/core/theme/app_decorations.dart';
 import 'package:saloon_booking/features/auth/presentation/providers/auth_provider.dart';
-import 'package:saloon_booking/features/customer/data/models/salon_model.dart';
 import 'package:saloon_booking/features/customer/data/providers/salon_browse_filters_provider.dart';
 import 'package:saloon_booking/features/customer/data/services/customer_service.dart';
 import 'package:saloon_booking/features/customer/presentation/widgets/home_search_header.dart';
@@ -32,18 +32,24 @@ class CustomerHomeScreen extends ConsumerStatefulWidget {
   ConsumerState<CustomerHomeScreen> createState() => _CustomerHomeScreenState();
 }
 
-class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
-  final _bannerController = PageController();
+class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
+    with AutomaticKeepAliveClientMixin {
+  static const _homeTabIndex = 0;
+
   final _homeScrollController = ScrollController();
   final _searchController = TextEditingController();
   Timer? _searchDebounce;
+  bool _wantKeepAlive = true;
+
+  @override
+  bool get wantKeepAlive => _wantKeepAlive;
 
   @override
   void initState() {
     super.initState();
     _homeScrollController.addListener(_loadMoreNearBottom);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(selectedLocationProvider.notifier).ensureInitialized();
+      ref.read(selectedLocationProvider.notifier).scheduleBackgroundGpsRefresh();
     });
   }
 
@@ -51,7 +57,6 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
   void dispose() {
     _searchDebounce?.cancel();
     _searchController.dispose();
-    _bannerController.dispose();
     _homeScrollController.dispose();
     super.dispose();
   }
@@ -73,13 +78,28 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final auth = ref.watch(authProvider).value;
-    final banners = ref.watch(bannersProvider);
-    final forYouSalons = ref.watch(forYouSalonsProvider);
-    final allSalons = ref.watch(paginatedSalonsProvider);
+    super.build(context);
+
+    final isHomeTabActive =
+        ref.watch(customerShellTabIndexProvider) == _homeTabIndex;
+    if (_wantKeepAlive != isHomeTabActive) {
+      _wantKeepAlive = isHomeTabActive;
+      updateKeepAlive();
+    }
+
+    final firstName = ref.watch(
+      authProvider.select(
+        (auth) => auth.value?.user.name.split(' ').first ?? 'there',
+      ),
+    );
+    final locationState = ref.watch(selectedLocationProvider);
     final browseFilters = ref.watch(salonBrowseFiltersProvider);
-    final firstName = auth?.user.name.split(' ').first ?? 'there';
     final isSearching = browseFilters.search.isNotEmpty;
+    final waitingForLocation =
+        locationState.isLoading && !locationState.location.isSet;
+    final allSalons = ref.watch(paginatedSalonsProvider);
+    final showSalonShimmer =
+        waitingForLocation || (allSalons.isLoading && !allSalons.hasValue);
 
     return Scaffold(
       appBar: PremiumAppBar(
@@ -89,13 +109,21 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
       ),
       body: RefreshIndicator(
         onRefresh: () async {
-          await ref.read(authProvider.notifier).refreshProfile();
-          ref.invalidate(bannersProvider);
-          ref.invalidate(forYouSalonsProvider);
-          ref.invalidate(paginatedSalonsProvider);
-          final selected = ref.read(selectedLocationProvider).location;
-          if (selected.source == LocationSource.gps) {
-            await ref.read(selectedLocationProvider.notifier).refreshGps();
+          try {
+            await ref.read(authProvider.notifier).refreshProfile();
+            ref.invalidate(bannersProvider);
+            ref.invalidate(forYouSalonsProvider);
+            await ref.read(paginatedSalonsProvider.notifier).reload();
+            final selected = ref.read(selectedLocationProvider).location;
+            if (selected.source == LocationSource.gps) {
+              await ref.read(selectedLocationProvider.notifier).refreshGps();
+            }
+          } catch (e) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Refresh failed: $e')),
+              );
+            }
           }
         },
         child: CustomScrollView(
@@ -114,15 +142,12 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
                       onFilterTap: () => showSalonFiltersSheet(context, ref),
                     ),
                   ),
-                  _CuratedBannersSection(
-                    banners: banners,
-                    controller: _bannerController,
-                  ),
+                  const _CuratedBannersSection(),
                   if (!isSearching) ...[
                     const SizedBox(height: 16),
-                    AnimatedEntrance(
+                    const AnimatedEntrance(
                       index: 1,
-                      child: _ForYouSalonRailSection(value: forYouSalons),
+                      child: _ForYouSalonRailSection(),
                     ),
                   ],
                   if (!isSearching) const SizedBox(height: 30),
@@ -132,16 +157,44 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
                       title: 'All salons',
                       subtitle: isSearching
                           ? "Results for '${browseFilters.search}'"
-                          : browseFilters.hasActiveFilters
-                              ? 'Filtered results near you'
-                              : 'Keep scrolling to discover more',
+                          : browseFilters.hasAvailableSlots
+                              ? 'Open slots today near you'
+                              : browseFilters.hasActiveFilters
+                                  ? 'Filtered results near you'
+                                  : 'Keep scrolling to discover more',
                     ),
                   ),
                   const SizedBox(height: 14),
                 ]),
               ),
             ),
-            allSalons.when(
+            showSalonShimmer
+                ? SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (_, index) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          ShimmerBox(
+                            width: double.infinity,
+                            height: 208,
+                            radius: 16,
+                          ),
+                          const SizedBox(height: 10),
+                          ShimmerBox(width: 180, height: 16, radius: 8),
+                          const SizedBox(height: 6),
+                          ShimmerBox(width: 120, height: 12, radius: 6),
+                        ],
+                      ),
+                    ),
+                    childCount: 3,
+                  ),
+                ),
+              )
+                : allSalons.when(
               loading: () => SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 sliver: SliverList(
@@ -173,12 +226,24 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
                   icon: Icons.error_outline,
                 ),
               ),
-              data: (state) => _AllSalonsFeedSliver(state: state, emptyMessage: browseFilters.hasSearchOrFilters
-                  ? 'No salons match your search or filters'
-                  : 'No salons available yet'),
+              data: (state) => _AllSalonsFeedSliver(
+                state: state,
+                emptyMessage: browseFilters.hasAvailableSlots
+                    ? 'No salons with open slots today near you — try widening distance or turning off the filter.'
+                    : browseFilters.hasSearchOrFilters
+                        ? 'No salons match your search or filters'
+                        : !locationState.location.isSet
+                            ? 'Set your location to see nearby salons'
+                            : 'No salons available yet',
+                showLocationPrompt: !locationState.location.isSet &&
+                    !locationState.isLoading,
+                onLocationTap: () => showLocationPickerSheet(context, ref),
+              ),
             ),
-            const SliverPadding(
-              padding: EdgeInsets.only(bottom: AppDecorations.shellBottomInset),
+            SliverPadding(
+              padding: EdgeInsets.only(
+                bottom: AppDecorations.scrollBottomPadding(context),
+              ),
             ),
           ],
         ),
@@ -187,19 +252,36 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
   }
 }
 
-class _CuratedBannersSection extends StatelessWidget {
-  const _CuratedBannersSection({
-    required this.banners,
-    required this.controller,
-  });
+class _CuratedBannersSection extends ConsumerStatefulWidget {
+  const _CuratedBannersSection();
 
-  final AsyncValue<List<BannerModel>> banners;
-  final PageController controller;
+  @override
+  ConsumerState<_CuratedBannersSection> createState() =>
+      _CuratedBannersSectionState();
+}
+
+class _CuratedBannersSectionState extends ConsumerState<_CuratedBannersSection> {
+  late final PageController _controller = PageController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final banners = ref.watch(bannersProvider);
+
     return banners.when(
-      loading: () => const SizedBox.shrink(),
+      loading: () => Padding(
+        padding: const EdgeInsets.only(top: 16),
+        child: ShimmerBox(
+          width: double.infinity,
+          height: 160,
+          radius: 16,
+        ),
+      ),
       error: (error, stackTrace) => const SizedBox.shrink(),
       data: (items) {
         if (items.isEmpty) {
@@ -224,7 +306,7 @@ class _CuratedBannersSection extends StatelessWidget {
                   SizedBox(
                     height: 190,
                     child: PageView.builder(
-                      controller: controller,
+                      controller: _controller,
                       itemCount: items.length,
                       itemBuilder: (_, i) {
                         final banner = items[i];
@@ -242,11 +324,11 @@ class _CuratedBannersSection extends StatelessWidget {
                                     imageUrl: banner.imageUrl!,
                                     fit: BoxFit.cover,
                                     errorWidget: (context, error, stackTrace) =>
-                                        _bannerFallback(),
+                                        _bannerFallback(context),
                                   ),
                                 )
                               else
-                                _bannerFallback(),
+                                _bannerFallback(context),
                               DecoratedBox(
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(16),
@@ -254,7 +336,7 @@ class _CuratedBannersSection extends StatelessWidget {
                                     begin: Alignment.bottomCenter,
                                     end: Alignment.topCenter,
                                     colors: [
-                                      AppColors.backgroundDark.withValues(
+                                      context.appColors.surface.withValues(
                                         alpha: 0.85,
                                       ),
                                       Colors.transparent,
@@ -279,10 +361,10 @@ class _CuratedBannersSection extends StatelessWidget {
                                         gradient: AppColors.accentGradient,
                                         borderRadius: BorderRadius.circular(6),
                                       ),
-                                      child: const Text(
+                                      child: Text(
                                         'OFFER',
                                         style: TextStyle(
-                                          color: AppColors.backgroundDark,
+                                          color: context.appColors.onAccent,
                                           fontSize: 10,
                                           fontWeight: FontWeight.w800,
                                           letterSpacing: 1,
@@ -296,7 +378,7 @@ class _CuratedBannersSection extends StatelessWidget {
                                           .textTheme
                                           .titleMedium
                                           ?.copyWith(
-                                            color: AppColors.textPrimary,
+                                            color: context.appColors.textPrimary,
                                           ),
                                     ),
                                   ],
@@ -312,7 +394,7 @@ class _CuratedBannersSection extends StatelessWidget {
                     const SizedBox(height: 12),
                     Center(
                       child: SmoothPageIndicator(
-                        controller: controller,
+                        controller: _controller,
                         count: items.length,
                         effect: ExpandingDotsEffect(
                           dotHeight: 6,
@@ -320,7 +402,7 @@ class _CuratedBannersSection extends StatelessWidget {
                           expansionFactor: 3,
                           spacing: 6,
                           activeDotColor: AppColors.accent,
-                          dotColor: AppColors.glassBorder.withValues(
+                          dotColor: context.appColors.glassBorder.withValues(
                             alpha: 0.8,
                           ),
                         ),
@@ -337,12 +419,12 @@ class _CuratedBannersSection extends StatelessWidget {
     );
   }
 
-  Widget _bannerFallback() => Container(
+  Widget _bannerFallback(BuildContext context) => Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
               AppColors.primary.withValues(alpha: 0.3),
-              AppColors.surface,
+              context.appColors.surface,
             ],
           ),
           borderRadius: BorderRadius.circular(16),
@@ -357,13 +439,13 @@ class _CuratedBannersSection extends StatelessWidget {
       );
 }
 
-class _ForYouSalonRailSection extends StatelessWidget {
-  const _ForYouSalonRailSection({required this.value});
-
-  final AsyncValue<List<SalonModel>> value;
+class _ForYouSalonRailSection extends ConsumerWidget {
+  const _ForYouSalonRailSection();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final value = ref.watch(forYouSalonsProvider);
+
     return value.when(
       loading: () => const SizedBox.shrink(),
       error: (_, __) => const SizedBox.shrink(),
@@ -379,28 +461,26 @@ class _ForYouSalonRailSection extends StatelessWidget {
               subtitle: 'Featured picks & deals near you',
             ),
             const SizedBox(height: 14),
-            SizedBox(
-              height: 248,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                clipBehavior: Clip.none,
-                padding: const EdgeInsets.symmetric(horizontal: 2),
-                itemCount: items.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 14),
-                itemBuilder: (context, i) {
-                  final salon = items[i];
-                  return SalonCard(
-                    salon: salon,
-                    cardWidth: 268,
-                    imageHeight: 180,
-                    showPromoChips: true,
-                    compactRating: true,
-                    alwaysShowSubtitle: true,
-                    onTap: () => context.push(
-                      '${RoutePaths.customerSalons}/${salon.id}',
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              clipBehavior: Clip.none,
+              padding: const EdgeInsets.symmetric(horizontal: 2),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (var i = 0; i < items.length; i++) ...[
+                    if (i > 0) const SizedBox(width: 14),
+                    SalonCard(
+                      salon: items[i],
+                      cardWidth: 268,
+                      autoPlayImages: false,
+                      showPromoChips: true,
+                      onTap: () => context.push(
+                        '${RoutePaths.customerSalons}/${items[i].id}',
+                      ),
                     ),
-                  );
-                },
+                  ],
+                ],
               ),
             ),
           ],
@@ -414,10 +494,14 @@ class _AllSalonsFeedSliver extends StatelessWidget {
   const _AllSalonsFeedSliver({
     required this.state,
     required this.emptyMessage,
+    this.showLocationPrompt = false,
+    this.onLocationTap,
   });
 
   final PaginatedSalonsState state;
   final String emptyMessage;
+  final bool showLocationPrompt;
+  final VoidCallback? onLocationTap;
 
   @override
   Widget build(BuildContext context) {
@@ -426,6 +510,8 @@ class _AllSalonsFeedSliver extends StatelessWidget {
         child: EmptyView(
           message: emptyMessage,
           icon: Icons.store_outlined,
+          action: showLocationPrompt ? onLocationTap : null,
+          actionLabel: showLocationPrompt ? 'Set location' : null,
         ),
       );
     }
@@ -448,6 +534,7 @@ class _AllSalonsFeedSliver extends StatelessWidget {
                     index: index + 3,
                     child: SalonCard(
                       salon: salon,
+                      autoPlayImages: false,
                       onTap: () => context.push(
                         '${RoutePaths.customerSalons}/${salon.id}',
                       ),
@@ -480,7 +567,7 @@ class _AllSalonsFeedSliver extends StatelessWidget {
               child: Text(
                 'You have reached the end',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textMuted,
+                      color: context.appColors.textMuted,
                     ),
               ),
             );

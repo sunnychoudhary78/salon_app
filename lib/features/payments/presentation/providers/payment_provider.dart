@@ -12,39 +12,97 @@ class PaymentActions extends AsyncNotifier<void> {
     ref.keepAlive();
   }
 
+  String _groupId(BookingModel booking) => booking.groupId ?? booking.id;
+
   Future<void> payOnline({
     required BookingModel booking,
-    required String paymentType,
+    required String checkoutKind,
   }) async {
     state = const AsyncLoading();
+    final groupId = _groupId(booking);
     final result = await AsyncValue.guard(() async {
-      final order = await ref
-          .read(paymentServiceProvider)
-          .createRazorpayOrder(bookingId: booking.id, paymentType: paymentType);
+      final order = await ref.read(paymentServiceProvider).createRazorpayOrder(
+            bookingGroupId: groupId,
+            checkoutKind: checkoutKind,
+          );
       final checkout = await RazorpayCheckout().open(
         payment: order,
         name: booking.salon?.salonName ?? 'CATCHY',
-        description: paymentType == 'PREMIUM_FEE'
-            ? 'Premium booking fee'
-            : booking.service?.serviceName ?? 'Salon service fee',
+        description: _descriptionForCheckout(checkoutKind, booking),
       );
-      await ref
-          .read(paymentServiceProvider)
-          .verifyRazorpayPayment(
-            orderId: checkout.orderId,
-            paymentId: checkout.paymentId,
-            signature: checkout.signature,
-          );
+      try {
+        await ref.read(paymentServiceProvider).verifyRazorpayPaymentWithRetry(
+              orderId: checkout.orderId,
+              paymentId: checkout.paymentId,
+              signature: checkout.signature,
+            );
+      } catch (error) {
+        final recovered = await _recoverIfWebhookApplied(
+          groupId: groupId,
+          checkoutKind: checkoutKind,
+        );
+        if (recovered) return;
+        rethrow;
+      }
     });
     state = result;
     ref.invalidate(myBookingsProvider);
     if (result.hasError) throw result.error!;
   }
 
-  Future<void> selectPayAtShop(String bookingId) async {
+  String _descriptionForCheckout(String checkoutKind, BookingModel booking) {
+    switch (checkoutKind) {
+      case 'PREMIUM_ONLY':
+        return 'Premium booking fee';
+      case 'COMBINED':
+        return 'Full booking payment';
+      default:
+        return booking.salon?.salonName ?? 'Salon visit payment';
+    }
+  }
+
+  Future<bool> _recoverIfWebhookApplied({
+    required String groupId,
+    required String checkoutKind,
+  }) async {
+    const attempts = [1, 2, 3];
+    for (final waitSeconds in attempts) {
+      await Future<void>.delayed(Duration(seconds: waitSeconds));
+      ref.invalidate(myBookingsProvider);
+      try {
+        final bookings = await ref.read(myBookingsProvider.future);
+        final group = bookings
+            .where((b) => (b.groupId ?? b.id) == groupId)
+            .toList();
+        if (group.isNotEmpty && _isCheckoutRecorded(group, checkoutKind)) {
+          return true;
+        }
+      } catch (_) {}
+    }
+    return false;
+  }
+
+  bool _isCheckoutRecorded(List<BookingModel> group, String checkoutKind) {
+    final rep = group.firstWhere(
+      (b) => b.isPremium,
+      orElse: () => group.first,
+    );
+    if (checkoutKind == 'PREMIUM_ONLY' || checkoutKind == 'COMBINED') {
+      if (rep.premiumPaymentStatus != 'PAID') return false;
+    }
+    if (checkoutKind == 'SALON_FEE' || checkoutKind == 'COMBINED') {
+      return rep.salonFeePayment?.isPaid == true ||
+          rep.salonFeePayment?.isPayAtShop == true;
+    }
+    return rep.premiumPaymentStatus == 'PAID';
+  }
+
+  Future<void> selectPayAtShop(BookingModel booking) async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(
-      () => ref.read(paymentServiceProvider).selectPayAtShop(bookingId),
+      () => ref.read(paymentServiceProvider).selectPayAtShop(
+            bookingGroupId: _groupId(booking),
+          ),
     );
     ref.invalidate(myBookingsProvider);
     if (state.hasError) throw state.error!;

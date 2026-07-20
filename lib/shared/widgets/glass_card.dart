@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:saloon_booking/core/theme/app_animations.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_decorations.dart';
+import 'package:saloon_booking/shared/widgets/tap_scale_wrapper.dart';
 
+/// Solid surface card (legacy name; glassmorphism retired in v2).
 class GlassCard extends StatelessWidget {
   const GlassCard({
     super.key,
@@ -9,9 +12,10 @@ class GlassCard extends StatelessWidget {
     this.padding = const EdgeInsets.all(16),
     this.margin,
     this.onTap,
-    this.radius = 16,
+    this.radius = AppColors.radiusCard,
     this.elevated = true,
     this.shadowColor,
+    this.animateOnMount = false,
   });
 
   final Widget child;
@@ -21,51 +25,36 @@ class GlassCard extends StatelessWidget {
   final double radius;
   final bool elevated;
   final Color? shadowColor;
+  final bool animateOnMount;
 
   @override
   Widget build(BuildContext context) {
-    final card = AppDecorations.blurLayer(
-      sigma: 20,
-      child: Container(
-        margin: margin,
-        decoration: AppDecorations.glass(
-          radius: radius,
-          elevated: elevated,
-          shadowColor: shadowColor,
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(radius),
-          child: Stack(
-            children: [
-              // Top-left shine highlight
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                height: 60,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: AppColors.glassShine,
-                  ),
-                ),
-              ),
-              Padding(padding: padding, child: child),
-            ],
-          ),
-        ),
+    Widget card = Container(
+      margin: margin,
+      decoration: AppDecorations.glass(
+        context,
+        radius: radius,
+        elevated: elevated,
+        shadowColor: shadowColor,
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(radius),
+        child: Padding(padding: padding, child: child),
       ),
     );
 
+    if (animateOnMount) {
+      card = card.appEntrance(
+        context: context,
+        style: EntranceStyle.scaleIn,
+      );
+    }
+
     if (onTap == null) return card;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(radius),
-        splashColor: AppColors.primary.withValues(alpha: 0.12),
-        highlightColor: AppColors.accent.withValues(alpha: 0.06),
-        child: card,
-      ),
+
+    return TapScaleWrapper(
+      onTap: onTap,
+      child: card,
     );
   }
 }

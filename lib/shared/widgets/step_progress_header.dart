@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
+import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 
 class StepProgressHeader extends StatelessWidget {
   const StepProgressHeader({
@@ -16,6 +17,8 @@ class StepProgressHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -34,12 +37,12 @@ class StepProgressHeader extends StatelessWidget {
         SmoothPageIndicator(
           controller: PageController(initialPage: currentStep),
           count: totalSteps,
-          effect: const ExpandingDotsEffect(
+          effect: ExpandingDotsEffect(
             dotHeight: 8,
             dotWidth: 8,
             expansionFactor: 3,
             activeDotColor: AppColors.accent,
-            dotColor: AppColors.glassBorder,
+            dotColor: colors.glassBorder,
           ),
           onDotClicked: (_) {},
         ),

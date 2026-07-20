@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:saloon_booking/core/theme/app_animations.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
+import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/shared/widgets/premium_button.dart';
 
 class EmptyState extends StatelessWidget {
@@ -22,6 +24,7 @@ class EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     final iconSize = compact ? 48.0 : 64.0;
     final padding = compact ? 24.0 : 32.0;
 
@@ -45,13 +48,13 @@ class EmptyState extends StatelessWidget {
               size: iconSize * 0.55,
               color: AppColors.accent.withValues(alpha: 0.9),
             ),
-          ),
+          ).appFloatLoop(context: context),
           SizedBox(height: compact ? 16 : 20),
           Text(
             title,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: AppColors.textPrimary,
+                  color: colors.textPrimary,
                   fontWeight: FontWeight.w600,
                 ),
           ),
@@ -61,7 +64,7 @@ class EmptyState extends StatelessWidget {
               subtitle!,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textMuted,
+                    color: colors.textMuted,
                   ),
             ),
           ],

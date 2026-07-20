@@ -26,7 +26,11 @@ class NotificationHistoryService {
     final response = await _dio.get(
       '${AppConfig.appPrefix}/notifications/unread-count',
     );
-    return (response.data as Map<String, dynamic>)['count'] as int? ?? 0;
+    final count = (response.data as Map<String, dynamic>)['count'];
+    if (count is int) return count;
+    if (count is num) return count.toInt();
+    if (count is String) return int.tryParse(count) ?? 0;
+    return 0;
   }
 
   Future<AppNotificationModel> markRead(String id) async {

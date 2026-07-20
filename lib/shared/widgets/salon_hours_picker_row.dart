@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
+import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/core/utils/salon_time_utils.dart';
 
 class SalonHoursPickerRow extends StatelessWidget {
@@ -87,8 +88,10 @@ class _TimePickerTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
+
     return Material(
-      color: AppColors.surface.withValues(alpha: 0.6),
+      color: colors.surface.withValues(alpha: 0.6),
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: onTap,
@@ -98,7 +101,7 @@ class _TimePickerTile extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: AppColors.glassBorder.withValues(alpha: 0.5),
+              color: colors.glassBorder.withValues(alpha: 0.5),
             ),
           ),
           child: Column(
@@ -107,7 +110,7 @@ class _TimePickerTile extends StatelessWidget {
               Text(
                 label,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: AppColors.textSecondary,
+                      color: colors.textSecondary,
                     ),
               ),
               const SizedBox(height: 6),

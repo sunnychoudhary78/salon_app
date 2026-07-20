@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:saloon_booking/core/ui/system_ui_scope.dart';
+import 'package:saloon_booking/core/routing/route_paths.dart';
 import 'package:saloon_booking/features/notifications/data/providers/notification_history_provider.dart';
+import 'package:saloon_booking/features/customer/data/services/customer_service.dart';
 import 'package:saloon_booking/shared/widgets/app_drawer.dart';
 import 'package:saloon_booking/shared/widgets/gradient_background.dart';
 import 'package:saloon_booking/shared/widgets/shell_navigation_scope.dart';
@@ -19,11 +22,17 @@ class CustomerShell extends ConsumerStatefulWidget {
 class _CustomerShellState extends ConsumerState<CustomerShell> {
   DateTime? _lastBackPress;
 
+  static const _homeIndex = 0;
+  static const _profileIndex = 1;
+  static const _bookingsIndex = 2;
+  static const _notificationsIndex = 3;
+
   void _onSelect(int index) {
     widget.navigationShell.goBranch(
       index,
       initialLocation: index == widget.navigationShell.currentIndex,
     );
+    ref.read(customerShellTabIndexProvider.notifier).select(index);
   }
 
   void _handleBack(BuildContext context) {
@@ -32,8 +41,8 @@ class _CustomerShellState extends ConsumerState<CustomerShell> {
       router.pop();
       return;
     }
-    if (widget.navigationShell.currentIndex != 0) {
-      widget.navigationShell.goBranch(0);
+    if (widget.navigationShell.currentIndex != _homeIndex) {
+      widget.navigationShell.goBranch(_homeIndex);
       return;
     }
     final now = DateTime.now();
@@ -51,38 +60,54 @@ class _CustomerShellState extends ConsumerState<CustomerShell> {
     SystemNavigator.pop();
   }
 
-  static const _items = [
-    DrawerNavItem(icon: Icons.home_rounded, label: 'Home', index: 0),
-    DrawerNavItem(icon: Icons.person_rounded, label: 'Profile', index: 1),
+  static const _drawerItems = [
+    DrawerNavItem(icon: Icons.home_rounded, label: 'Home', index: _homeIndex),
+    DrawerNavItem(
+      icon: Icons.person_rounded,
+      label: 'Profile',
+      index: _profileIndex,
+    ),
     DrawerNavItem(
       icon: Icons.calendar_month_rounded,
       label: 'Bookings',
-      index: 2,
+      index: _bookingsIndex,
     ),
     DrawerNavItem(
       icon: Icons.notifications_rounded,
       label: 'Notifications',
-      index: 3,
+      index: _notificationsIndex,
+    ),
+    DrawerNavItem(
+      icon: Icons.settings_rounded,
+      label: 'Settings',
+      route: RoutePaths.customerSettings,
     ),
   ];
-
-  static const _notificationsIndex = 3;
 
   @override
   Widget build(BuildContext context) {
     final unreadCount = ref.watch(unreadCountProvider).value ?? 0;
+    final currentIndex = widget.navigationShell.currentIndex;
 
-    return PopScope(
+    final publishedTab = ref.read(customerShellTabIndexProvider);
+    if (publishedTab != currentIndex) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ref.read(customerShellTabIndexProvider.notifier).select(currentIndex);
+      });
+    }
+
+    return SystemUiScope(
+      child: PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
         _handleBack(context);
       },
       child: Scaffold(
-        extendBodyBehindAppBar: true,
         drawer: AppDrawer(
-          items: _items,
-          selectedIndex: widget.navigationShell.currentIndex,
+          items: _drawerItems,
+          selectedIndex: currentIndex,
           onSelect: _onSelect,
           headerSubtitle: 'Customer',
           badgeCounts: unreadCount > 0
@@ -98,6 +123,7 @@ class _CustomerShellState extends ConsumerState<CustomerShell> {
           ),
         ),
       ),
+    ),
     );
   }
 }

@@ -1,13 +1,16 @@
 import 'dart:async';
-import 'dart:math';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:saloon_booking/core/lifecycle/carousel_autoplay_lease.dart';
+import 'package:saloon_booking/core/lifecycle/user_activity_provider.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
+import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/core/utils/image_url_utils.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
-class SalonCardImageCarousel extends StatefulWidget {
+class SalonCardImageCarousel extends ConsumerStatefulWidget {
   const SalonCardImageCarousel({
     super.key,
     required this.images,
@@ -30,16 +33,18 @@ class SalonCardImageCarousel extends StatefulWidget {
   final int? memCacheHeight;
 
   @override
-  State<SalonCardImageCarousel> createState() => _SalonCardImageCarouselState();
+  ConsumerState<SalonCardImageCarousel> createState() =>
+      _SalonCardImageCarouselState();
 }
 
-class _SalonCardImageCarouselState extends State<SalonCardImageCarousel> {
+class _SalonCardImageCarouselState
+    extends ConsumerState<SalonCardImageCarousel> {
   static const _transitionDuration = Duration(milliseconds: 500);
-  static final _random = Random();
 
   Timer? _timer;
   int _currentIndex = 0;
   bool _isVisible = false;
+  bool _hasLease = false;
 
   @override
   void initState() {
@@ -52,6 +57,7 @@ class _SalonCardImageCarouselState extends State<SalonCardImageCarousel> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.images != widget.images ||
         oldWidget.autoPlay != widget.autoPlay) {
+      _releaseLease();
       _stopAutoplay();
       _currentIndex = 0;
       _scheduleAutoplay();
@@ -64,21 +70,44 @@ class _SalonCardImageCarouselState extends State<SalonCardImageCarousel> {
     if (visible) {
       _scheduleAutoplay();
     } else {
+      _releaseLease();
       _stopAutoplay();
     }
   }
 
-  Duration _randomInterval() {
-    final seconds = 2.5 + _random.nextDouble() * 2.5;
-    return Duration(milliseconds: (seconds * 1000).round());
+  bool get _shouldAutoplay =>
+      _isVisible &&
+      widget.autoPlay &&
+      widget.images.length > 1 &&
+      !ref.read(userIdleProvider) &&
+      _hasLease;
+
+  void _releaseLease() {
+    if (!_hasLease) return;
+    ref.read(carouselAutoplayLeaseProvider.notifier).release(widget.salonId);
+    _hasLease = false;
+  }
+
+  bool _tryAcquireLease() {
+    if (!widget.autoPlay || widget.images.length <= 1) return false;
+    final acquired = ref
+        .read(carouselAutoplayLeaseProvider.notifier)
+        .tryAcquire(widget.salonId);
+    _hasLease = acquired;
+    return acquired;
   }
 
   void _scheduleAutoplay() {
     _stopAutoplay();
     if (!_isVisible || !widget.autoPlay || widget.images.length <= 1) return;
+    if (!ref.read(userIdleProvider)) {
+      if (!_hasLease && !_tryAcquireLease()) return;
+    }
 
-    _timer = Timer(_randomInterval(), () {
-      if (!mounted || !_isVisible) return;
+    if (!_shouldAutoplay) return;
+
+    _timer = Timer(const Duration(seconds: 4), () {
+      if (!mounted || !_shouldAutoplay) return;
       setState(() {
         _currentIndex = (_currentIndex + 1) % widget.images.length;
       });
@@ -91,25 +120,62 @@ class _SalonCardImageCarouselState extends State<SalonCardImageCarousel> {
     _timer = null;
   }
 
+  void _showImage(int index) {
+    setState(() {
+      _currentIndex = index % widget.images.length;
+    });
+    if (widget.autoPlay && _isVisible) {
+      _scheduleAutoplay();
+    }
+  }
+
+  void _showNext() {
+    _showImage(_currentIndex + 1);
+  }
+
+  void _showPrevious() {
+    _showImage(_currentIndex - 1 + widget.images.length);
+  }
+
   @override
   void dispose() {
+    _releaseLease();
     _stopAutoplay();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(userIdleProvider, (previous, next) {
+      if (next) {
+        _releaseLease();
+        _stopAutoplay();
+      } else if (_isVisible) {
+        _scheduleAutoplay();
+      }
+    });
+
+    ref.listen(carouselAutoplayLeaseProvider, (previous, next) {
+      if (next != widget.salonId && _hasLease) {
+        _hasLease = false;
+        _stopAutoplay();
+      } else if (next == widget.salonId && _isVisible) {
+        _hasLease = true;
+        _scheduleAutoplay();
+      }
+    });
+
     final images = widget.images;
     final radius = widget.borderRadius ?? BorderRadius.zero;
 
     if (images.isEmpty) {
       return ClipRRect(
         borderRadius: radius,
-        child: widget.placeholder ?? _defaultPlaceholder(),
+        child: widget.placeholder ?? _defaultPlaceholder(context),
       );
     }
 
-    if (images.length == 1 || !widget.autoPlay) {
+    if (images.length == 1) {
       return ClipRRect(
         borderRadius: radius,
         child: _networkImage(images.first),
@@ -123,27 +189,39 @@ class _SalonCardImageCarouselState extends State<SalonCardImageCarousel> {
       },
       child: ClipRRect(
         borderRadius: radius,
-        child: SizedBox(
-          height: widget.height,
-          width: double.infinity,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              AnimatedSwitcher(
-                duration: _transitionDuration,
-                switchInCurve: Curves.easeIn,
-                switchOutCurve: Curves.easeOut,
-                child: _networkImage(
-                  images[_currentIndex],
-                  key: ValueKey(_currentIndex),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onHorizontalDragEnd: (details) {
+            final velocity = details.primaryVelocity ?? 0;
+            if (velocity.abs() < 100) return;
+            if (velocity < 0) {
+              _showNext();
+            } else {
+              _showPrevious();
+            }
+          },
+          child: SizedBox(
+            height: widget.height,
+            width: double.infinity,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                AnimatedSwitcher(
+                  duration: _transitionDuration,
+                  switchInCurve: Curves.easeIn,
+                  switchOutCurve: Curves.easeOut,
+                  child: _networkImage(
+                    images[_currentIndex],
+                    key: ValueKey(_currentIndex),
+                  ),
                 ),
-              ),
-              const _BottomGradientOverlay(),
-              _DotIndicator(
-                count: images.length,
-                currentIndex: _currentIndex,
-              ),
-            ],
+                const _BottomGradientOverlay(),
+                _DotIndicator(
+                  count: images.length,
+                  currentIndex: _currentIndex,
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -163,7 +241,7 @@ class _SalonCardImageCarouselState extends State<SalonCardImageCarousel> {
         final loading = Container(
           height: widget.height,
           width: double.infinity,
-          color: AppColors.surface,
+          color: context.appColors.surface,
           alignment: Alignment.center,
           child: SizedBox(
             width: 22,
@@ -177,28 +255,32 @@ class _SalonCardImageCarouselState extends State<SalonCardImageCarousel> {
         return widget.placeholder ?? loading;
       },
       errorWidget: (context, error, stackTrace) =>
-          widget.placeholder ?? _defaultPlaceholder(),
+          widget.placeholder ?? _defaultPlaceholder(context),
     );
   }
 
-  Widget _defaultPlaceholder({bool showIcon = true}) => Container(
-        height: widget.height,
-        width: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [AppColors.surface, AppColors.surfaceElevated],
-          ),
+  Widget _defaultPlaceholder(BuildContext context, {bool showIcon = true}) {
+    final colors = context.appColors;
+
+    return Container(
+      height: widget.height,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [colors.surface, colors.surfaceElevated],
         ),
-        child: showIcon
-            ? const Center(
-                child: Icon(
-                  Icons.storefront_rounded,
-                  size: 36,
-                  color: AppColors.accent,
-                ),
-              )
-            : null,
-      );
+      ),
+      child: showIcon
+          ? Center(
+              child: Icon(
+                Icons.storefront_rounded,
+                size: 36,
+                color: AppColors.accent,
+              ),
+            )
+          : null,
+    );
+  }
 }
 
 class _BottomGradientOverlay extends StatelessWidget {
@@ -216,10 +298,7 @@ class _BottomGradientOverlay extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              Colors.transparent,
-              Colors.black.withValues(alpha: 0.35),
-            ],
+            colors: [Colors.transparent, Colors.black.withValues(alpha: 0.35)],
           ),
         ),
       ),
@@ -228,10 +307,7 @@ class _BottomGradientOverlay extends StatelessWidget {
 }
 
 class _DotIndicator extends StatelessWidget {
-  const _DotIndicator({
-    required this.count,
-    required this.currentIndex,
-  });
+  const _DotIndicator({required this.count, required this.currentIndex});
 
   final int count;
   final int currentIndex;

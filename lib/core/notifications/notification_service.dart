@@ -3,18 +3,23 @@ import 'dart:io';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:saloon_booking/core/crash/crash_reporting.dart';
 import 'package:saloon_booking/core/notifications/device_token_service.dart';
 import 'package:saloon_booking/core/notifications/local_notification_service.dart';
 import 'package:saloon_booking/core/notifications/notification_payload.dart';
 import 'package:saloon_booking/core/notifications/notification_router.dart';
+import 'package:saloon_booking/core/notifications/notification_types.dart';
 import 'package:saloon_booking/features/onboarding/data/onboarding_repository.dart';
 import 'package:saloon_booking/features/notifications/data/providers/notification_history_provider.dart';
+import 'package:saloon_booking/features/customer/data/services/customer_service.dart';
+import 'package:saloon_booking/features/owner/data/services/owner_service.dart';
 
 const _registeredTokenKey = 'fcm_registered_token';
 
-class NotificationService {
+class NotificationService with WidgetsBindingObserver {
   NotificationService(
     this._deviceTokenService,
     this._localNotifications,
@@ -33,13 +38,28 @@ class NotificationService {
   StreamSubscription<RemoteMessage>? _openedAppSub;
   bool _initialized = false;
   bool _sessionRegistered = false;
+  bool _authRequested = false;
+  bool _observerAdded = false;
   String? _currentToken;
+
+  // Coalesce bursts of notifications into a single round of provider
+  // invalidations so the UI thread is not flooded when several messages arrive
+  // in quick succession.
+  Timer? _refreshDebounce;
+  bool _pendingNotificationList = false;
+  bool _pendingMyBookings = false;
+  bool _pendingOwnerBookings = false;
 
   bool get isAndroid => !kIsWeb && Platform.isAndroid;
 
   Future<void> initialize() async {
     if (!isAndroid || _initialized) return;
     _initialized = true;
+
+    if (!_observerAdded) {
+      WidgetsBinding.instance.addObserver(this);
+      _observerAdded = true;
+    }
 
     await _localNotifications.initialize(onTap: _router.navigate);
 
@@ -49,23 +69,44 @@ class NotificationService {
     final initial = await _messaging.getInitialMessage();
     if (initial != null) {
       _onOpenedApp(initial);
+    } else {
+      final launchPayload = await _localNotifications.getLaunchPayload();
+      if (launchPayload != null) {
+        _router.navigate(launchPayload);
+        _read.invalidate(unreadCountProvider);
+        _read.invalidate(notificationsProvider);
+        _refreshBookingData(launchPayload);
+      }
     }
 
     _tokenRefreshSub = _messaging.onTokenRefresh.listen(_onTokenRefresh);
   }
 
-  Future<void> onAuthenticated() async {
-    if (!isAndroid || _sessionRegistered) return;
+  Future<bool> onAuthenticated() async {
+    if (!isAndroid) return false;
+    _authRequested = true;
+    if (_sessionRegistered) return true;
     await initialize();
 
     final granted = await _requestPermission();
-    if (!granted) return;
+    if (!granted) return false;
 
     final token = await _messaging.getToken();
-    if (token == null || token.isEmpty) return;
+    if (token == null || token.isEmpty) return false;
 
-    await _registerToken(token);
-    _sessionRegistered = true;
+    final registered = await _registerToken(token);
+    _sessionRegistered = registered;
+    return registered;
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    // Recover from an earlier failure (e.g. user just granted notification
+    // permission from system settings and returned to the app).
+    if (_authRequested && !_sessionRegistered) {
+      unawaited(onAuthenticated());
+    }
   }
 
   Future<bool> _requestPermission() async {
@@ -88,31 +129,107 @@ class NotificationService {
     return true;
   }
 
-  Future<void> _registerToken(String token) async {
+  Future<bool> _registerToken(String token) async {
     try {
       await _deviceTokenService.register(token);
       _currentToken = token;
       final prefs = await _read.read(sharedPreferencesProvider.future);
       await prefs.setString(_registeredTokenKey, token);
-    } catch (_) {}
+      return true;
+    } catch (e) {
+      debugPrint('[notifications] device token registration failed: $e');
+      return false;
+    }
   }
 
   Future<void> _onTokenRefresh(String token) async {
-    await _registerToken(token);
+    final registered = await _registerToken(token);
+    if (registered) _sessionRegistered = true;
   }
 
   void _onForegroundMessage(RemoteMessage message) {
+    CrashReporting.breadcrumb('fcm_foreground');
     final payload = NotificationPayload.fromRemoteMessage(message);
-    if (payload.title == null && payload.body == null) return;
+    if (!payload.hasDisplayContent) return;
     unawaited(_localNotifications.show(payload));
-    _read.invalidate(unreadCountProvider);
-    _read.invalidate(notificationsProvider);
+    _scheduleRefresh(payload);
   }
 
   void _onOpenedApp(RemoteMessage message) {
-    _router.navigate(NotificationPayload.fromRemoteMessage(message));
+    final payload = NotificationPayload.fromRemoteMessage(message);
+    _router.navigate(payload);
+    // Opening from a notification is a single, user-initiated event (no burst),
+    // so refresh immediately.
     _read.invalidate(unreadCountProvider);
     _read.invalidate(notificationsProvider);
+    _refreshBookingData(payload);
+  }
+
+  /// Records which providers need refreshing and (re)starts a short debounce so
+  /// multiple messages collapse into one invalidation pass.
+  void _scheduleRefresh(NotificationPayload payload) {
+    _pendingNotificationList = true;
+    if (_isBookingRelated(payload.type)) {
+      if (payload.userRole == NotificationUserRoles.salonOwner) {
+        _pendingOwnerBookings = true;
+      } else {
+        _pendingMyBookings = true;
+      }
+    }
+    _refreshDebounce?.cancel();
+    _refreshDebounce = Timer(
+      const Duration(milliseconds: 500),
+      _flushPendingRefresh,
+    );
+  }
+
+  void _flushPendingRefresh() {
+    // The unread badge is cheap and always relevant.
+    _read.invalidate(unreadCountProvider);
+
+    // Only refetch the (paginated) notifications list when the user is actually
+    // viewing it; otherwise the badge is enough.
+    if (_pendingNotificationList &&
+        _read.read(notificationsScreenActiveProvider)) {
+      _read.invalidate(notificationsProvider);
+    }
+    if (_pendingOwnerBookings) {
+      _read.invalidate(ownerBookingsProvider);
+      _read.invalidate(ownerAllBookingsProvider);
+      _read.invalidate(ownerDashboardProvider);
+    }
+    if (_pendingMyBookings) {
+      _read.invalidate(myBookingsProvider);
+      // A booking change can free/occupy a slot, so refresh slot availability.
+      _read.invalidate(salonSlotsProvider);
+    }
+
+    _pendingNotificationList = false;
+    _pendingMyBookings = false;
+    _pendingOwnerBookings = false;
+  }
+
+  void _refreshBookingData(NotificationPayload payload) {
+    if (!_isBookingRelated(payload.type)) return;
+    if (payload.userRole == NotificationUserRoles.salonOwner) {
+      _read.invalidate(ownerBookingsProvider);
+      _read.invalidate(ownerAllBookingsProvider);
+      _read.invalidate(ownerDashboardProvider);
+    } else {
+      _read.invalidate(myBookingsProvider);
+      _read.invalidate(salonSlotsProvider);
+    }
+  }
+
+  bool _isBookingRelated(String type) {
+    return type == NotificationTypes.newBooking ||
+        type == NotificationTypes.bookingConfirmed ||
+        type == NotificationTypes.bookingRejected ||
+        type == NotificationTypes.bookingCompleted ||
+        type == NotificationTypes.bookingCancelled ||
+        type == NotificationTypes.appointmentReminder ||
+        type == NotificationTypes.paymentSuccessful ||
+        type == NotificationTypes.paymentReceived;
   }
 
   Future<void> unregisterCurrentDevice() async {
@@ -134,11 +251,17 @@ class NotificationService {
 
     _currentToken = null;
     _sessionRegistered = false;
+    _authRequested = false;
     final prefs = await _read.read(sharedPreferencesProvider.future);
     await prefs.remove(_registeredTokenKey);
   }
 
   Future<void> dispose() async {
+    if (_observerAdded) {
+      WidgetsBinding.instance.removeObserver(this);
+      _observerAdded = false;
+    }
+    _refreshDebounce?.cancel();
     await _tokenRefreshSub?.cancel();
     await _foregroundSub?.cancel();
     await _openedAppSub?.cancel();

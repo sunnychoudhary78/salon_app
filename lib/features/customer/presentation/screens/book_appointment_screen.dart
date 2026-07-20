@@ -3,39 +3,53 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:saloon_booking/core/crash/crash_reporting.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
+import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/core/network/dio_client.dart';
 import 'package:saloon_booking/core/routing/navigation_utils.dart';
 import 'package:saloon_booking/core/routing/route_paths.dart';
 import 'package:saloon_booking/features/customer/data/models/salon_model.dart';
 import 'package:saloon_booking/features/customer/data/services/customer_service.dart';
+import 'package:saloon_booking/shared/widgets/animated_entrance.dart';
 import 'package:saloon_booking/shared/widgets/async_value_widget.dart';
 import 'package:saloon_booking/shared/widgets/glass_card.dart';
 import 'package:saloon_booking/shared/widgets/premium_app_bar.dart';
 import 'package:saloon_booking/shared/widgets/premium_button.dart';
 import 'package:saloon_booking/shared/widgets/premium_text_field.dart';
+import 'package:saloon_booking/shared/widgets/glass_bottom_sheet.dart';
+import 'package:saloon_booking/shared/widgets/horizontal_date_strip.dart';
 import 'package:saloon_booking/shared/widgets/screen_action_bar.dart';
 import 'package:saloon_booking/shared/widgets/section_header.dart';
 import 'package:saloon_booking/shared/widgets/service_tile.dart';
 import 'package:saloon_booking/shared/widgets/slot_picker_grid.dart';
+import 'package:saloon_booking/shared/widgets/staff_avatar.dart';
+import 'package:saloon_booking/shared/widgets/step_progress_header.dart';
+import 'package:saloon_booking/shared/widgets/salon_rating_badge.dart';
 
 class BookAppointmentScreen extends ConsumerStatefulWidget {
   const BookAppointmentScreen({
     super.key,
     required this.salonId,
     this.initialServiceIds = const {},
+    this.initialStaffId,
   });
 
   final String salonId;
   final Set<String> initialServiceIds;
+  /// Preferred staff prefilled from salon detail (optional).
+  final String? initialStaffId;
 
   @override
   ConsumerState<BookAppointmentScreen> createState() =>
       _BookAppointmentScreenState();
 }
 
-class _BookAppointmentScreenState extends ConsumerState<BookAppointmentScreen> {
+class _BookAppointmentScreenState extends ConsumerState<BookAppointmentScreen>
+    with WidgetsBindingObserver {
   final Set<String> _selectedServiceIds = {};
+  /// null means "Any staff". Only sent when a specific member is chosen.
+  String? _preferredStaffId;
   DateTime? _selectedDate;
   SalonSlotModel? _selectedSlot;
   final _notesController = TextEditingController();
@@ -45,21 +59,69 @@ class _BookAppointmentScreenState extends ConsumerState<BookAppointmentScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _selectedDate = DateTime.now();
     if (widget.initialServiceIds.isNotEmpty) {
       _selectedServiceIds.addAll(widget.initialServiceIds);
+    }
+    final staffId = widget.initialStaffId;
+    if (staffId != null && staffId.isNotEmpty) {
+      _preferredStaffId = staffId;
     }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _notesController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Slot availability can change while the user is away (e.g. the salon
+    // accepts/rejects another request), so refetch when returning.
+    if (state == AppLifecycleState.resumed && mounted && _dateStr != null) {
+      _refreshSlots();
+    }
+  }
+
+  void _refreshSlots() {
+    if (_dateStr == null) return;
+    ref.invalidate(
+      salonSlotsProvider((salonId: widget.salonId, date: _dateStr!)),
+    );
   }
 
   String? get _dateStr => _selectedDate != null
       ? DateFormat('yyyy-MM-dd').format(_selectedDate!)
       : null;
+
+  void _selectDate(DateTime date) {
+    setState(() {
+      _selectedDate = date;
+      _selectedSlot = null;
+    });
+  }
+
+  int _currentBookingStep({required bool hasStaff}) {
+    if (_selectedServiceIds.isEmpty) return 0;
+    if (_selectedSlot != null) return hasStaff ? 3 : 2;
+    return hasStaff ? 2 : 1;
+  }
+
+  List<String> _stepTitles({required bool hasStaff}) => hasStaff
+      ? const [
+          'Choose services',
+          'Preferred staff',
+          'Pick date & time',
+          'Add notes',
+        ]
+      : const [
+          'Choose services',
+          'Pick date & time',
+          'Add notes',
+        ];
 
   Future<void> _pickDate() async {
     final date = await showDatePicker(
@@ -69,10 +131,7 @@ class _BookAppointmentScreenState extends ConsumerState<BookAppointmentScreen> {
       initialDate: _selectedDate ?? DateTime.now(),
     );
     if (date != null) {
-      setState(() {
-        _selectedDate = date;
-        _selectedSlot = null;
-      });
+      _selectDate(date);
     }
   }
 
@@ -124,6 +183,7 @@ class _BookAppointmentScreenState extends ConsumerState<BookAppointmentScreen> {
       _error = null;
     });
     try {
+      CrashReporting.breadcrumb('booking_submit');
       final count = _selectedServiceIds.length;
       await ref
           .read(bookingActionsProvider.notifier)
@@ -135,6 +195,7 @@ class _BookAppointmentScreenState extends ConsumerState<BookAppointmentScreen> {
             notes: _notesController.text.trim().isEmpty
                 ? null
                 : _notesController.text.trim(),
+            staffId: _preferredStaffId,
             isPremium: isPremium,
           );
       if (!mounted) return;
@@ -150,6 +211,9 @@ class _BookAppointmentScreenState extends ConsumerState<BookAppointmentScreen> {
       );
     } on DioException catch (e) {
       setState(() => _error = e.apiException.message);
+      // The request may have failed because slot availability changed; refresh
+      // so the grid reflects the current server state.
+      _refreshSlots();
     } catch (e) {
       setState(() => _error = e.toString());
     } finally {
@@ -176,11 +240,15 @@ class _BookAppointmentScreenState extends ConsumerState<BookAppointmentScreen> {
     }
 
     final serviceCount = _selectedServiceIds.length;
-    final confirmed = await showModalBottomSheet<bool>(
+    final confirmed = await showGlassBottomSheet<bool>(
       context: context,
-      showDragHandle: true,
       builder: (ctx) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+        padding: EdgeInsets.fromLTRB(
+          20,
+          8,
+          20,
+          28 + MediaQuery.paddingOf(ctx).bottom,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -249,6 +317,18 @@ class _BookAppointmentScreenState extends ConsumerState<BookAppointmentScreen> {
               );
             }
 
+            // Drop prefills that no longer match ACTIVE staff on this salon.
+            if (_preferredStaffId != null &&
+                !salon.staff.any((m) => m.id == _preferredStaffId)) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) setState(() => _preferredStaffId = null);
+              });
+            }
+
+            final hasStaff = salon.staff.isNotEmpty;
+            final stepTitles = _stepTitles(hasStaff: hasStaff);
+            final currentStep = _currentBookingStep(hasStaff: hasStaff);
+
             return Column(
               children: [
                 if (_selectedServiceIds.isNotEmpty)
@@ -279,12 +359,25 @@ class _BookAppointmentScreenState extends ConsumerState<BookAppointmentScreen> {
                   child: ListView(
                     padding: const EdgeInsets.all(16),
                     children: [
-                      const SectionHeader(
-                        title: '1. Choose services',
-                        subtitle: 'Select one or more for the same time slot',
+                      AnimatedEntrance(
+                        index: 0,
+                        child: StepProgressHeader(
+                          currentStep: currentStep,
+                          totalSteps: stepTitles.length,
+                          titles: stepTitles,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Select one or more for the same time slot',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: context.appColors.textMuted,
+                            ),
                       ),
                       const SizedBox(height: 12),
-                      GlassCard(
+                      AnimatedEntrance(
+                        index: 1,
+                        child: GlassCard(
                         child: Column(
                           children: salon.services
                               .map(
@@ -298,53 +391,84 @@ class _BookAppointmentScreenState extends ConsumerState<BookAppointmentScreen> {
                               .toList(),
                         ),
                       ),
-                      const SizedBox(height: 24),
-                      const SectionHeader(
-                        title: '2. Pick date & time',
-                        subtitle: 'Choose when you would like to visit',
                       ),
-                      const SizedBox(height: 12),
-                      GlassCard(
-                        onTap: _pickDate,
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.calendar_today_rounded,
-                              color: AppColors.accent,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Date',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .labelMedium
-                                        ?.copyWith(color: AppColors.textMuted),
+                      if (hasStaff) ...[
+                        const SizedBox(height: 24),
+                        const AnimatedEntrance(
+                          index: 2,
+                          child: SectionHeader(
+                            title: 'Preferred staff',
+                            subtitle: 'Optional — pick anyone or leave as Any',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        AnimatedEntrance(
+                          index: 3,
+                          child: SizedBox(
+                            height: 148,
+                            child: ListView(
+                              scrollDirection: Axis.horizontal,
+                              children: [
+                                _StaffPreferenceTile(
+                                  label: 'Any staff',
+                                  selected: _preferredStaffId == null,
+                                  onTap: () => setState(
+                                    () => _preferredStaffId = null,
                                   ),
-                                  Text(
-                                    _selectedDate != null
-                                        ? DateFormat.yMMMd()
-                                            .format(_selectedDate!)
-                                        : 'Pick a date',
+                                ),
+                                ...salon.staff.map(
+                                  (member) => Padding(
+                                    padding: const EdgeInsets.only(left: 10),
+                                    child: _StaffPreferenceTile(
+                                      label: member.name,
+                                      imageUrl: member.profileImage,
+                                      rating: member.averageRating,
+                                      reviewCount: member.reviewCount,
+                                      selected: _preferredStaffId == member.id,
+                                      onTap: () => setState(
+                                        () => _preferredStaffId = member.id,
+                                      ),
+                                    ),
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
-                            const Icon(
-                              Icons.chevron_right_rounded,
-                              color: AppColors.textMuted,
-                            ),
-                          ],
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 24),
+                      AnimatedEntrance(
+                        index: 4,
+                        child: const SectionHeader(
+                          title: 'Date & time',
+                          subtitle: 'Choose when you would like to visit',
                         ),
                       ),
+                      const SizedBox(height: 12),
+                      AnimatedEntrance(
+                        index: 3,
+                        child: HorizontalDateStrip(
+                          selectedDate: _selectedDate,
+                          onDateSelected: _selectDate,
+                          onMoreDates: _pickDate,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      if (_selectedDate != null)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Text(
+                            DateFormat.yMMMEd().format(_selectedDate!),
+                            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                                  color: AppColors.accent,
+                                ),
+                          ),
+                        ),
                       const SizedBox(height: 12),
                       Text(
                         'Hours: ${salon.openingTime!.substring(0, 5)} – ${salon.closingTime!.substring(0, 5)}',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: AppColors.textMuted,
+                              color: context.appColors.textMuted,
                             ),
                       ),
                       const SizedBox(height: 8),
@@ -399,7 +523,7 @@ class _BookAppointmentScreenState extends ConsumerState<BookAppointmentScreen> {
                                       style: Theme.of(context)
                                           .textTheme
                                           .bodySmall
-                                          ?.copyWith(color: AppColors.textMuted),
+                                          ?.copyWith(color: context.appColors.textMuted),
                                     ),
                                   ),
                                 SlotPickerGrid(
@@ -440,7 +564,7 @@ class _BookAppointmentScreenState extends ConsumerState<BookAppointmentScreen> {
                         ),
                       const SizedBox(height: 24),
                       const SectionHeader(
-                        title: '3. Add notes',
+                        title: 'Notes',
                         subtitle: 'Optional — special requests for the salon',
                       ),
                       const SizedBox(height: 12),
@@ -476,9 +600,12 @@ class _BookAppointmentScreenState extends ConsumerState<BookAppointmentScreen> {
                   : 'Send request ($count service${count > 1 ? 's' : ''})',
               icon: Icons.send_rounded,
               loading: _loading,
-              onPressed: _loading ||
-                      _selectedSlot?.status != 'available' ||
-                      _selectedServiceIds.isEmpty
+              // Only require the basics here; the server (`assertSlotBookable`)
+              // is the source of truth for slot availability, and any conflict
+              // is surfaced via `_error`. This avoids a stale cached slot status
+              // silently locking the button.
+              onPressed:
+                  _loading || _selectedSlot == null || _selectedServiceIds.isEmpty
                   ? null
                   : () => _submit(isPremium: false),
             );
@@ -509,6 +636,81 @@ class _LegendDot extends StatelessWidget {
         const SizedBox(width: 4),
         Text(label, style: Theme.of(context).textTheme.labelSmall),
       ],
+    );
+  }
+}
+
+class _StaffPreferenceTile extends StatelessWidget {
+  const _StaffPreferenceTile({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.imageUrl,
+    this.rating,
+    this.reviewCount = 0,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  final String? imageUrl;
+  final double? rating;
+  final int reviewCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final borderColor = selected
+        ? AppColors.accent
+        : context.appColors.glassBorder.withValues(alpha: 0.8);
+
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        width: 108,
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppColors.accent.withValues(alpha: 0.12)
+              : context.appColors.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: borderColor, width: selected ? 2 : 1),
+        ),
+        child: Column(
+          children: [
+            if (imageUrl == null && label == 'Any staff')
+              CircleAvatar(
+                radius: 28,
+                backgroundColor: AppColors.accent.withValues(alpha: 0.15),
+                child: Icon(
+                  Icons.groups_outlined,
+                  color: AppColors.accent,
+                ),
+              )
+            else
+              StaffAvatar(name: label, imageUrl: imageUrl, size: 56),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: selected ? AppColors.accent : null,
+                  ),
+            ),
+            if (label != 'Any staff') ...[
+              const SizedBox(height: 4),
+              SalonRatingBadge(
+                averageRating: rating,
+                reviewCount: reviewCount,
+                size: SalonRatingBadgeSize.compact,
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

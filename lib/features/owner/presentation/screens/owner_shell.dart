@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:saloon_booking/core/theme/app_decorations.dart';
+import 'package:saloon_booking/core/ui/system_ui_scope.dart';
+import 'package:saloon_booking/core/routing/route_paths.dart';
 import 'package:saloon_booking/features/notifications/data/providers/notification_history_provider.dart';
+import 'package:saloon_booking/features/owner/data/services/owner_service.dart';
+import 'package:saloon_booking/features/owner/presentation/utils/owner_payout_status.dart';
 import 'package:saloon_booking/shared/widgets/app_drawer.dart';
 import 'package:saloon_booking/shared/widgets/gradient_background.dart';
-import 'package:saloon_booking/shared/widgets/premium_bottom_nav.dart';
 import 'package:saloon_booking/shared/widgets/shell_navigation_scope.dart';
 
 class OwnerShell extends ConsumerStatefulWidget {
@@ -33,6 +35,7 @@ class _OwnerShellState extends ConsumerState<OwnerShell> {
       index,
       initialLocation: index == widget.navigationShell.currentIndex,
     );
+    ref.read(ownerShellTabIndexProvider.notifier).select(index);
   }
 
   void _handleBack(BuildContext context) {
@@ -66,7 +69,7 @@ class _OwnerShellState extends ConsumerState<OwnerShell> {
       label: 'Dashboard',
       index: _dashboardIndex,
     ),
-    DrawerNavItem(icon: Icons.store_rounded, label: 'My Salons', index: _salonsIndex),
+    DrawerNavItem(icon: Icons.person_rounded, label: 'Profile', index: _profileIndex),
     DrawerNavItem(
       icon: Icons.calendar_month_rounded,
       label: 'Bookings',
@@ -77,80 +80,74 @@ class _OwnerShellState extends ConsumerState<OwnerShell> {
       label: 'Notifications',
       index: _notificationsIndex,
     ),
-    DrawerNavItem(icon: Icons.person_rounded, label: 'Profile', index: _profileIndex),
+    DrawerNavItem(icon: Icons.store_rounded, label: 'My Salons', index: _salonsIndex),
     DrawerNavItem(icon: Icons.star_rounded, label: 'Reviews', index: _reviewsIndex),
+    DrawerNavItem(
+      icon: Icons.settings_rounded,
+      label: 'Settings',
+      route: RoutePaths.ownerSettings,
+    ),
   ];
 
-  static const _bottomNavItems = [
-    PremiumBottomNavItem(
-      icon: Icons.dashboard_outlined,
-      activeIcon: Icons.dashboard_rounded,
-      label: 'Dashboard',
-      index: _dashboardIndex,
-    ),
-    PremiumBottomNavItem(
-      icon: Icons.store_outlined,
-      activeIcon: Icons.store_rounded,
-      label: 'Salons',
-      index: _salonsIndex,
-    ),
-    PremiumBottomNavItem(
-      icon: Icons.calendar_month_outlined,
-      activeIcon: Icons.calendar_month_rounded,
-      label: 'Bookings',
-      index: _bookingsIndex,
-    ),
-    PremiumBottomNavItem(
-      icon: Icons.notifications_outlined,
-      activeIcon: Icons.notifications_rounded,
-      label: 'Alerts',
-      index: _notificationsIndex,
-    ),
-  ];
+  Map<int, int> _badgeCounts(int unreadCount, int pendingBookings) {
+    final counts = <int, int>{};
+    if (unreadCount > 0) counts[_notificationsIndex] = unreadCount;
+    if (pendingBookings > 0) counts[_bookingsIndex] = pendingBookings;
+    return counts;
+  }
 
   @override
   Widget build(BuildContext context) {
     final unreadCount = ref.watch(unreadCountProvider).value ?? 0;
+    final dashboard = ref.watch(ownerDashboardProvider).value;
+    final pendingBookings = dashboard?.summary.bookings.pending ?? 0;
+    final profilePercent =
+        dashboard?.summary.profileCompleteness.averagePercent ?? 100;
+    final payoutAccount = ref.watch(ownerPayoutAccountProvider).value;
+    final attentionHint = buildOwnerSetupHint(
+      payoutAccount: payoutAccount,
+      profilePercent: profilePercent,
+    );
     final currentIndex = widget.navigationShell.currentIndex;
 
-    return PopScope(
+    final publishedTab = ref.read(ownerShellTabIndexProvider);
+    if (publishedTab != currentIndex) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ref.read(ownerShellTabIndexProvider.notifier).select(currentIndex);
+      });
+    }
+
+    return SystemUiScope(
+      child: PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
         _handleBack(context);
       },
       child: Scaffold(
-        extendBody: true,
-        extendBodyBehindAppBar: true,
         drawer: AppDrawer(
           items: _drawerItems,
           selectedIndex: currentIndex,
           onSelect: _onSelect,
           headerSubtitle: 'Owner Portal',
           isOwnerMode: true,
-          badgeCounts: unreadCount > 0
-              ? {_notificationsIndex: unreadCount}
-              : const {},
+          badgeCounts: _badgeCounts(unreadCount, pendingBookings),
+          attentionHint: attentionHint,
+          onAttentionHintTap: attentionHint != null
+              ? () => _onSelect(_dashboardIndex)
+              : null,
         ),
         body: GradientBackground(
           child: Builder(
             builder: (context) => ShellNavigationScope(
               openDrawer: () => Scaffold.of(context).openDrawer(),
-              child: Padding(
-                padding: const EdgeInsets.only(
-                  bottom: AppDecorations.shellBottomInset,
-                ),
-                child: widget.navigationShell,
-              ),
+              child: widget.navigationShell,
             ),
           ),
         ),
-        bottomNavigationBar: PremiumBottomNav(
-          items: _bottomNavItems,
-          selectedIndex: currentIndex <= _notificationsIndex ? currentIndex : -1,
-          onSelect: _onSelect,
-        ),
       ),
+    ),
     );
   }
 }
