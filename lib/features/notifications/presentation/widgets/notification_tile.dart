@@ -25,30 +25,39 @@ class NotificationTile extends StatelessWidget {
     return DateFormat('MMM d, yyyy').format(dateTime);
   }
 
-  (IconData, Color) _typeIcon(String type) {
+  (IconData, Color) _typeIcon(BuildContext context, String type) {
     return switch (type) {
       'new_booking' ||
       'booking_confirmed' ||
       'booking_rejected' ||
       'booking_completed' ||
       'booking_cancelled' ||
-      'appointment_reminder' =>
-        (Icons.calendar_month_rounded, AppColors.primary),
-      'payment_successful' || 'payment_received' =>
-        (Icons.payments_rounded, AppColors.success),
-      'promotional_offer' => (Icons.local_offer_rounded, AppColors.accent),
-      _ when type.contains('review') =>
-        (Icons.star_rounded, AppColors.accent),
-      _ when type.contains('salon') =>
-        (Icons.store_rounded, AppColors.primaryLight),
-      _ => (Icons.notifications_rounded, AppColors.accent),
+      'appointment_reminder' => (
+        Icons.calendar_month_rounded,
+        AppColors.primary,
+      ),
+      'payment_successful' ||
+      'payment_received' => (Icons.payments_rounded, AppColors.success),
+      'promotional_offer' => (
+        Icons.local_offer_rounded,
+        context.appColors.accent,
+      ),
+      _ when type.contains('review') => (
+        Icons.star_rounded,
+        context.appColors.accent,
+      ),
+      _ when type.contains('salon') => (
+        Icons.store_rounded,
+        AppColors.primaryLight,
+      ),
+      _ => (Icons.notifications_rounded, context.appColors.accent),
     };
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final (icon, iconColor) = _typeIcon(notification.type);
+    final (icon, iconColor) = _typeIcon(context, notification.type);
 
     return GlassCard(
       onTap: onTap,
@@ -77,11 +86,11 @@ class NotificationTile extends StatelessWidget {
                       child: Text(
                         notification.title,
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              color: colors.textPrimary,
-                              fontWeight: notification.isUnread
-                                  ? FontWeight.w600
-                                  : FontWeight.w500,
-                            ),
+                          color: colors.textPrimary,
+                          fontWeight: notification.isUnread
+                              ? FontWeight.w600
+                              : FontWeight.w500,
+                        ),
                       ),
                     ),
                     if (notification.isUnread)
@@ -89,25 +98,25 @@ class NotificationTile extends StatelessWidget {
                         width: 8,
                         height: 8,
                         margin: const EdgeInsets.only(right: 6),
-                        decoration: const BoxDecoration(
-                          color: AppColors.accent,
+                        decoration: BoxDecoration(
+                          color: context.appColors.accent,
                           shape: BoxShape.circle,
                         ),
                       ),
                     Text(
                       _formatTime(notification.createdAt),
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: colors.textMuted,
-                          ),
+                      style: Theme.of(
+                        context,
+                      ).textTheme.labelSmall?.copyWith(color: colors.textMuted),
                     ),
                   ],
                 ),
                 const SizedBox(height: 6),
                 Text(
                   notification.body,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: colors.textSecondary,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(color: colors.textSecondary),
                 ),
               ],
             ),

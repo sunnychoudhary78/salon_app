@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:go_router/go_router.dart';
 import 'package:saloon_booking/core/routing/route_paths.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/features/owner/presentation/widgets/owner_quick_link_tile.dart';
 
 class OwnerDashboardQuickActions extends StatelessWidget {
-  const OwnerDashboardQuickActions({
-    super.key,
-    required this.pendingBookings,
-  });
+  const OwnerDashboardQuickActions({super.key, required this.pendingBookings});
 
   final int pendingBookings;
 
@@ -37,7 +35,10 @@ class OwnerDashboardQuickActions extends StatelessWidget {
                       color: AppColors.error,
                       shape: BoxShape.circle,
                     ),
-                    constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                    constraints: const BoxConstraints(
+                      minWidth: 18,
+                      minHeight: 18,
+                    ),
                     child: Text(
                       pendingBookings > 9 ? '9+' : '$pendingBookings',
                       style: const TextStyle(
@@ -62,7 +63,7 @@ class OwnerDashboardQuickActions extends StatelessWidget {
           OwnerQuickLinkTile(
             icon: Icons.star_rounded,
             label: 'Reviews',
-            color: AppColors.accent,
+            color: context.appColors.accent,
             onTap: () => context.go(RoutePaths.ownerReviews),
           ),
           const SizedBox(width: 10),

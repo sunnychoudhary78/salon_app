@@ -43,7 +43,10 @@ Future<SalonCoordinates?> geocodeSalonAddress({
   }
 }
 
-Future<String> resolveSalonLocationLabel(double latitude, double longitude) async {
+Future<String> resolveSalonLocationLabel(
+  double latitude,
+  double longitude,
+) async {
   final service = UserLocationService();
   final label = await service.resolveLabel(latitude, longitude);
   if (label != 'Current location') return label;

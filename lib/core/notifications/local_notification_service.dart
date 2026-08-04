@@ -20,7 +20,9 @@ class LocalNotificationService {
   Future<void> initialize({required NotificationTapHandler onTap}) async {
     _onTap = onTap;
 
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings = AndroidInitializationSettings(
+      '@mipmap/ic_launcher',
+    );
     const initSettings = InitializationSettings(android: androidSettings);
 
     await _plugin.initialize(
@@ -29,8 +31,10 @@ class LocalNotificationService {
       onDidReceiveBackgroundNotificationResponse: notificationTapBackground,
     );
 
-    final androidPlugin = _plugin.resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin>();
+    final androidPlugin = _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
     await androidPlugin?.createNotificationChannel(
       const AndroidNotificationChannel(
         androidChannelId,
@@ -70,7 +74,8 @@ class LocalNotificationService {
   }
 
   Future<void> show(NotificationPayload payload) async {
-    final id = payload.bookingId?.hashCode ??
+    final id =
+        payload.bookingId?.hashCode ??
         payload.type.hashCode ^
             DateTime.now().millisecondsSinceEpoch.remainder(100000);
 

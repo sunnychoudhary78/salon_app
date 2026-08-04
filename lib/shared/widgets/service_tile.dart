@@ -12,6 +12,7 @@ class ServiceTile extends StatelessWidget {
     this.selected = false,
     this.multiSelect = false,
     this.showBookAffordance = false,
+    this.showStatus = false,
   });
 
   final ServiceModel service;
@@ -19,6 +20,7 @@ class ServiceTile extends StatelessWidget {
   final bool selected;
   final bool multiSelect;
   final bool showBookAffordance;
+  final bool showStatus;
 
   @override
   Widget build(BuildContext context) {
@@ -39,7 +41,7 @@ class ServiceTile extends StatelessWidget {
                   selected
                       ? Icons.check_box_rounded
                       : Icons.check_box_outline_blank_rounded,
-                  color: selected ? AppColors.accent : colors.textMuted,
+                  color: selected ? context.appColors.accent : colors.textMuted,
                   size: 22,
                 ),
               ),
@@ -51,11 +53,35 @@ class ServiceTile extends StatelessWidget {
                     service.serviceName,
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
                       color: colors.textPrimary,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                  Text(
-                    '${service.category?.name ?? 'General'} · ${service.durationMinutes ?? 30} min',
-                    style: Theme.of(context).textTheme.bodySmall,
+                  if (service.description?.trim().isNotEmpty == true) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      service.description!.trim(),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colors.textSecondary,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Text(
+                        '${service.durationMinutes ?? 30} min',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      if (showStatus) ...[
+                        const SizedBox(width: 8),
+                        _ServiceStatusPill(
+                          label: service.isActive ? 'Active' : 'Inactive',
+                          active: service.isActive,
+                        ),
+                      ],
+                    ],
                   ),
                 ],
               ),
@@ -74,7 +100,9 @@ class ServiceTile extends StatelessWidget {
                 Text(
                   '₹${service.effectivePrice.toStringAsFixed(0)}',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: hasDiscount ? AppColors.success : AppColors.accent,
+                    color: hasDiscount
+                        ? AppColors.success
+                        : context.appColors.accent,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -85,10 +113,10 @@ class ServiceTile extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppColors.accent.withValues(alpha: 0.15),
+                  color: context.appColors.accent.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: AppColors.accent.withValues(alpha: 0.35),
+                    color: context.appColors.accent.withValues(alpha: 0.35),
                   ),
                 ),
                 child: Row(
@@ -97,15 +125,15 @@ class ServiceTile extends StatelessWidget {
                     Text(
                       'Book',
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: AppColors.accent,
-                            fontWeight: FontWeight.w600,
-                          ),
+                        color: context.appColors.accent,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     const SizedBox(width: 2),
                     Icon(
                       Icons.chevron_right_rounded,
                       size: 16,
-                      color: AppColors.accent.withValues(alpha: 0.9),
+                      color: context.appColors.accent.withValues(alpha: 0.9),
                     ),
                   ],
                 ),
@@ -113,9 +141,35 @@ class ServiceTile extends StatelessWidget {
             ],
             if (selected && !multiSelect) ...[
               const SizedBox(width: 8),
-              const Icon(Icons.check_circle_rounded, color: AppColors.accent),
+              Icon(Icons.check_circle_rounded, color: context.appColors.accent),
             ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ServiceStatusPill extends StatelessWidget {
+  const _ServiceStatusPill({required this.label, required this.active});
+
+  final String label;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = active ? AppColors.success : context.appColors.textMuted;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: color,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );

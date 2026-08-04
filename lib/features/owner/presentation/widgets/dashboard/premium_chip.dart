@@ -1,12 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:saloon_booking/core/theme/app_colors.dart';
+import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 
 class PremiumChip extends StatelessWidget {
-  const PremiumChip({
-    super.key,
-    this.label = 'PREMIUM',
-    this.compact = false,
-  });
+  const PremiumChip({super.key, this.label = 'PREMIUM', this.compact = false});
 
   final String label;
   final bool compact;
@@ -21,12 +17,14 @@ class PremiumChip extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            AppColors.accent.withValues(alpha: 0.35),
-            AppColors.accent.withValues(alpha: 0.15),
+            context.appColors.accent.withValues(alpha: 0.35),
+            context.appColors.accent.withValues(alpha: 0.15),
           ],
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.accent.withValues(alpha: 0.5)),
+        border: Border.all(
+          color: context.appColors.accent.withValues(alpha: 0.5),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -34,14 +32,14 @@ class PremiumChip extends StatelessWidget {
           Icon(
             Icons.bolt_rounded,
             size: compact ? 10 : 12,
-            color: AppColors.accent,
+            color: context.appColors.accent,
           ),
           if (!compact) ...[
             const SizedBox(width: 3),
             Text(
               label,
               style: TextStyle(
-                color: AppColors.accent,
+                color: context.appColors.accent,
                 fontSize: compact ? 9 : 10,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0.5,

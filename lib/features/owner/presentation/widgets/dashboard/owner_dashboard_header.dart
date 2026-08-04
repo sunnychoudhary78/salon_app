@@ -9,7 +9,8 @@ import 'package:saloon_booking/features/owner/data/services/owner_service.dart';
 import 'package:saloon_booking/features/owner/presentation/widgets/dashboard/owner_dashboard_period_filter.dart';
 import 'package:saloon_booking/shared/widgets/premium_app_bar.dart';
 
-class OwnerDashboardHeader extends ConsumerWidget implements PreferredSizeWidget {
+class OwnerDashboardHeader extends ConsumerWidget
+    implements PreferredSizeWidget {
   const OwnerDashboardHeader({
     super.key,
     required this.greeting,
@@ -47,9 +48,9 @@ class OwnerDashboardHeader extends ConsumerWidget implements PreferredSizeWidget
         children: [
           Text(
             '$greeting, $ownerName',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -60,9 +61,9 @@ class OwnerDashboardHeader extends ConsumerWidget implements PreferredSizeWidget
                 Flexible(
                   child: Text(
                     businessName!,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colors.textMuted,
-                        ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: colors.textMuted),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -88,11 +89,14 @@ class OwnerDashboardHeader extends ConsumerWidget implements PreferredSizeWidget
                       children: [
                         Text(
                           scopeLabel,
-                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(fontWeight: FontWeight.w600),
                         ),
-                        Icon(Icons.expand_more_rounded, size: 14, color: colors.textMuted),
+                        Icon(
+                          Icons.expand_more_rounded,
+                          size: 14,
+                          color: colors.textMuted,
+                        ),
                       ],
                     ),
                   ),
@@ -100,9 +104,9 @@ class OwnerDashboardHeader extends ConsumerWidget implements PreferredSizeWidget
               else
                 Text(
                   scopeLabel,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colors.textMuted,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: colors.textMuted),
                 ),
             ],
           ),
@@ -127,7 +131,10 @@ class OwnerDashboardHeader extends ConsumerWidget implements PreferredSizeWidget
                     color: Colors.red,
                     shape: BoxShape.circle,
                   ),
-                  constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                  constraints: const BoxConstraints(
+                    minWidth: 16,
+                    minHeight: 16,
+                  ),
                   child: Text(
                     unreadCount > 9 ? '9+' : '$unreadCount',
                     style: const TextStyle(
@@ -183,9 +190,9 @@ class OwnerDashboardHeader extends ConsumerWidget implements PreferredSizeWidget
     );
 
     if (!context.mounted || selected == null) return;
-    ref.read(ownerDashboardSalonScopeProvider.notifier).setScope(
-          selected.isEmpty ? null : selected,
-        );
+    ref
+        .read(ownerDashboardSalonScopeProvider.notifier)
+        .setScope(selected.isEmpty ? null : selected);
     ref.invalidate(ownerDashboardProvider);
   }
 }

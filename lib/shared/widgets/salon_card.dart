@@ -43,8 +43,7 @@ class SalonCard extends StatelessWidget {
     final showBook = onBook != null && salon.hasServices;
     final showFooterAction =
         onFooterAction != null && footerActionLabel != null;
-    final subtitle =
-        salon.formattedAddress ?? salon.address ?? salon.city;
+    final subtitle = salon.formattedAddress ?? salon.address ?? salon.city;
     final fallbackSubtitle = 'Premium salon experience';
     final ratingSize = compactRating
         ? SalonRatingBadgeSize.compact
@@ -54,30 +53,41 @@ class SalonCard extends StatelessWidget {
     final memCacheHeight = (imageHeight * 1.5).round();
 
     final infoSection = GlassOverlayPanel(
+      padding: compactRating
+          ? const EdgeInsets.fromLTRB(12, 10, 12, 10)
+          : const EdgeInsets.fromLTRB(16, 14, 16, 16),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             salon.salonName,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: colors.textPrimary,
-                  fontWeight: FontWeight.w600,
-                ),
+            style:
+                (compactRating
+                        ? Theme.of(context).textTheme.titleSmall
+                        : Theme.of(context).textTheme.titleMedium)
+                    ?.copyWith(
+                      color: colors.textPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
           if (alwaysShowSubtitle || subtitle != null) ...[
-            const SizedBox(height: 6),
+            SizedBox(height: compactRating ? 4 : 6),
             Text(
               subtitle ?? fallbackSubtitle,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colors.textSecondary,
-                  ),
+                color: colors.textSecondary,
+                fontSize: compactRating ? 11 : null,
+              ),
             ),
           ],
-          if (!alwaysShowSubtitle && salon.hasServices) ...[
+          // Keep compact horizontal-rail cards lean so fixed-height rows do not
+          // overflow; full home cards still show services + slots info.
+          if (!compactRating && !alwaysShowSubtitle && salon.hasServices) ...[
             const SizedBox(height: 10),
             Row(
               children: [
@@ -98,11 +108,13 @@ class SalonCard extends StatelessWidget {
               ],
             ),
           ],
-          if (salon.slotsToday != null && salon.slotsToday!.shouldShowOnCard) ...[
+          if (!compactRating &&
+              salon.slotsToday != null &&
+              salon.slotsToday!.shouldShowOnCard) ...[
             const SizedBox(height: 8),
             SlotsAvailabilityInfoLine(summary: salon.slotsToday!),
           ],
-          const SizedBox(height: 10),
+          SizedBox(height: compactRating ? 8 : 10),
           Row(
             children: [
               SalonDistanceBadge(
@@ -128,9 +140,11 @@ class SalonCard extends StatelessWidget {
                       icon: const Icon(Icons.build_rounded, size: 16),
                       label: Text(footerActionLabel!),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.accent,
+                        foregroundColor: context.appColors.accent,
                         side: BorderSide(
-                          color: AppColors.accent.withValues(alpha: 0.5),
+                          color: context.appColors.accent.withValues(
+                            alpha: 0.5,
+                          ),
                         ),
                       ),
                     ),
@@ -143,7 +157,7 @@ class SalonCard extends StatelessWidget {
                       icon: const Icon(Icons.calendar_today_rounded, size: 16),
                       label: const Text('Book'),
                       style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.accent,
+                        backgroundColor: context.appColors.accent,
                         foregroundColor: context.appColors.onAccent,
                       ),
                     ),
@@ -155,7 +169,7 @@ class SalonCard extends StatelessWidget {
       ),
     );
 
-    final cardContent = ClipRRect(
+    final cardBody = ClipRRect(
       borderRadius: BorderRadius.circular(16),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -183,7 +197,8 @@ class SalonCard extends StatelessWidget {
                     right: 12,
                     child: SalonPromoChips(salon: salon),
                   ),
-                if (salon.slotsToday != null && salon.slotsToday!.shouldShowOnCard)
+                if (salon.slotsToday != null &&
+                    salon.slotsToday!.shouldShowOnCard)
                   Positioned(
                     top: showPromoChips ? null : 12,
                     bottom: showPromoChips ? 12 : null,
@@ -193,27 +208,32 @@ class SalonCard extends StatelessWidget {
               ],
             ),
           ),
-          if (onTap != null)
-            Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: onTap,
-                child: infoSection,
-              ),
-            )
-          else
-            infoSection,
+          infoSection,
         ],
       ),
     );
 
+    final cardContent = onTap != null
+        ? Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(16),
+              child: cardBody,
+            ),
+          )
+        : cardBody;
+
     final card = DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        boxShadow: colors.cardShadow(color: colors.glowAccent),
-        border: Border.all(
-          color: colors.glassBorder.withValues(alpha: 0.35),
-        ),
+        // Compact rails stay clean; full cards get a light accent lift (not a heavy glow).
+        boxShadow: compactRating
+            ? colors.cardShadow()
+            : colors.cardShadow(
+                color: colors.glowAccent.withValues(alpha: 0.12),
+              ),
+        border: Border.all(color: colors.glassBorder.withValues(alpha: 0.35)),
       ),
       child: cardContent,
     );
@@ -231,10 +251,7 @@ class SalonCard extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            colors.surface,
-            colors.surfaceElevated,
-          ],
+          colors: [colors.surface, colors.surfaceElevated],
         ),
       ),
       child: Center(
@@ -248,7 +265,7 @@ class SalonCard extends StatelessWidget {
           child: Icon(
             Icons.storefront_rounded,
             size: imageHeight < 200 ? 34 : 36,
-            color: AppColors.accent,
+            color: context.appColors.accent,
           ),
         ),
       ),

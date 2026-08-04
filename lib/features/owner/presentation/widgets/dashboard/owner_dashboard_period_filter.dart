@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/features/owner/data/services/owner_service.dart';
 import 'package:saloon_booking/shared/widgets/glass_bottom_sheet.dart';
@@ -25,7 +24,7 @@ class OwnerDashboardPeriodButton extends ConsumerWidget {
       clipBehavior: Clip.none,
       children: [
         IconButton(
-          icon: const Icon(Icons.date_range_rounded),
+          icon: Icon(Icons.date_range_rounded),
           tooltip: 'Time range',
           onPressed: () => showOwnerDashboardPeriodSheet(context),
         ),
@@ -36,8 +35,8 @@ class OwnerDashboardPeriodButton extends ConsumerWidget {
             child: Container(
               width: 8,
               height: 8,
-              decoration: const BoxDecoration(
-                color: AppColors.accent,
+              decoration: BoxDecoration(
+                color: context.appColors.accent,
                 shape: BoxShape.circle,
               ),
             ),
@@ -51,10 +50,10 @@ class _OwnerDashboardPeriodSheet extends ConsumerWidget {
   const _OwnerDashboardPeriodSheet();
 
   IconData _iconFor(OwnerDashboardPeriod period) => switch (period) {
-        OwnerDashboardPeriod.last7Days => Icons.today_rounded,
-        OwnerDashboardPeriod.last30Days => Icons.date_range_rounded,
-        OwnerDashboardPeriod.lifetime => Icons.all_inclusive_rounded,
-      };
+    OwnerDashboardPeriod.last7Days => Icons.today_rounded,
+    OwnerDashboardPeriod.last30Days => Icons.date_range_rounded,
+    OwnerDashboardPeriod.lifetime => Icons.all_inclusive_rounded,
+  };
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -74,16 +73,16 @@ class _OwnerDashboardPeriodSheet extends ConsumerWidget {
         children: [
           Text(
             'Time range',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 4),
           Text(
             'Choose how earnings and charts are calculated',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colors.textMuted,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: colors.textMuted),
           ),
           const SizedBox(height: 16),
           ...OwnerDashboardPeriod.values.map((period) {
@@ -92,19 +91,19 @@ class _OwnerDashboardPeriodSheet extends ConsumerWidget {
               contentPadding: EdgeInsets.zero,
               leading: Icon(
                 _iconFor(period),
-                color: isSelected ? AppColors.accent : colors.textSecondary,
+                color: isSelected
+                    ? context.appColors.accent
+                    : colors.textSecondary,
               ),
               title: Text(
                 period.label,
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      fontWeight:
-                          isSelected ? FontWeight.w600 : FontWeight.w500,
-                      color:
-                          isSelected ? colors.textPrimary : colors.textSecondary,
-                    ),
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                  color: isSelected ? colors.textPrimary : colors.textSecondary,
+                ),
               ),
               trailing: isSelected
-                  ? const Icon(Icons.check_rounded, color: AppColors.accent)
+                  ? Icon(Icons.check_rounded, color: context.appColors.accent)
                   : null,
               onTap: () {
                 HapticFeedback.lightImpact();

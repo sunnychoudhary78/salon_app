@@ -10,11 +10,11 @@ class SelectedLocation {
   });
 
   const SelectedLocation.unset()
-      : displayLabel = '',
-        source = LocationSource.gps,
-        latitude = null,
-        longitude = null,
-        city = null;
+    : displayLabel = '',
+      source = LocationSource.gps,
+      latitude = null,
+      longitude = null,
+      city = null;
 
   final String displayLabel;
   final LocationSource source;
@@ -48,12 +48,12 @@ class SelectedLocation {
   }
 
   Map<String, dynamic> toJson() => {
-        'display_label': displayLabel,
-        'source': source.name,
-        if (latitude != null) 'latitude': latitude,
-        if (longitude != null) 'longitude': longitude,
-        if (city != null) 'city': city,
-      };
+    'display_label': displayLabel,
+    'source': source.name,
+    if (latitude != null) 'latitude': latitude,
+    if (longitude != null) 'longitude': longitude,
+    if (city != null) 'city': city,
+  };
 
   factory SelectedLocation.fromJson(Map<String, dynamic> json) {
     final sourceName = json['source'] as String? ?? LocationSource.gps.name;

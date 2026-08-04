@@ -29,7 +29,8 @@ class OwnerFinanceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final theme = Theme.of(context).textTheme;
-    final isEmpty = earnings.pendingTotal == 0 &&
+    final isEmpty =
+        earnings.pendingTotal == 0 &&
         earnings.settled == 0 &&
         earnings.collectedAtSalon == 0 &&
         earnings.platformFeeOwed == 0 &&
@@ -42,10 +43,7 @@ class OwnerFinanceCard extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
           border: Border(
-            left: BorderSide(
-              width: 4,
-              color: AppColors.accent,
-            ),
+            left: BorderSide(width: 4, color: context.appColors.accent),
           ),
         ),
         child: Padding(
@@ -74,7 +72,7 @@ class OwnerFinanceCard extends StatelessWidget {
               Text(
                 formatMoney(earnings.pendingTotal, currency: currency),
                 style: theme.headlineMedium?.copyWith(
-                  color: AppColors.accent,
+                  color: context.appColors.accent,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -180,18 +178,18 @@ class _BreakdownRow extends StatelessWidget {
           child: Text(
             label,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: muted ? colors.textSecondary : colors.textMuted,
-                  fontSize: muted ? 12 : null,
-                ),
+              color: muted ? colors.textSecondary : colors.textMuted,
+              fontSize: muted ? 12 : null,
+            ),
           ),
         ),
         Text(
           value,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: muted ? colors.textSecondary : null,
-                fontSize: muted ? 13 : null,
-              ),
+            fontWeight: FontWeight.w600,
+            color: muted ? colors.textSecondary : null,
+            fontSize: muted ? 13 : null,
+          ),
         ),
       ],
     );

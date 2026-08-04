@@ -74,6 +74,7 @@ class OwnerBookingModel {
   final double? premiumAmount;
   final bool requiresCashConfirmation;
   final bool canComplete;
+
   /// none | pending_cash | pending_online | paid
   final String salonFeePaymentState;
 
@@ -96,12 +97,14 @@ class OwnerBookingModel {
 
   factory OwnerBookingModel.fromJson(Map<String, dynamic> json) {
     final salonFee = json['salon_fee_payment'] as Map<String, dynamic>?;
-    final state = json['salon_fee_payment_state'] as String? ??
+    final state =
+        json['salon_fee_payment_state'] as String? ??
         _inferSalonFeePaymentState(salonFee);
-    final requiresCash = json['requires_cash_confirmation'] as bool?
-        ?? state == 'pending_cash';
-    final canComplete = json['can_complete'] as bool?
-        ?? (state == 'pending_cash' || state == 'paid');
+    final requiresCash =
+        json['requires_cash_confirmation'] as bool? ?? state == 'pending_cash';
+    final canComplete =
+        json['can_complete'] as bool? ??
+        (state == 'pending_cash' || state == 'paid');
     return OwnerBookingModel(
       id: json['id'].toString(),
       bookingStatus: json['booking_status'] as String,

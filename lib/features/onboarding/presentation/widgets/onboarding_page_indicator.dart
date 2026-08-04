@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:saloon_booking/features/onboarding/data/onboarding_constants.dart';
+import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 
 class OnboardingPageIndicator extends StatelessWidget {
   const OnboardingPageIndicator({
@@ -26,7 +26,7 @@ class OnboardingPageIndicator extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(3),
             color: isActive
-                ? OnboardingConstants.accentColor
+                ? context.appColors.accent
                 : Colors.white.withValues(alpha: 0.28),
           ),
         );

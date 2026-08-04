@@ -97,10 +97,9 @@ class PlacesSearchService {
 
     final place = PlaceSuggestion.fromJson(data);
     if (!place.hasValidCoordinates) return null;
-    return SalonLocationSelection.fromPlace(place).copyWith(
-      latitude: latitude,
-      longitude: longitude,
-    );
+    return SalonLocationSelection.fromPlace(
+      place,
+    ).copyWith(latitude: latitude, longitude: longitude);
   }
 }
 

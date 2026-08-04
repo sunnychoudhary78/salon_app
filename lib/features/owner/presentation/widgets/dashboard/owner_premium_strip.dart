@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/shared/widgets/glass_card.dart';
 
@@ -28,13 +27,17 @@ class OwnerPremiumStrip extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.bolt_rounded, color: AppColors.accent, size: 18),
+              Icon(
+                Icons.bolt_rounded,
+                color: context.appColors.accent,
+                size: 18,
+              ),
               const SizedBox(width: 6),
               Text(
                 'Premium Bookings',
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
               ),
             ],
           ),
@@ -42,7 +45,10 @@ class OwnerPremiumStrip extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: _PremiumMetricChip(label: 'Active', value: '$activeCount'),
+                child: _PremiumMetricChip(
+                  label: 'Active',
+                  value: '$activeCount',
+                ),
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -50,7 +56,10 @@ class OwnerPremiumStrip extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: _PremiumMetricChip(label: 'Unpaid', value: '$unpaidCount'),
+                child: _PremiumMetricChip(
+                  label: 'Unpaid',
+                  value: '$unpaidCount',
+                ),
               ),
             ],
           ),
@@ -73,25 +82,27 @@ class _PremiumMetricChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10),
       decoration: BoxDecoration(
-        color: AppColors.accent.withValues(alpha: 0.08),
+        color: context.appColors.accent.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.accent.withValues(alpha: 0.2)),
+        border: Border.all(
+          color: context.appColors.accent.withValues(alpha: 0.2),
+        ),
       ),
       child: Column(
         children: [
           Text(
             label,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: colors.textMuted,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.labelSmall?.copyWith(color: colors.textMuted),
           ),
           const SizedBox(height: 4),
           Text(
             value,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.accent,
-                ),
+              fontWeight: FontWeight.w800,
+              color: context.appColors.accent,
+            ),
           ),
         ],
       ),

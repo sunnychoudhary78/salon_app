@@ -5,30 +5,28 @@ class OnboardingConstants {
 
   static const onboardingCompletedKey = 'onboarding_completed';
 
-  /// Premium accent used across onboarding typography.
-  static const accentColor = Color(0xFFD4A574);
-
   static const slides = [
     OnboardingSlideData(
-      image: 'assets/splash/splash1.png',
-      headingPrimary: 'Confidence',
-      headingAccent: 'Starts Here',
-      subheading: 'Refined haircuts and grooming crafted for modern men.',
-      imageAlignment: Alignment.topCenter,
+      image: 'assets/splash/splash_1.png',
+      headingPrimary: 'Beauty',
+      headingAccent: 'Redefined',
+      subheading: 'For him. For her. One elevated experience.',
+      imageAlignment: Alignment(0, -0.15),
     ),
     OnboardingSlideData(
-      image: 'assets/splash/splash2.png',
-      headingPrimary: 'Your',
-      headingAccent: 'Time Matters',
-      subheading: 'Find and book the perfect appointment in seconds.',
+      image: 'assets/splash/splash_2.png',
+      headingPrimary: 'Step Into',
+      headingAccent: 'Luxury',
+      subheading:
+          'Handpicked premium salons, crafted for those who expect more.',
       imageAlignment: Alignment.center,
     ),
     OnboardingSlideData(
-      image: 'assets/splash/splash3.png',
-      headingPrimary: 'Elevate',
-      headingAccent: 'Your Style',
-      subheading: 'Premium salons. Skilled barbers. Exceptional results.',
-      imageAlignment: Alignment.bottomCenter,
+      image: 'assets/splash/splash_3.png',
+      headingPrimary: 'Crafted',
+      headingAccent: 'To Perfection',
+      subheading: 'Book elite professionals — and leave transformed.',
+      imageAlignment: Alignment(0, -0.1),
     ),
   ];
 }

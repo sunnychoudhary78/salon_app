@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/features/auth/presentation/providers/auth_provider.dart';
 import 'package:saloon_booking/core/theme/app_animations.dart';
@@ -26,7 +25,7 @@ class AdminBlockedScreen extends ConsumerWidget {
                   Icon(
                     Icons.admin_panel_settings_outlined,
                     size: 64,
-                    color: AppColors.accent,
+                    color: context.appColors.accent,
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -38,8 +37,8 @@ class AdminBlockedScreen extends ConsumerWidget {
                     'Admin accounts use the web admin panel. This mobile app is for customers and salon owners.',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: context.appColors.textSecondary,
-                        ),
+                      color: context.appColors.textSecondary,
+                    ),
                   ),
                   const SizedBox(height: 24),
                   PremiumButton(

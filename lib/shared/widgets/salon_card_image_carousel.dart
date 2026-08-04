@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:saloon_booking/core/lifecycle/carousel_autoplay_lease.dart';
 import 'package:saloon_booking/core/lifecycle/user_activity_provider.dart';
-import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/core/utils/image_url_utils.dart';
 import 'package:visibility_detector/visibility_detector.dart';
@@ -45,22 +44,32 @@ class _SalonCardImageCarouselState
   int _currentIndex = 0;
   bool _isVisible = false;
   bool _hasLease = false;
+  ProviderContainer? _container;
+  String? _leasedSalonId;
 
   @override
-  void initState() {
-    super.initState();
-    _scheduleAutoplay();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _container = ProviderScope.containerOf(context);
   }
 
   @override
   void didUpdateWidget(SalonCardImageCarousel oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.salonId != widget.salonId) {
+      _scheduleReleaseLease(oldWidget.salonId);
+      _hasLease = false;
+      _leasedSalonId = null;
+    }
     if (oldWidget.images != widget.images ||
-        oldWidget.autoPlay != widget.autoPlay) {
-      _releaseLease();
+        oldWidget.autoPlay != widget.autoPlay ||
+        oldWidget.salonId != widget.salonId) {
       _stopAutoplay();
       _currentIndex = 0;
-      _scheduleAutoplay();
+      _scheduleReleaseLease(widget.salonId);
+      _hasLease = false;
+      _leasedSalonId = null;
+      _queueAutoplay();
     }
   }
 
@@ -68,50 +77,97 @@ class _SalonCardImageCarouselState
     if (_isVisible == visible) return;
     _isVisible = visible;
     if (visible) {
-      _scheduleAutoplay();
+      _queueAutoplay();
     } else {
-      _releaseLease();
       _stopAutoplay();
+      _scheduleReleaseLease(widget.salonId);
+      _hasLease = false;
+      _leasedSalonId = null;
     }
   }
 
-  bool get _shouldAutoplay =>
-      _isVisible &&
-      widget.autoPlay &&
-      widget.images.length > 1 &&
-      !ref.read(userIdleProvider) &&
-      _hasLease;
-
-  void _releaseLease() {
-    if (!_hasLease) return;
-    ref.read(carouselAutoplayLeaseProvider.notifier).release(widget.salonId);
-    _hasLease = false;
+  bool _computeShouldAutoplay({required bool userIdle}) {
+    return _isVisible &&
+        widget.autoPlay &&
+        widget.images.length > 1 &&
+        !userIdle &&
+        _hasLease;
   }
 
-  bool _tryAcquireLease() {
-    if (!widget.autoPlay || widget.images.length <= 1) return false;
-    final acquired = ref
-        .read(carouselAutoplayLeaseProvider.notifier)
-        .tryAcquire(widget.salonId);
-    _hasLease = acquired;
-    return acquired;
+  void _scheduleReleaseLease(String salonId) {
+    final container = _container;
+    if (container == null) return;
+    // Never mutate providers synchronously from lifecycle / listen / dispose.
+    Future.microtask(() {
+      container.read(carouselAutoplayLeaseProvider.notifier).release(salonId);
+    });
   }
 
-  void _scheduleAutoplay() {
+  void _scheduleAcquireLease() {
+    final container = _container;
+    if (container == null || !widget.autoPlay || widget.images.length <= 1) {
+      return;
+    }
+    final salonId = widget.salonId;
+    Future.microtask(() {
+      if (!mounted || !_isVisible) return;
+      final acquired = container
+          .read(carouselAutoplayLeaseProvider.notifier)
+          .tryAcquire(salonId);
+      if (!mounted) {
+        if (acquired) {
+          container.read(carouselAutoplayLeaseProvider.notifier).release(salonId);
+        }
+        return;
+      }
+      _hasLease = acquired;
+      _leasedSalonId = acquired ? salonId : null;
+      if (acquired) {
+        _startTimerIfReady();
+      }
+    });
+  }
+
+  void _queueAutoplay() {
+    // Defer so we never acquire/read providers mid-build or mid-lifecycle.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _startAutoplaySafe();
+    });
+  }
+
+  void _startAutoplaySafe() {
     _stopAutoplay();
     if (!_isVisible || !widget.autoPlay || widget.images.length <= 1) return;
-    if (!ref.read(userIdleProvider)) {
-      if (!_hasLease && !_tryAcquireLease()) return;
+
+    final container = _container;
+    if (container == null) return;
+
+    final userIdle = container.read(userIdleProvider);
+    if (userIdle) return;
+
+    if (!_hasLease) {
+      _scheduleAcquireLease();
+      return;
     }
 
-    if (!_shouldAutoplay) return;
+    _startTimerIfReady();
+  }
+
+  void _startTimerIfReady() {
+    final container = _container;
+    if (container == null || !mounted) return;
+    final userIdle = container.read(userIdleProvider);
+    if (!_computeShouldAutoplay(userIdle: userIdle)) return;
 
     _timer = Timer(const Duration(seconds: 4), () {
-      if (!mounted || !_shouldAutoplay) return;
+      if (!mounted) return;
+      final idle = _container?.read(userIdleProvider) ?? true;
+      if (!_computeShouldAutoplay(userIdle: idle)) return;
       setState(() {
         _currentIndex = (_currentIndex + 1) % widget.images.length;
       });
-      _scheduleAutoplay();
+      _startAutoplaySafe();
     });
   }
 
@@ -125,44 +181,55 @@ class _SalonCardImageCarouselState
       _currentIndex = index % widget.images.length;
     });
     if (widget.autoPlay && _isVisible) {
-      _scheduleAutoplay();
+      _queueAutoplay();
     }
-  }
-
-  void _showNext() {
-    _showImage(_currentIndex + 1);
-  }
-
-  void _showPrevious() {
-    _showImage(_currentIndex - 1 + widget.images.length);
   }
 
   @override
   void dispose() {
-    _releaseLease();
     _stopAutoplay();
+    final leasedId = _leasedSalonId ?? (_hasLease ? widget.salonId : null);
+    final container = _container;
+    _hasLease = false;
+    _leasedSalonId = null;
+    if (leasedId != null && container != null) {
+      Future.microtask(() {
+        container.read(carouselAutoplayLeaseProvider.notifier).release(leasedId);
+      });
+    }
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     ref.listen(userIdleProvider, (previous, next) {
-      if (next) {
-        _releaseLease();
-        _stopAutoplay();
-      } else if (_isVisible) {
-        _scheduleAutoplay();
-      }
+      // Defer mutations — listen can fire during provider/widget flush.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (next) {
+          _stopAutoplay();
+          _scheduleReleaseLease(widget.salonId);
+          _hasLease = false;
+          _leasedSalonId = null;
+        } else if (_isVisible) {
+          _startAutoplaySafe();
+        }
+      });
     });
 
     ref.listen(carouselAutoplayLeaseProvider, (previous, next) {
-      if (next != widget.salonId && _hasLease) {
-        _hasLease = false;
-        _stopAutoplay();
-      } else if (next == widget.salonId && _isVisible) {
-        _hasLease = true;
-        _scheduleAutoplay();
-      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (next != widget.salonId && _hasLease) {
+          _hasLease = false;
+          _leasedSalonId = null;
+          _stopAutoplay();
+        } else if (next == widget.salonId && _isVisible) {
+          _hasLease = true;
+          _leasedSalonId = widget.salonId;
+          _startAutoplaySafe();
+        }
+      });
     });
 
     final images = widget.images;
@@ -189,39 +256,28 @@ class _SalonCardImageCarouselState
       },
       child: ClipRRect(
         borderRadius: radius,
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onHorizontalDragEnd: (details) {
-            final velocity = details.primaryVelocity ?? 0;
-            if (velocity.abs() < 100) return;
-            if (velocity < 0) {
-              _showNext();
-            } else {
-              _showPrevious();
-            }
-          },
-          child: SizedBox(
-            height: widget.height,
-            width: double.infinity,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                AnimatedSwitcher(
-                  duration: _transitionDuration,
-                  switchInCurve: Curves.easeIn,
-                  switchOutCurve: Curves.easeOut,
-                  child: _networkImage(
-                    images[_currentIndex],
-                    key: ValueKey(_currentIndex),
-                  ),
+        child: SizedBox(
+          height: widget.height,
+          width: double.infinity,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              AnimatedSwitcher(
+                duration: _transitionDuration,
+                switchInCurve: Curves.easeIn,
+                switchOutCurve: Curves.easeOut,
+                child: _networkImage(
+                  images[_currentIndex],
+                  key: ValueKey(_currentIndex),
                 ),
-                const _BottomGradientOverlay(),
-                _DotIndicator(
-                  count: images.length,
-                  currentIndex: _currentIndex,
-                ),
-              ],
-            ),
+              ),
+              const _BottomGradientOverlay(),
+              _DotIndicator(
+                count: images.length,
+                currentIndex: _currentIndex,
+                onDotTap: _showImage,
+              ),
+            ],
           ),
         ),
       ),
@@ -275,7 +331,7 @@ class _SalonCardImageCarouselState
               child: Icon(
                 Icons.storefront_rounded,
                 size: 36,
-                color: AppColors.accent,
+                color: context.appColors.accent,
               ),
             )
           : null,
@@ -307,10 +363,15 @@ class _BottomGradientOverlay extends StatelessWidget {
 }
 
 class _DotIndicator extends StatelessWidget {
-  const _DotIndicator({required this.count, required this.currentIndex});
+  const _DotIndicator({
+    required this.count,
+    required this.currentIndex,
+    required this.onDotTap,
+  });
 
   final int count;
   final int currentIndex;
+  final ValueChanged<int> onDotTap;
 
   @override
   Widget build(BuildContext context) {
@@ -322,16 +383,22 @@ class _DotIndicator extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: List.generate(count, (index) {
           final isActive = index == currentIndex;
-          return AnimatedContainer(
-            duration: const Duration(milliseconds: 250),
-            margin: const EdgeInsets.symmetric(horizontal: 2.5),
-            width: isActive ? 14 : 5,
-            height: 5,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(3),
-              color: isActive
-                  ? AppColors.accent
-                  : Colors.white.withValues(alpha: 0.45),
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => onDotTap(index),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2.5, vertical: 6),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                width: isActive ? 14 : 5,
+                height: 5,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(3),
+                  color: isActive
+                      ? context.appColors.accent
+                      : Colors.white.withValues(alpha: 0.45),
+                ),
+              ),
             ),
           );
         }),

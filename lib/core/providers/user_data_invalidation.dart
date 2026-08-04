@@ -31,7 +31,6 @@ void _invalidateAllUserScopedData(dynamic ref) {
   ref.invalidate(ownerAllBookingsProvider);
   ref.invalidate(ownerBookingsProvider);
   ref.invalidate(ownerReviewsProvider);
-  ref.invalidate(serviceCategoriesProvider);
   ref.invalidate(hasApprovedSalonsProvider);
   ref.invalidate(salonBrowseFiltersProvider);
   ref.invalidate(paymentActionsProvider);

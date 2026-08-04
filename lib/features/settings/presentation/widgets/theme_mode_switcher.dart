@@ -18,16 +18,16 @@ class ThemeModeSwitcher extends ConsumerWidget {
         Text(
           'Appearance',
           style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                color: colors.textPrimary,
-                fontWeight: FontWeight.w600,
-              ),
+            color: colors.textPrimary,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         const SizedBox(height: 6),
         Text(
           'Choose light, dark, or match your device',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: colors.textSecondary,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: colors.textSecondary),
         ),
         const SizedBox(height: 14),
         SegmentedButton<ThemeMode>(

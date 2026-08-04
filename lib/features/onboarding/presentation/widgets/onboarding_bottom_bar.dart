@@ -48,12 +48,15 @@ class OnboardingBottomBar extends StatelessWidget {
               const SizedBox(height: 24),
               if (_isLastPage)
                 PremiumButton(
-                  label: 'Get Started',
-                  variant: PremiumButtonVariant.accent,
-                  loading: isLoading,
-                  onPressed: isLoading ? null : onGetStarted,
-                  icon: Icons.arrow_forward_rounded,
-                ).animate().fadeIn(duration: 400.ms).slideY(
+                      label: 'Get Started',
+                      variant: PremiumButtonVariant.accent,
+                      loading: isLoading,
+                      onPressed: isLoading ? null : onGetStarted,
+                      icon: Icons.arrow_forward_rounded,
+                    )
+                    .animate()
+                    .fadeIn(duration: 400.ms)
+                    .slideY(
                       begin: 0.08,
                       end: 0,
                       duration: 400.ms,

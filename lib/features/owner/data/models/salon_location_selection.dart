@@ -41,8 +41,7 @@ class SalonLocationSelection {
 
   String get detailLine {
     final parts = <String>[
-      if (street.trim().isNotEmpty &&
-          street.trim() != formattedAddress.trim())
+      if (street.trim().isNotEmpty && street.trim() != formattedAddress.trim())
         street.trim(),
       if (locality.trim().isNotEmpty) locality.trim(),
       if (city.trim().isNotEmpty) city.trim(),
@@ -83,8 +82,7 @@ class SalonLocationSelection {
       'locality': locality.trim().isEmpty ? null : locality.trim(),
       'city': city.trim(),
       'state': state.trim(),
-      'postal_code':
-          postalCode.trim().isEmpty ? null : postalCode.trim(),
+      'postal_code': postalCode.trim().isEmpty ? null : postalCode.trim(),
       'latitude': latitude,
       'longitude': longitude,
     };
@@ -121,8 +119,8 @@ class SalonLocationSelection {
     final street = place.street.trim().isNotEmpty
         ? place.street.trim()
         : (formatted.isNotEmpty
-            ? formatted.split(',').first.trim()
-            : place.label.trim());
+              ? formatted.split(',').first.trim()
+              : place.label.trim());
     final city = place.city.trim();
     final state = place.state.trim();
     final locality = place.locality.trim();

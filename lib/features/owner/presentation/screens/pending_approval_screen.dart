@@ -19,15 +19,16 @@ class PendingApprovalScreen extends ConsumerWidget {
 
   Future<void> _checkStatus(BuildContext context, WidgetRef ref) async {
     await ref.read(authProvider.notifier).refreshProfile();
-    final approved =
-        await ref.read(hasApprovedSalonsProvider.notifier).refresh();
+    final approved = await ref
+        .read(hasApprovedSalonsProvider.notifier)
+        .refresh();
     if (!context.mounted) return;
     if (approved) {
       context.go(RoutePaths.ownerDashboard);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Still pending approval')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Still pending approval')));
     }
   }
 
@@ -60,8 +61,23 @@ class PendingApprovalScreen extends ConsumerWidget {
                   ),
                   children: [
                     AnimatedEntrance(
-                      child: GlassCard(
-                        shadowColor: AppColors.warning,
+                      child: Container(
+                        padding: const EdgeInsets.fromLTRB(20, 28, 20, 24),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              context.appColors.surfaceElevated,
+                              context.appColors.accentSoft,
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: AppColors.warning.withValues(alpha: 0.35),
+                          ),
+                          boxShadow: context.appColors.cardShadow(),
+                        ),
                         child: Column(
                           children: [
                             Container(
@@ -75,8 +91,9 @@ class PendingApprovalScreen extends ConsumerWidget {
                                   ],
                                 ),
                                 border: Border.all(
-                                  color:
-                                      AppColors.warning.withValues(alpha: 0.4),
+                                  color: AppColors.warning.withValues(
+                                    alpha: 0.4,
+                                  ),
                                 ),
                               ),
                               child: const Icon(
@@ -85,22 +102,28 @@ class PendingApprovalScreen extends ConsumerWidget {
                                 color: AppColors.warning,
                               ),
                             ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Under review',
-                            style: Theme.of(context).textTheme.headlineSmall,
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            application != null
-                                ? 'Your application for "${application.salonName}" is pending admin approval.'
-                                : 'Your salon application is pending admin approval.',
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
+                            const SizedBox(height: 18),
+                            Text(
+                              'Under review',
+                              style: Theme.of(context).textTheme.headlineSmall
+                                  ?.copyWith(fontWeight: FontWeight.w800),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              application != null
+                                  ? 'Your application for "${application.salonName}" is pending admin approval.'
+                                  : 'Your salon application is pending admin approval.',
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    color: context.appColors.textSecondary,
+                                    height: 1.4,
+                                  ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
                     ),
                     const SizedBox(height: 24),
                     AnimatedEntrance(
@@ -141,18 +164,18 @@ class PendingApprovalScreen extends ConsumerWidget {
                     AnimatedEntrance(
                       index: 2,
                       child: PremiumButton(
-                      label: 'Check status',
-                      variant: PremiumButtonVariant.accent,
-                      onPressed: () => _checkStatus(context, ref),
+                        label: 'Check status',
+                        variant: PremiumButtonVariant.accent,
+                        onPressed: () => _checkStatus(context, ref),
                       ),
                     ),
                     const SizedBox(height: 12),
                     AnimatedEntrance(
                       index: 3,
                       child: PremiumButton(
-                      label: 'Back to dashboard',
-                      variant: PremiumButtonVariant.ghost,
-                      onPressed: () => context.go(RoutePaths.ownerDashboard),
+                        label: 'Back to dashboard',
+                        variant: PremiumButtonVariant.ghost,
+                        onPressed: () => context.go(RoutePaths.ownerDashboard),
                       ),
                     ),
                   ],
@@ -186,8 +209,8 @@ class _TimelineStep extends StatelessWidget {
     final color = done
         ? AppColors.success
         : active
-            ? AppColors.warning
-            : context.appColors.textMuted;
+        ? AppColors.warning
+        : context.appColors.textMuted;
 
     return IntrinsicHeight(
       child: Row(
@@ -232,11 +255,11 @@ class _TimelineStep extends StatelessWidget {
               child: Text(
                 title,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: active || done
-                          ? context.appColors.textPrimary
-                          : context.appColors.textMuted,
-                      fontWeight: active ? FontWeight.w600 : null,
-                    ),
+                  color: active || done
+                      ? context.appColors.textPrimary
+                      : context.appColors.textMuted,
+                  fontWeight: active ? FontWeight.w600 : null,
+                ),
               ),
             ),
           ),

@@ -20,15 +20,12 @@ bool isAdminOnly(UserModel user) {
 bool isSalonOwner(UserModel user) =>
     user.roles.any((r) => r.name == 'SALON_OWNER');
 
-bool isCustomer(UserModel user) =>
-    user.roles.any((r) => r.name == 'CUSTOMER');
+bool isCustomer(UserModel user) => user.roles.any((r) => r.name == 'CUSTOMER');
 
 bool isSalonOwnerAccount(AuthState auth) => auth.salonOwner != null;
 
 bool isApprovedSalonOwner(AuthState auth, {required bool hasApprovedSalons}) =>
-    isSalonOwner(auth.user) &&
-    auth.salonOwner != null &&
-    hasApprovedSalons;
+    isSalonOwner(auth.user) && auth.salonOwner != null && hasApprovedSalons;
 
 bool hasPendingSalonApplication(AuthState auth) =>
     auth.salonApplication?.isPending ?? false;
@@ -40,5 +37,7 @@ bool isOwnerShellRoute(String location) {
     RoutePaths.pendingApproval,
   ];
   if (!location.startsWith('/owner')) return false;
-  return !onboarding.any((path) => location == path || location.startsWith('$path/'));
+  return !onboarding.any(
+    (path) => location == path || location.startsWith('$path/'),
+  );
 }

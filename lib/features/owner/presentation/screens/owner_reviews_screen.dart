@@ -10,6 +10,7 @@ import 'package:saloon_booking/shared/widgets/animated_entrance.dart';
 import 'package:saloon_booking/shared/widgets/async_value_widget.dart';
 import 'package:saloon_booking/shared/widgets/empty_state.dart';
 import 'package:saloon_booking/shared/widgets/glass_card.dart';
+import 'package:saloon_booking/shared/widgets/gradient_background.dart';
 import 'package:saloon_booking/shared/widgets/premium_app_bar.dart';
 import 'package:saloon_booking/shared/widgets/premium_filter_chip.dart';
 import 'package:saloon_booking/shared/widgets/rating_histogram.dart';
@@ -47,21 +48,24 @@ class _OwnerReviewsScreenState extends ConsumerState<OwnerReviewsScreen> {
       appBar: PremiumAppBar(
         title: 'Reviews',
         subtitle: reviews.maybeWhen(
-          data: (items) => '${items.length} review${items.length == 1 ? '' : 's'}',
+          data: (items) =>
+              '${items.length} review${items.length == 1 ? '' : 's'}',
           orElse: () => null,
         ),
       ),
-      body: RefreshIndicator(
+      body: GradientBackground(
+        child: RefreshIndicator(
         onRefresh: () async => ref.invalidate(ownerReviewsProvider),
         child: AsyncValueWidget(
           value: reviews,
           data: (items) {
-            final salonNames = items
-                .map((r) => r.salonName)
-                .whereType<String>()
-                .toSet()
-                .toList()
-              ..sort();
+            final salonNames =
+                items
+                    .map((r) => r.salonName)
+                    .whereType<String>()
+                    .toSet()
+                    .toList()
+                  ..sort();
 
             final filtered = _salonFilter == null
                 ? items
@@ -90,19 +94,17 @@ class _OwnerReviewsScreenState extends ConsumerState<OwnerReviewsScreen> {
               children: [
                 AnimatedEntrance(
                   child: GlassCard(
-                    shadowColor: AppColors.accent,
+                    shadowColor: context.appColors.accent,
                     child: Row(
                       children: [
                         Column(
                           children: [
                             Text(
                               avgRating.toStringAsFixed(1),
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .displaySmall
+                              style: Theme.of(context).textTheme.displaySmall
                                   ?.copyWith(
                                     fontWeight: FontWeight.w800,
-                                    color: AppColors.accent,
+                                    color: context.appColors.accent,
                                   ),
                             ),
                             Row(
@@ -113,7 +115,7 @@ class _OwnerReviewsScreenState extends ConsumerState<OwnerReviewsScreen> {
                                       ? Icons.star_rounded
                                       : Icons.star_border_rounded,
                                   size: 18,
-                                  color: AppColors.accent,
+                                  color: context.appColors.accent,
                                 ),
                               ),
                             ),
@@ -126,15 +128,12 @@ class _OwnerReviewsScreenState extends ConsumerState<OwnerReviewsScreen> {
                             children: [
                               Text(
                                 'Overall rating',
-                                style:
-                                    Theme.of(context).textTheme.titleSmall,
+                                style: Theme.of(context).textTheme.titleSmall,
                               ),
                               const SizedBox(height: 4),
                               Text(
                                 '${items.length} total review${items.length == 1 ? '' : 's'}',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
+                                style: Theme.of(context).textTheme.bodySmall
                                     ?.copyWith(
                                       color: context.appColors.textMuted,
                                     ),
@@ -145,12 +144,14 @@ class _OwnerReviewsScreenState extends ConsumerState<OwnerReviewsScreen> {
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: AppColors.accent.withValues(alpha: 0.12),
+                            color: context.appColors.accent.withValues(
+                              alpha: 0.12,
+                            ),
                             borderRadius: BorderRadius.circular(14),
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.star_rounded,
-                            color: AppColors.accent,
+                            color: context.appColors.accent,
                             size: 28,
                           ),
                         ),
@@ -230,16 +231,14 @@ class _OwnerReviewsScreenState extends ConsumerState<OwnerReviewsScreen> {
             );
           },
         ),
+        ),
       ),
     );
   }
 }
 
 class _ReviewCard extends StatelessWidget {
-  const _ReviewCard({
-    required this.review,
-    required this.relativeDate,
-  });
+  const _ReviewCard({required this.review, required this.relativeDate});
 
   final ReviewModel review;
   final String relativeDate;
@@ -248,7 +247,9 @@ class _ReviewCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return GlassCard(
       margin: const EdgeInsets.only(bottom: 12),
-      shadowColor: AppColors.accent,
+      elevated: true,
+      radius: 18,
+      shadowColor: context.appColors.accent,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -260,8 +261,8 @@ class _ReviewCard extends StatelessWidget {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  AppColors.accent,
-                  AppColors.accent.withValues(alpha: 0.2),
+                  context.appColors.accent,
+                  context.appColors.accent.withValues(alpha: 0.2),
                 ],
               ),
               borderRadius: BorderRadius.circular(2),
@@ -276,14 +277,13 @@ class _ReviewCard extends StatelessWidget {
                   children: [
                     CircleAvatar(
                       radius: 18,
-                      backgroundColor:
-                          AppColors.primary.withValues(alpha: 0.2),
+                      backgroundColor: AppColors.primary.withValues(alpha: 0.2),
                       child: Text(
                         (review.customerName ?? 'C')
                             .substring(0, 1)
                             .toUpperCase(),
-                        style: const TextStyle(
-                          color: AppColors.accent,
+                        style: TextStyle(
+                          color: context.appColors.accent,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -300,9 +300,7 @@ class _ReviewCard extends StatelessWidget {
                           if (relativeDate.isNotEmpty)
                             Text(
                               relativeDate,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .labelSmall
+                              style: Theme.of(context).textTheme.labelSmall
                                   ?.copyWith(
                                     color: context.appColors.textMuted,
                                   ),
@@ -318,7 +316,7 @@ class _ReviewCard extends StatelessWidget {
                               ? Icons.star_rounded
                               : Icons.star_border_rounded,
                           size: 14,
-                          color: AppColors.accent,
+                          color: context.appColors.accent,
                         ),
                       ),
                     ),
@@ -327,21 +325,23 @@ class _ReviewCard extends StatelessWidget {
                 if (review.salonName != null) ...[
                   const SizedBox(height: 10),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.primary.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: AppColors.accent.withValues(alpha: 0.3),
+                        color: context.appColors.accent.withValues(alpha: 0.3),
                       ),
                     ),
                     child: Text(
                       review.salonName!,
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: AppColors.accent,
-                            fontWeight: FontWeight.w600,
-                          ),
+                        color: context.appColors.accent,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ],
@@ -350,9 +350,9 @@ class _ReviewCard extends StatelessWidget {
                   Text(
                     '"${review.review!}"',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontStyle: FontStyle.italic,
-                          height: 1.5,
-                        ),
+                      fontStyle: FontStyle.italic,
+                      height: 1.5,
+                    ),
                   ),
                 ],
               ],

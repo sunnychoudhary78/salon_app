@@ -46,7 +46,8 @@ class NotificationHistoryService {
   }
 }
 
-final notificationHistoryServiceProvider =
-    Provider<NotificationHistoryService>((ref) {
-  return NotificationHistoryService(ref.watch(dioProvider));
-});
+final notificationHistoryServiceProvider = Provider<NotificationHistoryService>(
+  (ref) {
+    return NotificationHistoryService(ref.watch(dioProvider));
+  },
+);

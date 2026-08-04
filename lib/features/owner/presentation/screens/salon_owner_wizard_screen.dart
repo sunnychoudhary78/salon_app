@@ -1,23 +1,29 @@
-import 'package:dio/dio.dart';
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:saloon_booking/core/network/dio_client.dart';
+import 'package:saloon_booking/core/constants/salon_service_names.dart';
+import 'package:saloon_booking/core/network/user_facing_error.dart';
 import 'package:saloon_booking/core/providers/owner_approval_provider.dart';
 import 'package:saloon_booking/core/routing/route_paths.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
+import 'package:saloon_booking/core/utils/form_validators.dart';
 import 'package:saloon_booking/core/utils/phone_validation.dart';
 import 'package:saloon_booking/core/utils/salon_geocoding.dart';
 import 'package:saloon_booking/core/utils/salon_time_utils.dart';
 import 'package:saloon_booking/features/auth/presentation/providers/auth_provider.dart';
 import 'package:saloon_booking/features/owner/data/models/salon_location_selection.dart';
 import 'package:saloon_booking/features/owner/data/services/owner_service.dart';
+import 'package:saloon_booking/features/owner/presentation/widgets/salon_type_picker.dart';
 import 'package:saloon_booking/shared/widgets/animated_entrance.dart';
 import 'package:saloon_booking/shared/widgets/glass_card.dart';
 import 'package:saloon_booking/shared/widgets/gradient_background.dart';
 import 'package:saloon_booking/shared/widgets/owner_salon_location_card.dart';
+import 'package:saloon_booking/shared/widgets/premium_app_bar.dart';
 import 'package:saloon_booking/shared/widgets/premium_button.dart';
 import 'package:saloon_booking/shared/widgets/premium_text_field.dart';
 import 'package:saloon_booking/shared/widgets/salon_hours_picker_row.dart';
@@ -36,6 +42,8 @@ class SalonOwnerWizardScreen extends ConsumerStatefulWidget {
 class _SalonOwnerWizardScreenState
     extends ConsumerState<SalonOwnerWizardScreen> {
   final _pageController = PageController();
+  final _step0FormKey = GlobalKey<FormState>();
+  final _step1FormKey = GlobalKey<FormState>();
   int _step = 0;
   bool _loading = false;
   String? _error;
@@ -49,6 +57,7 @@ class _SalonOwnerWizardScreenState
   TimeOfDay? _openingTime = const TimeOfDay(hour: 9, minute: 0);
   TimeOfDay? _closingTime = const TimeOfDay(hour: 21, minute: 0);
   SalonLocationSelection? _location;
+  SalonType? _salonType;
   List<XFile> _selectedImages = [];
 
   static const _stepTitles = [
@@ -92,13 +101,24 @@ class _SalonOwnerWizardScreenState
   }
 
   bool _validateStep(int step) {
-    if (step == 0 && _businessController.text.trim().isEmpty) {
-      setState(() => _error = 'Business name is required');
-      return false;
+    if (step == 0) {
+      if (!(_step0FormKey.currentState?.validate() ?? false)) {
+        setState(() => _error = 'Please fix the highlighted fields');
+        return false;
+      }
+      if (_businessController.text.trim().isEmpty) {
+        setState(() => _error = 'Business name is required');
+        return false;
+      }
     }
     if (step == 1) {
+      if (!(_step1FormKey.currentState?.validate() ?? false)) {
+        setState(() => _error = 'Please fix the highlighted fields');
+        return false;
+      }
       final phone = normalizePhoneDigits(_phoneController.text);
       if (_salonNameController.text.trim().isEmpty ||
+          _salonType == null ||
           _openingTime == null ||
           _closingTime == null) {
         setState(() => _error = 'Please fill all required salon fields');
@@ -116,6 +136,14 @@ class _SalonOwnerWizardScreenState
         setState(() => _error = 'Please set and confirm salon location');
         return false;
       }
+      final premiumRaw = _premiumFeeController.text.trim();
+      if (premiumRaw.isNotEmpty) {
+        final fee = double.tryParse(premiumRaw);
+        if (fee == null || fee < 1 || fee > 10000) {
+          setState(() => _error = 'Enter an urgent fee between 1 and 10000');
+          return false;
+        }
+      }
     }
     setState(() => _error = null);
     return true;
@@ -131,18 +159,17 @@ class _SalonOwnerWizardScreenState
           _error = null;
         });
         try {
-          await ref.read(ownerOnboardingActionsProvider).registerOwner(
+          await ref
+              .read(ownerOnboardingActionsProvider)
+              .registerOwner(
                 businessName: _businessController.text.trim(),
                 gstNumber: _gstController.text.trim().isEmpty
                     ? null
                     : _gstController.text.trim(),
               );
           await ref.read(authProvider.notifier).refreshProfile();
-        } on DioException catch (e) {
-          if (mounted) setState(() => _error = e.apiException.message);
-          return;
         } catch (e) {
-          if (mounted) setState(() => _error = e.toString());
+          if (mounted) setState(() => _error = userFacingErrorMessage(e));
           return;
         } finally {
           if (mounted) setState(() => _loading = false);
@@ -167,7 +194,9 @@ class _SalonOwnerWizardScreenState
     try {
       final auth = ref.read(authProvider).value;
       if (auth?.salonOwner == null) {
-        await ref.read(ownerOnboardingActionsProvider).registerOwner(
+        await ref
+            .read(ownerOnboardingActionsProvider)
+            .registerOwner(
               businessName: _businessController.text.trim(),
               gstNumber: _gstController.text.trim().isEmpty
                   ? null
@@ -178,6 +207,7 @@ class _SalonOwnerWizardScreenState
 
       final body = <String, dynamic>{
         'salon_name': _salonNameController.text.trim(),
+        'salon_type': _salonType!.apiValue,
         'description': _descriptionController.text.trim().isEmpty
             ? null
             : _descriptionController.text.trim(),
@@ -190,9 +220,14 @@ class _SalonOwnerWizardScreenState
       final premiumRaw = _premiumFeeController.text.trim();
       if (premiumRaw.isNotEmpty) {
         final fee = double.tryParse(premiumRaw);
-        if (fee != null && fee > 0 && fee <= 10000) {
-          body['premium_booking_fee'] = fee;
+        if (fee == null || fee < 1 || fee > 10000) {
+          setState(() {
+            _loading = false;
+            _error = 'Enter an urgent fee between 1 and 10000';
+          });
+          return;
         }
+        body['premium_booking_fee'] = fee;
       }
 
       await ref.read(ownerOnboardingActionsProvider).submitApplication(body);
@@ -207,10 +242,8 @@ class _SalonOwnerWizardScreenState
         ),
       );
       context.go(RoutePaths.ownerDashboard);
-    } on DioException catch (e) {
-      setState(() => _error = e.apiException.message);
     } catch (e) {
-      setState(() => _error = e.toString());
+      if (mounted) setState(() => _error = userFacingErrorMessage(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -223,99 +256,117 @@ class _SalonOwnerWizardScreenState
         .read(ownerOnboardingActionsProvider)
         .uploadSalonImages(_selectedImages);
 
-    return {
-      'cover_image': urls.first,
-      'gallery_images': urls,
-    };
+    return {'cover_image': urls.first, 'gallery_images': urls};
   }
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
+
     return Scaffold(
+      appBar: PremiumAppBar(
+        title: 'Partner with us',
+        subtitle: 'Become a CATCHY salon partner',
+        showMenu: false,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () => context.pop(),
+        ),
+      ),
       body: GradientBackground(
-        child: SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8, 8, 16, 0),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back_rounded),
-                      onPressed: () => context.pop(),
-                    ),
-                    Expanded(
-                      child: Text(
-                        'Partner with us',
-                        style: Theme.of(context).textTheme.headlineSmall,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+              child: AnimatedEntrance(
+                child: GlassCard(
+                  elevated: false,
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                  child: StepProgressHeader(
+                    currentStep: _step,
+                    totalSteps: 3,
+                    titles: _stepTitles,
+                  ),
+                ),
+              ),
+            ),
+            Expanded(
+              child: PageView(
+                controller: _pageController,
+                physics: const NeverScrollableScrollPhysics(),
+                onPageChanged: (i) => setState(() => _step = i),
+                children: [_buildStep0(), _buildStep1(), _buildStep2()],
+              ),
+            ),
+            ClipRRect(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: colors.navBarBackground,
+                    border: Border(
+                      top: BorderSide(
+                        color: colors.glassBorder.withValues(alpha: 0.6),
                       ),
                     ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-                child: StepProgressHeader(
-                  currentStep: _step,
-                  totalSteps: 3,
-                  titles: _stepTitles,
-                ),
-              ),
-              Expanded(
-                child: PageView(
-                  controller: _pageController,
-                  physics: const NeverScrollableScrollPhysics(),
-                  onPageChanged: (i) => setState(() => _step = i),
-                  children: [
-                    _buildStep0(),
-                    _buildStep1(),
-                    _buildStep2(),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (_error != null) ...[
-                      Text(
-                        _error!,
-                        style: const TextStyle(color: AppColors.error),
-                        textAlign: TextAlign.center,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.25),
+                        blurRadius: 16,
+                        offset: const Offset(0, -4),
                       ),
-                      const SizedBox(height: 12),
                     ],
-                    Row(
-                      children: [
-                        if (_step > 0)
-                          Expanded(
-                            child: PremiumButton(
-                              label: 'Back',
-                              variant: PremiumButtonVariant.ghost,
-                              onPressed: _loading
-                                  ? null
-                                  : () => _goToStep(_step - 1),
+                  ),
+                  child: SafeArea(
+                    top: false,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (_error != null) ...[
+                            Text(
+                              _error!,
+                              style: const TextStyle(color: AppColors.error),
+                              textAlign: TextAlign.center,
                             ),
+                            const SizedBox(height: 10),
+                          ],
+                          Row(
+                            children: [
+                              if (_step > 0)
+                                Expanded(
+                                  child: PremiumButton(
+                                    label: 'Back',
+                                    variant: PremiumButtonVariant.ghost,
+                                    onPressed: _loading
+                                        ? null
+                                        : () => _goToStep(_step - 1),
+                                  ),
+                                ),
+                              if (_step > 0) const SizedBox(width: 12),
+                              Expanded(
+                                flex: 2,
+                                child: PremiumButton(
+                                  label: _step == 2
+                                      ? 'Submit application'
+                                      : 'Continue',
+                                  variant: PremiumButtonVariant.accent,
+                                  loading: _loading,
+                                  onPressed: _loading ? null : _next,
+                                ),
+                              ),
+                            ],
                           ),
-                        if (_step > 0) const SizedBox(width: 12),
-                        Expanded(
-                          flex: 2,
-                          child: PremiumButton(
-                            label: _step == 2 ? 'Submit application' : 'Continue',
-                            variant: PremiumButtonVariant.accent,
-                            loading: _loading,
-                            onPressed: _loading ? null : _next,
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ],
+                  ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -325,25 +376,30 @@ class _SalonOwnerWizardScreenState
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: AnimatedEntrance(
-        child: GlassCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SectionHeader(
-                title: 'Business details',
-                subtitle: 'Register as a salon owner',
-              ),
-              const SizedBox(height: 16),
-              PremiumTextField(
-                controller: _businessController,
-                label: 'Business name *',
-              ),
-              const SizedBox(height: 16),
-              PremiumTextField(
-                controller: _gstController,
-                label: 'GST number (optional)',
-              ),
-            ],
+        child: Form(
+          key: _step0FormKey,
+          child: GlassCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SectionHeader(
+                  title: 'Business details',
+                  subtitle: 'Register as a salon owner',
+                ),
+                const SizedBox(height: 16),
+                PremiumTextField(
+                  controller: _businessController,
+                  label: 'Business name *',
+                  validator: validateRequiredName,
+                ),
+                const SizedBox(height: 16),
+                PremiumTextField(
+                  controller: _gstController,
+                  label: 'GST number (optional)',
+                  validator: validateGstOptional,
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -354,67 +410,86 @@ class _SalonOwnerWizardScreenState
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: AnimatedEntrance(
-        child: GlassCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SectionHeader(
-                title: 'Salon information',
-                subtitle: 'Details sent to admin for approval',
-              ),
-              const SizedBox(height: 16),
-              PremiumTextField(
-                controller: _salonNameController,
-                label: 'Salon name *',
-              ),
-              const SizedBox(height: 16),
-              PremiumTextField(
-                controller: _descriptionController,
-                label: 'Description',
-                maxLines: 3,
-              ),
-              const SizedBox(height: 16),
-              OwnerSalonLocationCard(
-                value: _location,
-                onChanged: (location) => setState(() {
-                  _location = location;
-                  _error = null;
-                }),
-              ),
-              const SizedBox(height: 16),
-              PremiumTextField(
-                controller: _phoneController,
-                label: 'Salon phone *',
-                keyboardType: TextInputType.phone,
-                inputFormatters: phoneDigitInputFormatters,
-              ),
-              const SizedBox(height: 16),
-              SalonHoursPickerRow(
-                openingTime: _openingTime,
-                closingTime: _closingTime,
-                onOpeningChanged: (time) => setState(() => _openingTime = time),
-                onClosingChanged: (time) => setState(() => _closingTime = time),
-              ),
-              const SizedBox(height: 16),
-              PremiumTextField(
-                controller: _premiumFeeController,
-                label: 'Urgent booking fee (₹, optional)',
-                keyboardType: TextInputType.number,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Optional. Leave empty to use the platform default after approval.',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: context.appColors.textMuted,
-                    ),
-              ),
-              const SizedBox(height: 16),
-              SalonImagePicker(
-                images: _selectedImages,
-                onImagesChanged: (images) =>
-                    setState(() => _selectedImages = images),
-              ),
-            ],
+        child: Form(
+          key: _step1FormKey,
+          child: GlassCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SectionHeader(
+                  title: 'Salon information',
+                  subtitle: 'Details sent to admin for approval',
+                ),
+                const SizedBox(height: 16),
+                PremiumTextField(
+                  controller: _salonNameController,
+                  label: 'Salon name *',
+                  validator: validateRequiredName,
+                ),
+                const SizedBox(height: 16),
+                SalonTypePicker(
+                  value: _salonType,
+                  onChanged: (type) => setState(() {
+                    _salonType = type;
+                    _error = null;
+                  }),
+                ),
+                const SizedBox(height: 16),
+                PremiumTextField(
+                  controller: _descriptionController,
+                  label: 'Description',
+                  maxLines: 3,
+                  inputFormatters: [
+                    LengthLimitingTextInputFormatter(kNotesMaxLength),
+                  ],
+                  validator: validateOptionalNotes,
+                ),
+                const SizedBox(height: 16),
+                OwnerSalonLocationCard(
+                  value: _location,
+                  onChanged: (location) => setState(() {
+                    _location = location;
+                    _error = null;
+                  }),
+                ),
+                const SizedBox(height: 16),
+                PremiumTextField(
+                  controller: _phoneController,
+                  label: 'Salon phone *',
+                  keyboardType: TextInputType.phone,
+                  inputFormatters: phoneDigitInputFormatters,
+                  validator: validatePhoneDigits,
+                ),
+                const SizedBox(height: 16),
+                SalonHoursPickerRow(
+                  openingTime: _openingTime,
+                  closingTime: _closingTime,
+                  onOpeningChanged: (time) =>
+                      setState(() => _openingTime = time),
+                  onClosingChanged: (time) =>
+                      setState(() => _closingTime = time),
+                ),
+                const SizedBox(height: 16),
+                PremiumTextField(
+                  controller: _premiumFeeController,
+                  label: 'Urgent booking fee (₹, optional)',
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Optional. Leave empty to use the platform default after approval.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: context.appColors.textMuted,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SalonImagePicker(
+                  images: _selectedImages,
+                  onImagesChanged: (images) =>
+                      setState(() => _selectedImages = images),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -454,6 +529,15 @@ class _SalonOwnerWizardScreenState
                 child: Column(
                   children: [
                     _reviewRow('Salon', _salonNameController.text.trim()),
+                    if (_salonType != null)
+                      _reviewRow(
+                        'Salon type',
+                        switch (_salonType!) {
+                          SalonType.men => 'Men',
+                          SalonType.women => 'Women',
+                          SalonType.unisex => 'Unisex',
+                        },
+                      ),
                     if (location != null) ...[
                       _reviewRow('Location', location.displayLabel),
                       if (location.cityStateLine.isNotEmpty)
@@ -512,17 +596,17 @@ class _SalonOwnerWizardScreenState
             child: Text(
               label,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: context.appColors.textMuted,
-                    fontWeight: FontWeight.w600,
-                  ),
+                color: context.appColors.textMuted,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
           Expanded(
             child: Text(
               value,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: context.appColors.textPrimary,
-                  ),
+                color: context.appColors.textPrimary,
+              ),
             ),
           ),
         ],

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
+import 'package:saloon_booking/core/utils/form_validators.dart';
 import 'package:saloon_booking/core/utils/image_url_utils.dart';
 
 class SalonImagePicker extends StatelessWidget {
@@ -61,16 +62,13 @@ class SalonImagePicker extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Salon photos',
-          style: Theme.of(context).textTheme.titleSmall,
-        ),
+        Text('Salon photos', style: Theme.of(context).textTheme.titleSmall),
         const SizedBox(height: 4),
         Text(
           'Add one or more photos. The first image is the cover photo.',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: colors.textSecondary,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: colors.textSecondary),
         ),
         const SizedBox(height: 12),
         if (images.isNotEmpty)
@@ -107,7 +105,9 @@ class SalonImagePicker extends StatelessWidget {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: AppColors.accent.withValues(alpha: 0.9),
+                              color: context.appColors.accent.withValues(
+                                alpha: 0.9,
+                              ),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: const Text(
@@ -149,12 +149,13 @@ class SalonImagePicker extends StatelessWidget {
         if (images.isNotEmpty) const SizedBox(height: 12),
         OutlinedButton.icon(
           onPressed: images.length >= maxImages
-              ? null
+              ? () => showFormDisabledMessage(
+                  context,
+                  'You can add up to $maxImages photos',
+                )
               : () => _pickImages(context),
           icon: const Icon(Icons.add_photo_alternate_outlined),
-          label: Text(
-            images.isEmpty ? 'Add photos' : 'Add more photos',
-          ),
+          label: Text(images.isEmpty ? 'Add photos' : 'Add more photos'),
         ),
       ],
     );
@@ -240,9 +241,9 @@ class SalonImageEditor extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           'First image is the cover photo. Changes apply after admin approval.',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: colors.textSecondary,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: colors.textSecondary),
         ),
         const SizedBox(height: 12),
         if (_totalCount > 0)
@@ -287,7 +288,12 @@ class SalonImageEditor extends StatelessWidget {
           ),
         if (_totalCount > 0) const SizedBox(height: 12),
         OutlinedButton.icon(
-          onPressed: _totalCount >= maxImages ? null : () => _pickImages(context),
+          onPressed: _totalCount >= maxImages
+              ? () => showFormDisabledMessage(
+                  context,
+                  'You can add up to $maxImages photos',
+                )
+              : () => _pickImages(context),
           icon: const Icon(Icons.add_photo_alternate_outlined),
           label: Text(_totalCount == 0 ? 'Add photos' : 'Add more photos'),
         ),
@@ -324,7 +330,7 @@ class _ImageThumb extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: AppColors.accent.withValues(alpha: 0.9),
+                  color: context.appColors.accent.withValues(alpha: 0.9),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: const Text(
@@ -348,7 +354,11 @@ class _ImageThumb extends StatelessWidget {
                 onTap: onRemove,
                 child: const Padding(
                   padding: EdgeInsets.all(4),
-                  child: Icon(Icons.close_rounded, size: 14, color: Colors.white),
+                  child: Icon(
+                    Icons.close_rounded,
+                    size: 14,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ),

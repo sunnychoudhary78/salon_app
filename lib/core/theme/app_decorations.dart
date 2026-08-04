@@ -35,10 +35,7 @@ class AppDecorations {
     return BoxDecoration(
       color: fill ?? colors.surface,
       borderRadius: BorderRadius.circular(radius),
-      border: Border.all(
-        color: border ?? colors.glassBorder,
-        width: 1,
-      ),
+      border: Border.all(color: border ?? colors.glassBorder, width: 1),
       boxShadow: elevated ? colors.cardShadow(color: shadowColor) : null,
     );
   }
@@ -102,8 +99,7 @@ class AppDecorations {
       hintStyle: TextStyle(color: colors.textMuted),
       filled: true,
       fillColor: colors.surfaceSunken,
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppColors.radiusControl),
         borderSide: BorderSide(color: colors.glassBorder),

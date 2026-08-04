@@ -32,9 +32,12 @@ class AuthScaffold extends StatelessWidget {
     final viewInsets = MediaQuery.viewInsetsOf(context);
     final keyboardOpen = viewInsets.bottom > 0;
     final heroLogoWidth = (screenWidth * 0.82).clamp(260.0, 340.0);
-    final effectiveLogoSize = logoHero ? logoSize.clamp(140.0, 240.0) : logoSize;
-    final keyboardLogoSize =
-        keyboardOpen ? (effectiveLogoSize * 0.82).clamp(100.0, 180.0) : effectiveLogoSize;
+    final effectiveLogoSize = logoHero
+        ? logoSize.clamp(140.0, 240.0)
+        : logoSize;
+    final keyboardLogoSize = keyboardOpen
+        ? (effectiveLogoSize * 0.82).clamp(100.0, 180.0)
+        : effectiveLogoSize;
     final headerFlex = logoHero ? 3 : 2;
     final sheetFlex = logoHero ? 2 : 3;
 
@@ -53,7 +56,9 @@ class AuthScaffold extends StatelessWidget {
             child: Center(
               child: _GlowOrb(
                 size: logoHero ? 320 : 220,
-                color: colors.glowAccent.withValues(alpha: logoHero ? 0.28 : 0.2),
+                color: colors.glowAccent.withValues(
+                  alpha: logoHero ? 0.28 : 0.2,
+                ),
               ),
             ),
           ),
@@ -72,8 +77,7 @@ class AuthScaffold extends StatelessWidget {
                 Expanded(
                   flex: headerFlex,
                   child: Padding(
-                    padding:
-                        EdgeInsets.fromLTRB(24, logoHero ? 16 : 8, 24, 0),
+                    padding: EdgeInsets.fromLTRB(24, logoHero ? 16 : 8, 24, 0),
                     child: logoHero && showLogo
                         ? _HeroHeader(
                             onBack: onBack,
@@ -111,7 +115,8 @@ class AuthScaffold extends StatelessWidget {
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(
-                            alpha: Theme.of(context).brightness == Brightness.dark
+                            alpha:
+                                Theme.of(context).brightness == Brightness.dark
                                 ? 0.5
                                 : 0.12,
                           ),
@@ -179,32 +184,23 @@ class _HeroHeader extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: IconButton(
               onPressed: onBack,
-              icon: Icon(
-                Icons.arrow_back_rounded,
-                color: colors.textPrimary,
-              ),
-              style: IconButton.styleFrom(
-                backgroundColor: colors.glassFill,
-              ),
+              icon: Icon(Icons.arrow_back_rounded, color: colors.textPrimary),
+              style: IconButton.styleFrom(backgroundColor: colors.glassFill),
             ),
           )
         else
           SizedBox(height: compact ? 4 : 8),
         if (!compact) const Spacer(),
-        AppLogo(
-          size: logoSize,
-          maxWidth: logoWidth,
-          showGlow: true,
-        ),
+        AppLogo(size: logoSize, maxWidth: logoWidth, showGlow: true),
         if (headline.isNotEmpty) ...[
           SizedBox(height: compact ? 10 : 20),
           Text(
             headline,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: colors.accent,
-                  letterSpacing: 1.5,
-                  fontWeight: FontWeight.w500,
-                ),
+              color: colors.accent,
+              letterSpacing: 1.5,
+              fontWeight: FontWeight.w500,
+            ),
             textAlign: TextAlign.center,
           ),
         ],
@@ -213,9 +209,9 @@ class _HeroHeader extends StatelessWidget {
           Text(
             subtitle!,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colors.textSecondary,
-                  letterSpacing: 0.5,
-                ),
+              color: colors.textSecondary,
+              letterSpacing: 0.5,
+            ),
             textAlign: TextAlign.center,
           ),
         ],
@@ -251,13 +247,8 @@ class _StandardHeader extends StatelessWidget {
         if (onBack != null)
           IconButton(
             onPressed: onBack,
-            icon: Icon(
-              Icons.arrow_back_rounded,
-              color: colors.textPrimary,
-            ),
-            style: IconButton.styleFrom(
-              backgroundColor: colors.glassFill,
-            ),
+            icon: Icon(Icons.arrow_back_rounded, color: colors.textPrimary),
+            style: IconButton.styleFrom(backgroundColor: colors.glassFill),
           )
         else
           SizedBox(height: compact ? 8 : 48),
@@ -270,18 +261,18 @@ class _StandardHeader extends StatelessWidget {
           Text(
             headline,
             style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                  color: colors.textPrimary,
-                  fontWeight: FontWeight.w700,
-                  fontSize: compact ? 22 : null,
-                ),
+              color: colors.textPrimary,
+              fontWeight: FontWeight.w700,
+              fontSize: compact ? 22 : null,
+            ),
           ),
         if (subtitle != null) ...[
           SizedBox(height: compact ? 4 : 8),
           Text(
             subtitle!,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: colors.textPrimary.withValues(alpha: 0.75),
-                ),
+              color: colors.textPrimary.withValues(alpha: 0.75),
+            ),
           ),
         ],
         SizedBox(height: compact ? 8 : 24),

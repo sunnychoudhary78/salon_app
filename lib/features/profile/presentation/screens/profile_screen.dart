@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:saloon_booking/core/network/user_facing_error.dart';
 import 'package:saloon_booking/core/providers/owner_approval_provider.dart';
 import 'package:saloon_booking/core/routing/route_paths.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
@@ -34,14 +35,19 @@ class ProfileScreen extends ConsumerWidget {
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not refresh profile: $e')),
+          SnackBar(
+            content: Text(
+              'Could not refresh profile: ${userFacingErrorMessage(e)}',
+            ),
+          ),
         );
       }
     }
   }
 
-  String get _editRoute =>
-      isOwnerMode ? RoutePaths.ownerEditProfile : RoutePaths.customerEditProfile;
+  String get _editRoute => isOwnerMode
+      ? RoutePaths.ownerEditProfile
+      : RoutePaths.customerEditProfile;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -51,7 +57,8 @@ class ProfileScreen extends ConsumerWidget {
     }
 
     final application = auth.salonApplication;
-    final showApplicationStatus = isOwnerMode &&
+    final showApplicationStatus =
+        isOwnerMode &&
         application != null &&
         (application.isPending || application.isRejected);
     final profileImage = auth.customer?.profileImage;
@@ -110,9 +117,7 @@ class ProfileScreen extends ConsumerWidget {
                               auth.user.email!.isNotEmpty)
                             Text(
                               auth.user.email!,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyMedium
+                              style: Theme.of(context).textTheme.bodyMedium
                                   ?.copyWith(
                                     color: context.appColors.textSecondary,
                                   ),
@@ -262,7 +267,7 @@ class _OwnerProfileHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return GlassCard(
       padding: EdgeInsets.zero,
-      shadowColor: AppColors.accent,
+      shadowColor: context.appColors.accent,
       child: Column(
         children: [
           Container(
@@ -274,12 +279,13 @@ class _OwnerProfileHeader extends StatelessWidget {
                 end: Alignment.bottomRight,
                 colors: [
                   AppColors.primary.withValues(alpha: 0.35),
-                  AppColors.accent.withValues(alpha: 0.2),
+                  context.appColors.accent.withValues(alpha: 0.2),
                   context.appColors.surface.withValues(alpha: 0.1),
                 ],
               ),
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(16)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(16),
+              ),
             ),
             child: Column(
               children: [
@@ -299,9 +305,9 @@ class _OwnerProfileHeader extends StatelessWidget {
                   Text(
                     businessName!,
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          color: AppColors.accent,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      color: context.appColors.accent,
+                      fontWeight: FontWeight.w600,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                 ],
@@ -314,22 +320,22 @@ class _OwnerProfileHeader extends StatelessWidget {
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        AppColors.accent.withValues(alpha: 0.25),
+                        context.appColors.accent.withValues(alpha: 0.25),
                         AppColors.primary.withValues(alpha: 0.15),
                       ],
                     ),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: AppColors.accent.withValues(alpha: 0.4),
+                      color: context.appColors.accent.withValues(alpha: 0.4),
                     ),
                   ),
                   child: Text(
                     'Salon Owner',
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: AppColors.accent,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.5,
-                        ),
+                      color: context.appColors.accent,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.5,
+                    ),
                   ),
                 ),
               ],
@@ -344,8 +350,8 @@ class _OwnerProfileHeader extends StatelessWidget {
                   Text(
                     email!,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: context.appColors.textSecondary,
-                        ),
+                      color: context.appColors.textSecondary,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                 ],
@@ -391,16 +397,18 @@ class _ProfileAvatar extends StatelessWidget {
       height: 96,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: imageUrl == null ? AppColors.accentGradient : null,
+        gradient: imageUrl == null ? context.appColors.accentGradient : null,
         border: Border.all(
           color: showOwnerRing
-              ? AppColors.accent.withValues(alpha: 0.6)
+              ? context.appColors.accent.withValues(alpha: 0.6)
               : context.appColors.glassBorder,
           width: showOwnerRing ? 3 : 2,
         ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.accent.withValues(alpha: showOwnerRing ? 0.35 : 0.2),
+            color: context.appColors.accent.withValues(
+              alpha: showOwnerRing ? 0.35 : 0.2,
+            ),
             blurRadius: showOwnerRing ? 20 : 16,
             spreadRadius: showOwnerRing ? 2 : 1,
           ),
@@ -429,9 +437,9 @@ class _Initials extends StatelessWidget {
       child: Text(
         initials,
         style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-              color: context.appColors.onAccent,
-              fontWeight: FontWeight.bold,
-            ),
+          color: context.appColors.onAccent,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }

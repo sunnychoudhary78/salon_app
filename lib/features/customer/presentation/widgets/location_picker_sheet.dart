@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:saloon_booking/core/location/selected_location.dart';
 import 'package:saloon_booking/core/location/selected_location_provider.dart';
-import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/shared/widgets/glass_bottom_sheet.dart';
 import 'package:saloon_booking/shared/widgets/glass_card.dart';
@@ -37,8 +36,7 @@ class _LocationPickerSheetState extends ConsumerState<_LocationPickerSheet> {
 
   Future<void> _useCurrentLocation() async {
     setState(() => _gpsLoading = true);
-    final ok =
-        await ref.read(selectedLocationProvider.notifier).refreshGps();
+    final ok = await ref.read(selectedLocationProvider.notifier).refreshGps();
     if (!mounted) return;
     setState(() => _gpsLoading = false);
     if (ok) Navigator.pop(context);
@@ -55,8 +53,7 @@ class _LocationPickerSheetState extends ConsumerState<_LocationPickerSheet> {
   Widget build(BuildContext context) {
     final locationState = ref.watch(selectedLocationProvider);
     final current = locationState.location;
-    final isGpsActive =
-        current.isSet && current.source == LocationSource.gps;
+    final isGpsActive = current.isSet && current.source == LocationSource.gps;
     final isCityActive =
         current.isSet && current.source == LocationSource.manualCity;
 
@@ -74,16 +71,16 @@ class _LocationPickerSheetState extends ConsumerState<_LocationPickerSheet> {
           Text(
             'Choose location',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: context.appColors.textPrimary,
-                  fontWeight: FontWeight.w700,
-                ),
+              color: context.appColors.textPrimary,
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(height: 6),
           Text(
             'See salons near you or filter by city',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: context.appColors.textSecondary,
-                ),
+              color: context.appColors.textSecondary,
+            ),
           ),
           const SizedBox(height: 20),
           _LocationOptionCard(
@@ -111,8 +108,8 @@ class _LocationPickerSheetState extends ConsumerState<_LocationPickerSheet> {
                 child: Text(
                   'OR',
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: context.appColors.textMuted,
-                      ),
+                    color: context.appColors.textMuted,
+                  ),
                 ),
               ),
               Expanded(
@@ -127,16 +124,16 @@ class _LocationPickerSheetState extends ConsumerState<_LocationPickerSheet> {
             controller: _cityController,
             label: 'Search city',
             hint: 'e.g. Mumbai, Bengaluru',
-            prefixIcon: const Icon(Icons.location_city_rounded),
+            prefixIcon: Icon(Icons.location_city_rounded),
             onChanged: (_) => setState(() {}),
           ),
           if (isCityActive) ...[
             const SizedBox(height: 8),
             Text(
               'Active: ${current.displayLabel}',
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: AppColors.accent,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.labelSmall?.copyWith(color: context.appColors.accent),
             ),
           ],
           const SizedBox(height: 16),
@@ -144,6 +141,9 @@ class _LocationPickerSheetState extends ConsumerState<_LocationPickerSheet> {
             label: 'Apply city',
             variant: PremiumButtonVariant.primary,
             onPressed: _cityController.text.trim().isEmpty ? null : _applyCity,
+            disabledMessage: _cityController.text.trim().isEmpty
+                ? 'Please enter a city to continue'
+                : null,
           ),
         ],
       ),
@@ -179,7 +179,7 @@ class _LocationOptionCard extends StatelessWidget {
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               gradient: isActive
-                  ? AppColors.accentGradient
+                  ? context.appColors.accentGradient
                   : LinearGradient(
                       colors: [
                         context.appColors.surfaceElevated,
@@ -189,7 +189,7 @@ class _LocationOptionCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: isActive
-                    ? AppColors.accent.withValues(alpha: 0.5)
+                    ? context.appColors.accent.withValues(alpha: 0.5)
                     : context.appColors.glassBorder.withValues(alpha: 0.5),
               ),
             ),
@@ -209,9 +209,9 @@ class _LocationOptionCard extends StatelessWidget {
                 Text(
                   title,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: context.appColors.textPrimary,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    color: context.appColors.textPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -219,8 +219,8 @@ class _LocationOptionCard extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: context.appColors.textSecondary,
-                      ),
+                    color: context.appColors.textSecondary,
+                  ),
                 ),
               ],
             ),
@@ -232,9 +232,9 @@ class _LocationOptionCard extends StatelessWidget {
               child: CircularProgressIndicator(strokeWidth: 2),
             )
           else if (isActive)
-            const Icon(
+            Icon(
               Icons.check_circle_rounded,
-              color: AppColors.accent,
+              color: context.appColors.accent,
               size: 22,
             ),
         ],

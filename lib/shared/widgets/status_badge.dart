@@ -8,22 +8,22 @@ class StatusBadge extends StatelessWidget {
   final String status;
 
   Color _color(BuildContext context) => switch (status.toUpperCase()) {
-        'PENDING' || 'PENDING_APPROVAL' => AppColors.warning,
-        'ACCEPTED' || 'ACTIVE' => AppColors.success,
-        'REJECTED' => AppColors.error,
-        'CANCELLED' || 'INACTIVE' => context.appColors.textSecondary,
-        'COMPLETED' || 'PUBLISHED' => AppColors.primaryLight,
-        _ => context.appColors.textSecondary,
-      };
+    'PENDING' || 'PENDING_APPROVAL' => AppColors.warning,
+    'ACCEPTED' || 'ACTIVE' => AppColors.success,
+    'REJECTED' => AppColors.error,
+    'CANCELLED' || 'INACTIVE' => context.appColors.textSecondary,
+    'COMPLETED' || 'PUBLISHED' => AppColors.primaryLight,
+    _ => context.appColors.textSecondary,
+  };
 
   IconData get _icon => switch (status.toUpperCase()) {
-        'PENDING' || 'PENDING_APPROVAL' => Icons.schedule_rounded,
-        'ACCEPTED' || 'ACTIVE' => Icons.check_circle_rounded,
-        'REJECTED' => Icons.cancel_rounded,
-        'CANCELLED' => Icons.block_rounded,
-        'COMPLETED' || 'PUBLISHED' => Icons.verified_rounded,
-        _ => Icons.info_outline_rounded,
-      };
+    'PENDING' || 'PENDING_APPROVAL' => Icons.schedule_rounded,
+    'ACCEPTED' || 'ACTIVE' => Icons.check_circle_rounded,
+    'REJECTED' => Icons.cancel_rounded,
+    'CANCELLED' => Icons.block_rounded,
+    'COMPLETED' || 'PUBLISHED' => Icons.verified_rounded,
+    _ => Icons.info_outline_rounded,
+  };
 
   @override
   Widget build(BuildContext context) {

@@ -6,10 +6,7 @@ import 'package:saloon_booking/features/owner/data/models/owner_dashboard_v2_mod
 import 'package:saloon_booking/shared/widgets/glass_card.dart';
 
 class OwnerSecondaryKpiCarousel extends StatefulWidget {
-  const OwnerSecondaryKpiCarousel({
-    super.key,
-    required this.bookings,
-  });
+  const OwnerSecondaryKpiCarousel({super.key, required this.bookings});
 
   final OwnerDashboardBookingsSummary bookings;
 
@@ -56,10 +53,7 @@ class _OwnerSecondaryKpiCarouselState extends State<OwnerSecondaryKpiCarousel> {
       children: [
         SizedBox(
           height: 72,
-          child: PageView(
-            controller: _controller,
-            children: cards,
-          ),
+          child: PageView(controller: _controller, children: cards),
         ),
         if (cards.length > 1) ...[
           const SizedBox(height: 8),
@@ -107,14 +101,14 @@ class _SecondaryCard extends StatelessWidget {
               Text(
                 value,
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
+                  fontWeight: FontWeight.w800,
+                ),
               ),
               Text(
                 label,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: context.appColors.textMuted,
-                    ),
+                  color: context.appColors.textMuted,
+                ),
               ),
             ],
           ),

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 
 class ProfileDetailRow extends StatelessWidget {
@@ -21,7 +20,7 @@ class ProfileDetailRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 20, color: AppColors.accent),
+          Icon(icon, size: 20, color: context.appColors.accent),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
@@ -30,15 +29,15 @@ class ProfileDetailRow extends StatelessWidget {
                 Text(
                   label,
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: context.appColors.textMuted,
-                      ),
+                    color: context.appColors.textMuted,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   value.isEmpty ? '—' : value,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: context.appColors.textPrimary,
-                      ),
+                    color: context.appColors.textPrimary,
+                  ),
                 ),
               ],
             ),

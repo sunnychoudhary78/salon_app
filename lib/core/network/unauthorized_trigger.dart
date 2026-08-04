@@ -11,5 +11,6 @@ class UnauthorizedTrigger extends Notifier<int> {
   void trigger() => state++;
 }
 
-final unauthorizedTriggerProvider =
-    NotifierProvider<UnauthorizedTrigger, int>(UnauthorizedTrigger.new);
+final unauthorizedTriggerProvider = NotifierProvider<UnauthorizedTrigger, int>(
+  UnauthorizedTrigger.new,
+);

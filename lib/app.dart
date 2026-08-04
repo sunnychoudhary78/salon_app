@@ -7,6 +7,8 @@ import 'package:saloon_booking/core/network/session_expired_notifier.dart';
 import 'package:saloon_booking/core/notifications/notification_providers.dart';
 import 'package:saloon_booking/core/providers/user_data_invalidation.dart';
 import 'package:saloon_booking/core/routing/app_router.dart';
+import 'package:saloon_booking/core/theme/accent_palette.dart';
+import 'package:saloon_booking/core/theme/accent_palette_provider.dart';
 import 'package:saloon_booking/core/theme/app_theme.dart';
 import 'package:saloon_booking/core/theme/theme_mode_provider.dart';
 import 'package:saloon_booking/core/ui/system_ui_scope.dart';
@@ -39,17 +41,17 @@ class _SalonAppState extends ConsumerState<SalonApp> {
           next.value?.user.id,
         );
       });
-      _sessionExpiredSubscription = ref.listenManual(
-        sessionExpiredProvider,
-        (previous, next) {
-          rootScaffoldMessengerKey.currentState?.showSnackBar(
-            const SnackBar(
-              content: Text('Session expired. Please log in again.'),
-              duration: Duration(seconds: 4),
-            ),
-          );
-        },
-      );
+      _sessionExpiredSubscription = ref.listenManual(sessionExpiredProvider, (
+        previous,
+        next,
+      ) {
+        rootScaffoldMessengerKey.currentState?.showSnackBar(
+          const SnackBar(
+            content: Text('Session expired. Please log in again.'),
+            duration: Duration(seconds: 4),
+          ),
+        );
+      });
     });
   }
 
@@ -64,6 +66,8 @@ class _SalonAppState extends ConsumerState<SalonApp> {
   Widget build(BuildContext context) {
     final router = ref.watch(appRouterProvider);
     final themeMode = ref.watch(themeModeProvider).value ?? ThemeMode.dark;
+    final accentPalette =
+        ref.watch(accentPaletteProvider).value ?? AccentPalette.rose;
 
     return SystemUiScope(
       brightness: themeMode == ThemeMode.light
@@ -72,16 +76,14 @@ class _SalonAppState extends ConsumerState<SalonApp> {
       child: MaterialApp.router(
         scaffoldMessengerKey: rootScaffoldMessengerKey,
         title: AppConfig.appName,
-        theme: AppTheme.light,
-        darkTheme: AppTheme.dark,
+        theme: AppTheme.lightFor(accentPalette),
+        darkTheme: AppTheme.darkFor(accentPalette),
         themeMode: themeMode,
         routerConfig: router,
         debugShowCheckedModeBanner: false,
         builder: (context, child) {
           return UserActivityScope(
-            child: IdleDebugOverlay(
-              child: child ?? const SizedBox.shrink(),
-            ),
+            child: IdleDebugOverlay(child: child ?? const SizedBox.shrink()),
           );
         },
       ),

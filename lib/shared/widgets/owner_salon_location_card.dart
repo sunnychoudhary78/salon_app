@@ -37,9 +37,9 @@ class OwnerSalonLocationCard extends StatelessWidget {
       children: [
         Text(
           'Salon location *',
-          style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: colors.textSecondary,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.labelLarge?.copyWith(color: colors.textSecondary),
         ),
         const SizedBox(height: 10),
         if (!confirmed)
@@ -51,7 +51,7 @@ class OwnerSalonLocationCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    gradient: AppColors.accentGradient,
+                    gradient: context.appColors.accentGradient,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
@@ -68,23 +68,20 @@ class OwnerSalonLocationCard extends StatelessWidget {
                       Text(
                         'Search & pin on map',
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         'Find your salon, adjust the map, and confirm',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: colors.textSecondary,
-                            ),
+                          color: colors.textSecondary,
+                        ),
                       ),
                     ],
                   ),
                 ),
-                Icon(
-                  Icons.chevron_right_rounded,
-                  color: colors.textMuted,
-                ),
+                Icon(Icons.chevron_right_rounded, color: colors.textMuted),
               ],
             ),
           )
@@ -118,9 +115,7 @@ class OwnerSalonLocationCard extends StatelessWidget {
                             const SizedBox(height: 4),
                             Text(
                               value!.detailLine,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
+                              style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(color: colors.textSecondary),
                             ),
                           ],
@@ -130,9 +125,7 @@ class OwnerSalonLocationCard extends StatelessWidget {
                               value!.latitude,
                               value!.longitude,
                             ),
-                            style: Theme.of(context)
-                                .textTheme
-                                .labelSmall
+                            style: Theme.of(context).textTheme.labelSmall
                                 ?.copyWith(color: colors.textMuted),
                           ),
                         ],

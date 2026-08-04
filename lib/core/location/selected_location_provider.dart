@@ -1,14 +1,49 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:saloon_booking/core/crash/crash_reporting.dart';
 import 'package:saloon_booking/core/location/location_service_provider.dart';
 import 'package:saloon_booking/core/location/selected_location.dart';
 import 'package:saloon_booking/core/location/user_location_service.dart';
 import 'package:saloon_booking/core/utils/salon_geocoding.dart';
 
 const _prefsKey = 'selected_location_v1';
+const minimumGpsQueryDistanceMeters = 250.0;
+const backgroundGpsRefreshInterval = Duration(minutes: 15);
+
+bool isSignificantGpsChange(
+  SelectedLocation current,
+  UserLocation next, {
+  double minimumDistanceMeters = minimumGpsQueryDistanceMeters,
+}) {
+  final currentLat = current.latitude;
+  final currentLng = current.longitude;
+  if (current.source != LocationSource.gps ||
+      currentLat == null ||
+      currentLng == null) {
+    return true;
+  }
+
+  const earthRadiusMeters = 6371000.0;
+  double radians(double degrees) => degrees * math.pi / 180;
+  final latDelta = radians(next.latitude - currentLat);
+  final lngDelta = radians(next.longitude - currentLng);
+  final a =
+      math.sin(latDelta / 2) * math.sin(latDelta / 2) +
+      math.cos(radians(currentLat)) *
+          math.cos(radians(next.latitude)) *
+          math.sin(lngDelta / 2) *
+          math.sin(lngDelta / 2);
+  final clampedA = a.clamp(0.0, 1.0);
+  final distance =
+      earthRadiusMeters *
+      2 *
+      math.atan2(math.sqrt(clampedA), math.sqrt(1 - clampedA));
+  return distance >= minimumDistanceMeters;
+}
 
 class SelectedLocationState {
   const SelectedLocationState({
@@ -66,6 +101,7 @@ final settledSalonLocationKeyProvider = Provider<String>((ref) {
 class SelectedLocationNotifier extends Notifier<SelectedLocationState> {
   Future<bool>? _gpsRefreshFuture;
   bool _bootstrapScheduled = false;
+  DateTime? _lastBackgroundGpsRefreshAt;
 
   UserLocationService get _locationService =>
       ref.read(userLocationServiceProvider);
@@ -107,8 +143,8 @@ class SelectedLocationNotifier extends Notifier<SelectedLocationState> {
   }
 
   Future<void> setFromGps(UserLocation coords, {String? label}) async {
-    final displayLabel = label ??
-        formatCoordinatesLabel(coords.latitude, coords.longitude);
+    final displayLabel =
+        label ?? formatCoordinatesLabel(coords.latitude, coords.longitude);
     final location = SelectedLocation(
       displayLabel: displayLabel,
       source: LocationSource.gps,
@@ -116,10 +152,7 @@ class SelectedLocationNotifier extends Notifier<SelectedLocationState> {
       longitude: coords.longitude,
       city: null,
     );
-    state = SelectedLocationState(
-      location: location,
-      gpsDenied: false,
-    );
+    state = SelectedLocationState(location: location, gpsDenied: false);
     await _persist(location);
 
     if (label == null) {
@@ -153,10 +186,7 @@ class SelectedLocationNotifier extends Notifier<SelectedLocationState> {
       source: LocationSource.manualCity,
       city: trimmed,
     );
-    state = SelectedLocationState(
-      location: location,
-      gpsDenied: false,
-    );
+    state = SelectedLocationState(location: location, gpsDenied: false);
     await _persist(location);
   }
 
@@ -164,7 +194,11 @@ class SelectedLocationNotifier extends Notifier<SelectedLocationState> {
     final inFlight = _gpsRefreshFuture;
     if (inFlight != null) return inFlight;
 
-    final future = _refreshGps(silent: silent);
+    final future = CrashReporting.measureAsync(
+      silent ? 'gps_refresh_background' : 'gps_refresh',
+      () => _refreshGps(silent: silent),
+      slowThreshold: const Duration(seconds: 2),
+    );
     _gpsRefreshFuture = future;
     return future.whenComplete(() {
       if (identical(_gpsRefreshFuture, future)) {
@@ -183,6 +217,13 @@ class SelectedLocationNotifier extends Notifier<SelectedLocationState> {
     await Future<void>.delayed(const Duration(milliseconds: 500));
     final loc = state.location;
     if (!loc.isSet || loc.source != LocationSource.gps) return;
+    final lastRefreshAt = _lastBackgroundGpsRefreshAt;
+    if (lastRefreshAt != null &&
+        DateTime.now().difference(lastRefreshAt) <
+            backgroundGpsRefreshInterval) {
+      return;
+    }
+    _lastBackgroundGpsRefreshAt = DateTime.now();
     await refreshGps(silent: true);
   }
 
@@ -217,6 +258,12 @@ class SelectedLocationNotifier extends Notifier<SelectedLocationState> {
         );
         return false;
       }
+      if (silent &&
+          hasPersistedLocation &&
+          !isSignificantGpsChange(state.location, coords)) {
+        CrashReporting.breadcrumb('gps_refresh_ignored_small_change');
+        return true;
+      }
       await setFromGps(coords);
       state = state.copyWith(isLoading: false, gpsDenied: false);
       return true;
@@ -236,5 +283,5 @@ class SelectedLocationNotifier extends Notifier<SelectedLocationState> {
 
 final selectedLocationProvider =
     NotifierProvider<SelectedLocationNotifier, SelectedLocationState>(
-  SelectedLocationNotifier.new,
-);
+      SelectedLocationNotifier.new,
+    );

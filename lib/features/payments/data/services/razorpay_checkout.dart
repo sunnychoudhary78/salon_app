@@ -20,6 +20,8 @@ class RazorpayCheckout {
     required PaymentModel payment,
     required String name,
     required String description,
+    String? contact,
+    String? email,
   }) {
     final keyId = payment.razorpayKeyId;
     final orderId = payment.razorpayOrderId;
@@ -69,6 +71,12 @@ class RazorpayCheckout {
       cleanup();
     });
 
+    final prefill = <String, dynamic>{
+      'name': name,
+      if (contact != null && contact.isNotEmpty) 'contact': contact,
+      if (email != null && email.isNotEmpty) 'email': email,
+    };
+
     try {
       razorpay.open({
         'key': keyId,
@@ -78,6 +86,14 @@ class RazorpayCheckout {
         'description': description,
         'order_id': orderId,
         'theme': {'color': '#B8860B'},
+        'prefill': prefill,
+        'method': {
+          'upi': true,
+          'card': true,
+          'netbanking': true,
+          'wallet': true,
+        },
+        'retry': {'enabled': true, 'max_count': 1},
       });
     } catch (error) {
       cleanup();

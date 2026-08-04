@@ -5,9 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:saloon_booking/core/theme/app_colors.dart';
+import 'package:saloon_booking/core/network/user_facing_error.dart';
+import 'package:saloon_booking/core/routing/route_paths.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/core/theme/app_decorations.dart';
+import 'package:saloon_booking/core/utils/form_validators.dart';
 import 'package:saloon_booking/core/utils/image_url_utils.dart';
 import 'package:saloon_booking/features/auth/presentation/providers/auth_provider.dart';
 import 'package:saloon_booking/features/profile/data/services/profile_service.dart';
@@ -35,6 +37,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   XFile? _pickedImage;
   bool _removedImage = false;
   bool _saving = false;
+  String? _gender;
 
   @override
   void initState() {
@@ -49,6 +52,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     _emailController.text = auth.user.email ?? '';
     _phoneController.text = auth.user.phone ?? '';
     _existingImageUrl = auth.customer?.profileImage;
+    final gender = auth.customer?.gender?.toLowerCase();
+    _gender = gender == 'male' || gender == 'female' ? gender : null;
+    setState(() {});
   }
 
   @override
@@ -97,21 +103,21 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       await actions.updateProfileFields(
         name: _nameController.text.trim(),
         email: _emailController.text.trim(),
-        phone: _phoneController.text.trim(),
         profileImage: profileImageUrl,
         clearProfileImage: clearProfileImage,
+        gender: _gender,
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile updated')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Profile updated')));
         context.pop();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(userFacingErrorMessage(e))));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -206,10 +212,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                           PremiumTextField(
                             controller: _nameController,
                             label: 'Full name',
-                            validator: (v) =>
-                                v == null || v.trim().isEmpty
-                                    ? 'Name is required'
-                                    : null,
+                            validator: validateRequiredName,
                             onChanged: (_) => setState(() {}),
                           ),
                           const SizedBox(height: 12),
@@ -217,16 +220,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                             controller: _emailController,
                             label: 'Email (optional)',
                             keyboardType: TextInputType.emailAddress,
-                            validator: (v) {
-                              if (v == null || v.trim().isEmpty) return null;
-                              final emailRegex = RegExp(
-                                r'^[^\s@]+@[^\s@]+\.[^\s@]+$',
-                              );
-                              if (!emailRegex.hasMatch(v.trim())) {
-                                return 'Enter a valid email';
-                              }
-                              return null;
-                            },
+                            validator: validateOptionalEmail,
                           ),
                           const SizedBox(height: 12),
                           PremiumTextField(
@@ -235,15 +229,65 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                             keyboardType: TextInputType.phone,
                             enabled: false,
                           ),
+                          const SizedBox(height: 8),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: TextButton(
+                              onPressed: _saving
+                                  ? null
+                                  : () {
+                                      final isOwner = GoRouterState.of(context)
+                                          .uri
+                                          .path
+                                          .startsWith('/owner');
+                                      context.push(
+                                        isOwner
+                                            ? RoutePaths.ownerChangePhone
+                                            : RoutePaths.customerChangePhone,
+                                      );
+                                    },
+                              child: const Text('Change phone number'),
+                            ),
+                          ),
                           Padding(
-                            padding: const EdgeInsets.only(top: 4),
+                            padding: const EdgeInsets.only(top: 0),
                             child: Text(
-                              'Phone is verified at login and cannot be changed here.',
+                              'Changing your phone requires OTP verification on the new number.',
                               style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(
                                     color: context.appColors.textMuted,
                                   ),
                             ),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Gender',
+                            style: Theme.of(context).textTheme.titleSmall,
+                          ),
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: ChoiceChip(
+                                  label: const Text('Male'),
+                                  selected: _gender == 'male',
+                                  onSelected: _saving
+                                      ? null
+                                      : (_) => setState(() => _gender = 'male'),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: ChoiceChip(
+                                  label: const Text('Female'),
+                                  selected: _gender == 'female',
+                                  onSelected: _saving
+                                      ? null
+                                      : (_) =>
+                                            setState(() => _gender = 'female'),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -281,14 +325,15 @@ class _ProfilePhotoPreview extends StatelessWidget {
       height: 112,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: pickedImage == null &&
+        gradient:
+            pickedImage == null &&
                 (existingImageUrl == null || existingImageUrl!.isEmpty)
-            ? AppColors.accentGradient
+            ? context.appColors.accentGradient
             : null,
         border: Border.all(color: context.appColors.glassBorder, width: 2),
         boxShadow: [
           BoxShadow(
-            color: AppColors.accent.withValues(alpha: 0.2),
+            color: context.appColors.accent.withValues(alpha: 0.2),
             blurRadius: 16,
             spreadRadius: 1,
           ),
@@ -296,17 +341,14 @@ class _ProfilePhotoPreview extends StatelessWidget {
       ),
       clipBehavior: Clip.antiAlias,
       child: pickedImage != null
-          ? Image.file(
-              File(pickedImage!.path),
-              fit: BoxFit.cover,
-            )
+          ? Image.file(File(pickedImage!.path), fit: BoxFit.cover)
           : existingImageUrl != null && existingImageUrl!.isNotEmpty
-              ? CachedNetworkImage(
-                  imageUrl: resolveImageUrl(existingImageUrl!),
-                  fit: BoxFit.cover,
-                  errorWidget: (_, __, ___) => _InitialsAvatar(initials: initials),
-                )
-              : _InitialsAvatar(initials: initials),
+          ? CachedNetworkImage(
+              imageUrl: resolveImageUrl(existingImageUrl!),
+              fit: BoxFit.cover,
+              errorWidget: (_, __, ___) => _InitialsAvatar(initials: initials),
+            )
+          : _InitialsAvatar(initials: initials),
     );
   }
 }
@@ -322,9 +364,9 @@ class _InitialsAvatar extends StatelessWidget {
       child: Text(
         initials,
         style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-              color: context.appColors.onAccent,
-              fontWeight: FontWeight.bold,
-            ),
+          color: context.appColors.onAccent,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }

@@ -40,28 +40,24 @@ class AuthService {
     }
 
     final auth = AuthResponse.fromJson(data);
-    return OtpVerifyResult(
-      isNewUser: false,
-      authResponse: auth,
-    );
+    return OtpVerifyResult(isNewUser: false, authResponse: auth);
   }
 
   Future<AuthResponse> completeProfile({
     required String signupToken,
     required String name,
+    required String gender,
     String? email,
   }) async {
     final response = await _dio.post(
       '${AppConfig.appPrefix}/auth/complete-profile',
       data: {
         'name': name,
+        'gender': gender,
         if (email != null && email.isNotEmpty) 'email': email,
       },
       options: Options(
-        headers: {
-          ..._mobileHeaders,
-          'Authorization': 'Bearer $signupToken',
-        },
+        headers: {..._mobileHeaders, 'Authorization': 'Bearer $signupToken'},
       ),
     );
     return AuthResponse.fromJson(response.data as Map<String, dynamic>);

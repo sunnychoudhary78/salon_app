@@ -5,28 +5,34 @@ Future<bool> launchPhoneCall(String phone) async {
   if (digits.isEmpty) return false;
 
   final uri = Uri(scheme: 'tel', path: digits);
-  if (!await canLaunchUrl(uri)) return false;
-  return launchUrl(uri);
+  try {
+    return await launchUrl(uri, mode: LaunchMode.externalApplication);
+  } catch (_) {
+    return false;
+  }
 }
 
-Future<bool> launchEmail(
-  String email, {
-  String? subject,
-}) async {
+Future<bool> launchEmail(String email, {String? subject}) async {
   if (email.trim().isEmpty) return false;
 
   final query = subject != null && subject.isNotEmpty
       ? 'subject=${Uri.encodeComponent(subject)}'
       : null;
   final uri = Uri(scheme: 'mailto', path: email.trim(), query: query);
-  if (!await canLaunchUrl(uri)) return false;
-  return launchUrl(uri);
+  try {
+    return await launchUrl(uri, mode: LaunchMode.externalApplication);
+  } catch (_) {
+    return false;
+  }
 }
 
 Future<bool> launchWebUrl(String url) async {
   if (url.trim().isEmpty) return false;
 
   final uri = Uri.parse(url.trim());
-  if (!await canLaunchUrl(uri)) return false;
-  return launchUrl(uri, mode: LaunchMode.externalApplication);
+  try {
+    return await launchUrl(uri, mode: LaunchMode.externalApplication);
+  } catch (_) {
+    return false;
+  }
 }

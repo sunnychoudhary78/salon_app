@@ -1,11 +1,9 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:saloon_booking/core/lifecycle/user_activity_provider.dart';
-import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/core/utils/image_url_utils.dart';
 import 'package:visibility_detector/visibility_detector.dart';
@@ -18,6 +16,8 @@ class SalonCubeImageSlider extends ConsumerStatefulWidget {
     this.borderRadius = const BorderRadius.all(Radius.circular(16)),
     this.autoPlayInterval = const Duration(seconds: 4),
     this.sliderKey,
+    this.showDotIndicator = true,
+    this.onPageChanged,
   });
 
   final List<String> images;
@@ -25,6 +25,8 @@ class SalonCubeImageSlider extends ConsumerStatefulWidget {
   final BorderRadius borderRadius;
   final Duration autoPlayInterval;
   final String? sliderKey;
+  final bool showDotIndicator;
+  final ValueChanged<int>? onPageChanged;
 
   @override
   ConsumerState<SalonCubeImageSlider> createState() =>
@@ -32,33 +34,51 @@ class SalonCubeImageSlider extends ConsumerStatefulWidget {
 }
 
 class _SalonCubeImageSliderState extends ConsumerState<SalonCubeImageSlider> {
-  static const _transitionDuration = Duration(milliseconds: 650);
+  static const _transitionDuration = Duration(milliseconds: 450);
 
   late final PageController _pageController;
   Timer? _autoPlayTimer;
   int _currentIndex = 0;
   bool _userDragging = false;
   bool _isVisible = false;
+  bool _userIdle = false;
+  bool _disposed = false;
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController();
-    _startAutoPlay();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _userIdle = ref.read(userIdleProvider);
   }
 
   @override
   void didUpdateWidget(SalonCubeImageSlider oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.images != widget.images) {
+    if (!_sameImages(oldWidget.images, widget.images)) {
       _currentIndex = 0;
-      _pageController.jumpToPage(0);
+      if (_pageController.hasClients) {
+        _pageController.jumpToPage(0);
+      }
       _restartAutoPlay();
     }
   }
 
+  bool _sameImages(List<String> a, List<String> b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
   void _setVisible(bool visible) {
-    if (_isVisible == visible) return;
+    if (_disposed || !mounted || _isVisible == visible) return;
     _isVisible = visible;
     if (visible) {
       _startAutoPlay();
@@ -69,41 +89,50 @@ class _SalonCubeImageSliderState extends ConsumerState<SalonCubeImageSlider> {
   }
 
   bool get _shouldAutoPlay =>
+      !_disposed &&
+      mounted &&
       _isVisible &&
       !_userDragging &&
-      widget.images.length > 1 &&
-      !ref.read(userIdleProvider);
+      !_userIdle &&
+      widget.images.length > 1;
 
   void _startAutoPlay() {
     _autoPlayTimer?.cancel();
     if (!_shouldAutoPlay) return;
 
     _autoPlayTimer = Timer.periodic(widget.autoPlayInterval, (_) {
-      if (!mounted || !_shouldAutoPlay) return;
+      if (!_shouldAutoPlay || !_pageController.hasClients) return;
       final next = (_currentIndex + 1) % widget.images.length;
       _pageController.animateToPage(
         next,
         duration: _transitionDuration,
-        curve: Curves.easeInOutCubic,
+        curve: Curves.easeInOut,
       );
     });
   }
 
   void _restartAutoPlay() {
     _autoPlayTimer?.cancel();
-    _startAutoPlay();
+    _autoPlayTimer = null;
+    if (!_disposed && mounted) {
+      _startAutoPlay();
+    }
   }
 
   @override
   void dispose() {
+    _disposed = true;
     _autoPlayTimer?.cancel();
+    _autoPlayTimer = null;
     _pageController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    ref.listen(userIdleProvider, (previous, next) {
+    ref.listen<bool>(userIdleProvider, (previous, next) {
+      if (_disposed || !mounted) return;
+      _userIdle = next;
       if (next) {
         _autoPlayTimer?.cancel();
         _autoPlayTimer = null;
@@ -127,6 +156,7 @@ class _SalonCubeImageSliderState extends ConsumerState<SalonCubeImageSlider> {
     return VisibilityDetector(
       key: Key('salon-cube-slider-$visibilityKey'),
       onVisibilityChanged: (info) {
+        if (_disposed || !mounted) return;
         _setVisible(info.visibleFraction > 0.5);
       },
       child: ClipRRect(
@@ -139,6 +169,7 @@ class _SalonCubeImageSliderState extends ConsumerState<SalonCubeImageSlider> {
             children: [
               NotificationListener<ScrollNotification>(
                 onNotification: (notification) {
+                  if (_disposed || !mounted) return false;
                   if (notification is ScrollStartNotification &&
                       notification.dragDetails != null) {
                     _userDragging = true;
@@ -151,46 +182,21 @@ class _SalonCubeImageSliderState extends ConsumerState<SalonCubeImageSlider> {
                 child: PageView.builder(
                   controller: _pageController,
                   itemCount: images.length,
-                  onPageChanged: (index) =>
-                      setState(() => _currentIndex = index),
-                  itemBuilder: (context, index) {
-                    return AnimatedBuilder(
-                      animation: _pageController,
-                      builder: (context, child) {
-                        double offset = 0;
-                        if (_pageController.position.haveDimensions) {
-                          offset =
-                              (_pageController.page ??
-                                      _currentIndex.toDouble()) -
-                                  index;
-                        }
-                        final angle =
-                            offset.clamp(-1.0, 1.0) * math.pi * 0.45;
-                        final scale = 1 - (offset.abs() * 0.08);
-
-                        return Transform(
-                          alignment: offset < 0
-                              ? Alignment.centerRight
-                              : Alignment.centerLeft,
-                          transform: Matrix4.identity()
-                            ..setEntry(3, 2, 0.001)
-                            ..rotateY(angle),
-                          child: Transform.scale(
-                            scale: scale.clamp(0.85, 1.0),
-                            child: child,
-                          ),
-                        );
-                      },
-                      child: _networkImage(images[index]),
-                    );
+                  onPageChanged: (index) {
+                    if (_disposed || !mounted) return;
+                    setState(() => _currentIndex = index);
+                    widget.onPageChanged?.call(index);
                   },
+                  itemBuilder: (context, index) => _networkImage(images[index]),
                 ),
               ),
-              const _BottomGradientOverlay(),
-              _DotIndicator(
-                count: images.length,
-                currentIndex: _currentIndex,
-              ),
+              if (widget.showDotIndicator) ...[
+                const _BottomGradientOverlay(),
+                _DotIndicator(
+                  count: images.length,
+                  currentIndex: _currentIndex,
+                ),
+              ],
             ],
           ),
         ),
@@ -207,11 +213,11 @@ class _SalonCubeImageSliderState extends ConsumerState<SalonCubeImageSlider> {
       errorWidget: (context, error, stackTrace) => Container(
         height: widget.height,
         color: context.appColors.surface,
-        child: const Center(
+        child: Center(
           child: Icon(
             Icons.storefront_rounded,
             size: 40,
-            color: AppColors.accent,
+            color: context.appColors.accent,
           ),
         ),
       ),
@@ -234,10 +240,7 @@ class _BottomGradientOverlay extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              Colors.transparent,
-              Colors.black.withValues(alpha: 0.4),
-            ],
+            colors: [Colors.transparent, Colors.black.withValues(alpha: 0.4)],
           ),
         ),
       ),
@@ -246,10 +249,7 @@ class _BottomGradientOverlay extends StatelessWidget {
 }
 
 class _DotIndicator extends StatelessWidget {
-  const _DotIndicator({
-    required this.count,
-    required this.currentIndex,
-  });
+  const _DotIndicator({required this.count, required this.currentIndex});
 
   final int count;
   final int currentIndex;
@@ -272,7 +272,7 @@ class _DotIndicator extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(3),
               color: isActive
-                  ? AppColors.accent
+                  ? context.appColors.accent
                   : Colors.white.withValues(alpha: 0.45),
             ),
           );

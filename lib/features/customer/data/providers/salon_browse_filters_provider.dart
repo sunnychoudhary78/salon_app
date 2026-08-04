@@ -29,8 +29,9 @@ class SalonBrowseFilters {
     return SalonBrowseFilters(
       search: search ?? this.search,
       minRating: clearMinRating ? null : (minRating ?? this.minRating),
-      maxDistanceKm:
-          clearMaxDistanceKm ? null : (maxDistanceKm ?? this.maxDistanceKm),
+      maxDistanceKm: clearMaxDistanceKm
+          ? null
+          : (maxDistanceKm ?? this.maxDistanceKm),
       hasAvailableSlots: hasAvailableSlots ?? this.hasAvailableSlots,
     );
   }
@@ -77,5 +78,5 @@ class SalonBrowseFiltersNotifier extends Notifier<SalonBrowseFilters> {
 
 final salonBrowseFiltersProvider =
     NotifierProvider<SalonBrowseFiltersNotifier, SalonBrowseFilters>(
-  SalonBrowseFiltersNotifier.new,
-);
+      SalonBrowseFiltersNotifier.new,
+    );

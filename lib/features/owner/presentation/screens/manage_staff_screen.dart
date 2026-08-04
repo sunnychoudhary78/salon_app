@@ -1,12 +1,11 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:saloon_booking/core/network/api_exception.dart';
-import 'package:saloon_booking/core/network/dio_client.dart';
+import 'package:saloon_booking/core/network/user_facing_error.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/core/theme/app_decorations.dart';
+import 'package:saloon_booking/core/utils/form_validators.dart';
 import 'package:saloon_booking/features/customer/data/models/salon_model.dart';
 import 'package:saloon_booking/features/customer/data/services/customer_service.dart';
 import 'package:saloon_booking/features/owner/data/services/owner_service.dart';
@@ -14,6 +13,7 @@ import 'package:saloon_booking/shared/widgets/animated_entrance.dart';
 import 'package:saloon_booking/shared/widgets/async_value_widget.dart';
 import 'package:saloon_booking/shared/widgets/empty_state.dart';
 import 'package:saloon_booking/shared/widgets/glass_card.dart';
+import 'package:saloon_booking/shared/widgets/gradient_background.dart';
 import 'package:saloon_booking/shared/widgets/premium_app_bar.dart';
 import 'package:saloon_booking/shared/widgets/premium_button.dart';
 import 'package:saloon_booking/shared/widgets/premium_text_field.dart';
@@ -41,10 +41,8 @@ class _ManageStaffScreenState extends ConsumerState<ManageStaffScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (ctx) => _StaffFormSheet(
-        salonId: widget.salonId,
-        existing: existing,
-      ),
+      builder: (ctx) =>
+          _StaffFormSheet(salonId: widget.salonId, existing: existing),
     );
 
     if (result == true && mounted) {
@@ -78,7 +76,8 @@ class _ManageStaffScreenState extends ConsumerState<ManageStaffScreen> {
         icon: Icons.add_rounded,
         onPressed: () => _showStaffDialog(),
       ),
-      body: RefreshIndicator(
+      body: GradientBackground(
+        child: RefreshIndicator(
         onRefresh: () async =>
             ref.invalidate(ownerStaffProvider(widget.salonId)),
         child: AsyncValueWidget(
@@ -117,6 +116,8 @@ class _ManageStaffScreenState extends ConsumerState<ManageStaffScreen> {
                     child: Padding(
                       padding: const EdgeInsets.only(bottom: 12),
                       child: GlassCard(
+                        elevated: true,
+                        radius: 18,
                         onTap: () => _showStaffDialog(existing: member),
                         child: Row(
                           children: [
@@ -171,16 +172,14 @@ class _ManageStaffScreenState extends ConsumerState<ManageStaffScreen> {
             );
           },
         ),
+        ),
       ),
     );
   }
 }
 
 class _StaffFormSheet extends ConsumerStatefulWidget {
-  const _StaffFormSheet({
-    required this.salonId,
-    this.existing,
-  });
+  const _StaffFormSheet({required this.salonId, this.existing});
 
   final String salonId;
   final StaffModel? existing;
@@ -236,11 +235,12 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
   }
 
   Future<void> _save() async {
-    final name = _nameController.text.trim();
-    if (name.isEmpty) {
-      setState(() => _error = 'Name is required');
+    final nameError = validateRequiredName(_nameController.text);
+    if (nameError != null) {
+      setState(() => _error = nameError);
       return;
     }
+    final name = _nameController.text.trim();
 
     setState(() {
       _saving = true;
@@ -288,11 +288,7 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
     }
   }
 
-  String _errorMessage(Object error) {
-    if (error is ApiException) return error.message;
-    if (error is DioException) return error.apiException.message;
-    return error.toString();
-  }
+  String _errorMessage(Object error) => userFacingErrorMessage(error);
 
   @override
   Widget build(BuildContext context) {
@@ -307,9 +303,9 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
           children: [
             Text(
               _isEditing ? 'Edit staff' : 'Add staff',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 20),
             Center(
@@ -331,7 +327,7 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
                       child: Container(
                         padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
-                          color: AppColors.accent,
+                          color: context.appColors.accent,
                           shape: BoxShape.circle,
                           border: Border.all(
                             color: context.appColors.surface,
@@ -354,13 +350,14 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
               'Tap to change photo',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: context.appColors.textMuted,
-                  ),
+                color: context.appColors.textMuted,
+              ),
             ),
             const SizedBox(height: 20),
             PremiumTextField(
               controller: _nameController,
               label: 'Name',
+              validator: validateRequiredName,
             ),
             const SizedBox(height: 12),
             SwitchListTile.adaptive(
@@ -369,8 +366,8 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
               subtitle: Text(
                 'Inactive staff are hidden from customers',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: context.appColors.textMuted,
-                    ),
+                  color: context.appColors.textMuted,
+                ),
               ),
               value: _isActive,
               onChanged: _saving
@@ -382,8 +379,8 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
               Text(
                 _error!,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.error,
-                    ),
+                  color: Theme.of(context).colorScheme.error,
+                ),
               ),
             ],
             const SizedBox(height: 16),
@@ -391,8 +388,9 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
               label: _uploading
                   ? 'Uploading…'
                   : _saving
-                      ? 'Saving…'
-                      : (_isEditing ? 'Save changes' : 'Add staff'),
+                  ? 'Saving…'
+                  : (_isEditing ? 'Save changes' : 'Add staff'),
+              loading: _saving,
               onPressed: _saving ? null : _save,
             ),
           ],
@@ -420,9 +418,9 @@ class _StatusPill extends StatelessWidget {
       child: Text(
         label,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w600,
-            ),
+          color: color,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }

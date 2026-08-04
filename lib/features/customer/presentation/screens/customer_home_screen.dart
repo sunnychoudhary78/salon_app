@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:saloon_booking/core/location/selected_location.dart';
 import 'package:saloon_booking/core/location/selected_location_provider.dart';
+import 'package:saloon_booking/core/network/user_facing_error.dart';
 import 'package:saloon_booking/core/routing/route_paths.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
@@ -49,7 +50,9 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
     super.initState();
     _homeScrollController.addListener(_loadMoreNearBottom);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(selectedLocationProvider.notifier).scheduleBackgroundGpsRefresh();
+      ref
+          .read(selectedLocationProvider.notifier)
+          .scheduleBackgroundGpsRefresh();
     });
   }
 
@@ -120,8 +123,14 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
             }
           } catch (e) {
             if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Refresh failed: $e')),
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Refresh failed: ${userFacingErrorMessage(e)}',
+                  ),
+                ),
               );
             }
           }
@@ -158,10 +167,10 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
                       subtitle: isSearching
                           ? "Results for '${browseFilters.search}'"
                           : browseFilters.hasAvailableSlots
-                              ? 'Open slots today near you'
-                              : browseFilters.hasActiveFilters
-                                  ? 'Filtered results near you'
-                                  : 'Keep scrolling to discover more',
+                          ? 'Open slots today near you'
+                          : browseFilters.hasActiveFilters
+                          ? 'Filtered results near you'
+                          : 'Keep scrolling to discover more',
                     ),
                   ),
                   const SizedBox(height: 14),
@@ -170,76 +179,78 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
             ),
             showSalonShimmer
                 ? SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (_, index) => Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          ShimmerBox(
-                            width: double.infinity,
-                            height: 208,
-                            radius: 16,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (_, index) => Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              ShimmerBox(
+                                width: double.infinity,
+                                height: 208,
+                                radius: 16,
+                              ),
+                              const SizedBox(height: 10),
+                              ShimmerBox(width: 180, height: 16, radius: 8),
+                              const SizedBox(height: 6),
+                              ShimmerBox(width: 120, height: 12, radius: 6),
+                            ],
                           ),
-                          const SizedBox(height: 10),
-                          ShimmerBox(width: 180, height: 16, radius: 8),
-                          const SizedBox(height: 6),
-                          ShimmerBox(width: 120, height: 12, radius: 6),
-                        ],
+                        ),
+                        childCount: 3,
                       ),
                     ),
-                    childCount: 3,
-                  ),
-                ),
-              )
+                  )
                 : allSalons.when(
-              loading: () => SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (_, index) => Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          ShimmerBox(
-                            width: double.infinity,
-                            height: 208,
-                            radius: 16,
+                    loading: () => SliverPadding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      sliver: SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (_, index) => Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                ShimmerBox(
+                                  width: double.infinity,
+                                  height: 208,
+                                  radius: 16,
+                                ),
+                                const SizedBox(height: 10),
+                                ShimmerBox(width: 180, height: 16, radius: 8),
+                                const SizedBox(height: 6),
+                                ShimmerBox(width: 120, height: 12, radius: 6),
+                              ],
+                            ),
                           ),
-                          const SizedBox(height: 10),
-                          ShimmerBox(width: 180, height: 16, radius: 8),
-                          const SizedBox(height: 6),
-                          ShimmerBox(width: 120, height: 12, radius: 6),
-                        ],
+                          childCount: 3,
+                        ),
                       ),
                     ),
-                    childCount: 3,
+                    error: (error, _) => SliverToBoxAdapter(
+                      child: EmptyView(
+                        message: userFacingErrorMessage(error),
+                        icon: Icons.error_outline,
+                      ),
+                    ),
+                    data: (state) => _AllSalonsFeedSliver(
+                      state: state,
+                      emptyMessage: browseFilters.hasAvailableSlots
+                          ? 'No salons with open slots today near you — try widening distance or turning off the filter.'
+                          : browseFilters.hasSearchOrFilters
+                          ? 'No salons match your search or filters'
+                          : !locationState.location.isSet
+                          ? 'Set your location to see nearby salons'
+                          : 'No salons available yet',
+                      showLocationPrompt:
+                          !locationState.location.isSet &&
+                          !locationState.isLoading,
+                      onLocationTap: () =>
+                          showLocationPickerSheet(context, ref),
+                    ),
                   ),
-                ),
-              ),
-              error: (error, _) => SliverToBoxAdapter(
-                child: EmptyView(
-                  message: error.toString(),
-                  icon: Icons.error_outline,
-                ),
-              ),
-              data: (state) => _AllSalonsFeedSliver(
-                state: state,
-                emptyMessage: browseFilters.hasAvailableSlots
-                    ? 'No salons with open slots today near you — try widening distance or turning off the filter.'
-                    : browseFilters.hasSearchOrFilters
-                        ? 'No salons match your search or filters'
-                        : !locationState.location.isSet
-                            ? 'Set your location to see nearby salons'
-                            : 'No salons available yet',
-                showLocationPrompt: !locationState.location.isSet &&
-                    !locationState.isLoading,
-                onLocationTap: () => showLocationPickerSheet(context, ref),
-              ),
-            ),
             SliverPadding(
               padding: EdgeInsets.only(
                 bottom: AppDecorations.scrollBottomPadding(context),
@@ -260,7 +271,8 @@ class _CuratedBannersSection extends ConsumerStatefulWidget {
       _CuratedBannersSectionState();
 }
 
-class _CuratedBannersSectionState extends ConsumerState<_CuratedBannersSection> {
+class _CuratedBannersSectionState
+    extends ConsumerState<_CuratedBannersSection> {
   late final PageController _controller = PageController();
 
   @override
@@ -276,11 +288,7 @@ class _CuratedBannersSectionState extends ConsumerState<_CuratedBannersSection> 
     return banners.when(
       loading: () => Padding(
         padding: const EdgeInsets.only(top: 16),
-        child: ShimmerBox(
-          width: double.infinity,
-          height: 160,
-          radius: 16,
-        ),
+        child: ShimmerBox(width: double.infinity, height: 160, radius: 16),
       ),
       error: (error, stackTrace) => const SizedBox.shrink(),
       data: (items) {
@@ -313,7 +321,7 @@ class _CuratedBannersSectionState extends ConsumerState<_CuratedBannersSection> 
                         return GlassCard(
                           padding: EdgeInsets.zero,
                           margin: const EdgeInsets.only(right: 4),
-                          shadowColor: AppColors.glowAccent,
+                          shadowColor: context.appColors.glowAccent,
                           child: Stack(
                             fit: StackFit.expand,
                             children: [
@@ -358,7 +366,8 @@ class _CuratedBannersSectionState extends ConsumerState<_CuratedBannersSection> 
                                         vertical: 4,
                                       ),
                                       decoration: BoxDecoration(
-                                        gradient: AppColors.accentGradient,
+                                        gradient:
+                                            context.appColors.accentGradient,
                                         borderRadius: BorderRadius.circular(6),
                                       ),
                                       child: Text(
@@ -378,7 +387,8 @@ class _CuratedBannersSectionState extends ConsumerState<_CuratedBannersSection> 
                                           .textTheme
                                           .titleMedium
                                           ?.copyWith(
-                                            color: context.appColors.textPrimary,
+                                            color:
+                                                context.appColors.textPrimary,
                                           ),
                                     ),
                                   ],
@@ -401,7 +411,7 @@ class _CuratedBannersSectionState extends ConsumerState<_CuratedBannersSection> 
                           dotWidth: 6,
                           expansionFactor: 3,
                           spacing: 6,
-                          activeDotColor: AppColors.accent,
+                          activeDotColor: context.appColors.accent,
                           dotColor: context.appColors.glassBorder.withValues(
                             alpha: 0.8,
                           ),
@@ -420,23 +430,23 @@ class _CuratedBannersSectionState extends ConsumerState<_CuratedBannersSection> 
   }
 
   Widget _bannerFallback(BuildContext context) => Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              AppColors.primary.withValues(alpha: 0.3),
-              context.appColors.surface,
-            ],
-          ),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: const Center(
-          child: Icon(
-            Icons.local_offer_rounded,
-            size: 48,
-            color: AppColors.accent,
-          ),
-        ),
-      );
+    decoration: BoxDecoration(
+      gradient: LinearGradient(
+        colors: [
+          AppColors.primary.withValues(alpha: 0.3),
+          context.appColors.surface,
+        ],
+      ),
+      borderRadius: BorderRadius.circular(16),
+    ),
+    child: Center(
+      child: Icon(
+        Icons.local_offer_rounded,
+        size: 48,
+        color: context.appColors.accent,
+      ),
+    ),
+  );
 }
 
 class _ForYouSalonRailSection extends ConsumerWidget {
@@ -473,7 +483,7 @@ class _ForYouSalonRailSection extends ConsumerWidget {
                     SalonCard(
                       salon: items[i],
                       cardWidth: 268,
-                      autoPlayImages: false,
+                      autoPlayImages: true,
                       showPromoChips: true,
                       onTap: () => context.push(
                         '${RoutePaths.customerSalons}/${items[i].id}',
@@ -516,64 +526,62 @@ class _AllSalonsFeedSliver extends StatelessWidget {
       );
     }
 
-    final itemCount = state.items.length +
+    final itemCount =
+        state.items.length +
         (state.isLoadingMore ? 1 : 0) +
         (!state.hasMore && !state.isLoadingMore ? 1 : 0);
 
     return SliverPadding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       sliver: SliverList(
-        delegate: SliverChildBuilderDelegate(
-          (context, index) {
-            if (index < state.items.length) {
-              final salon = state.items[index];
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: RepaintBoundary(
-                  child: AnimatedEntrance(
-                    index: index + 3,
-                    child: SalonCard(
-                      salon: salon,
-                      autoPlayImages: false,
-                      onTap: () => context.push(
-                        '${RoutePaths.customerSalons}/${salon.id}',
-                      ),
-                      onBook: salon.hasServices
-                          ? () => context.push(
-                              '${RoutePaths.customerSalons}/${salon.id}/book',
-                            )
-                          : null,
-                    ),
-                  ),
-                ),
-              );
-            }
-
-            if (state.isLoadingMore && index == state.items.length) {
-              return const Padding(
-                padding: EdgeInsets.only(bottom: 8),
-                child: Center(
-                  child: SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                ),
-              );
-            }
-
+        delegate: SliverChildBuilderDelegate((context, index) {
+          if (index < state.items.length) {
+            final salon = state.items[index];
             return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Text(
-                'You have reached the end',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: context.appColors.textMuted,
+              padding: const EdgeInsets.only(bottom: 12),
+              child: RepaintBoundary(
+                child: AnimatedEntrance(
+                  index: index + 3,
+                  child: SalonCard(
+                    salon: salon,
+                    autoPlayImages: true,
+                    onTap: () => context.push(
+                      '${RoutePaths.customerSalons}/${salon.id}',
                     ),
+                    onBook: salon.hasServices
+                        ? () => context.push(
+                            '${RoutePaths.customerSalons}/${salon.id}/book',
+                          )
+                        : null,
+                  ),
+                ),
               ),
             );
-          },
-          childCount: itemCount,
-        ),
+          }
+
+          if (state.isLoadingMore && index == state.items.length) {
+            return const Padding(
+              padding: EdgeInsets.only(bottom: 8),
+              child: Center(
+                child: SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            );
+          }
+
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(
+              'You have reached the end',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: context.appColors.textMuted,
+              ),
+            ),
+          );
+        }, childCount: itemCount),
       ),
     );
   }

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:saloon_booking/core/theme/app_animations.dart';
-import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/shared/widgets/premium_button.dart';
 
@@ -38,15 +37,15 @@ class EmptyState extends StatelessWidget {
             height: iconSize + 24,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: AppColors.accent.withValues(alpha: 0.12),
+              color: context.appColors.accent.withValues(alpha: 0.12),
               border: Border.all(
-                color: AppColors.accent.withValues(alpha: 0.25),
+                color: context.appColors.accent.withValues(alpha: 0.25),
               ),
             ),
             child: Icon(
               icon,
               size: iconSize * 0.55,
-              color: AppColors.accent.withValues(alpha: 0.9),
+              color: context.appColors.accent.withValues(alpha: 0.9),
             ),
           ).appFloatLoop(context: context),
           SizedBox(height: compact ? 16 : 20),
@@ -54,18 +53,18 @@ class EmptyState extends StatelessWidget {
             title,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: colors.textPrimary,
-                  fontWeight: FontWeight.w600,
-                ),
+              color: colors.textPrimary,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           if (subtitle != null) ...[
             const SizedBox(height: 8),
             Text(
               subtitle!,
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: colors.textMuted,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: colors.textMuted),
             ),
           ],
           if (actionLabel != null && onAction != null) ...[
@@ -85,10 +84,7 @@ class EmptyState extends StatelessWidget {
 
 /// Scrollable wrapper so [EmptyState] works inside [RefreshIndicator].
 class EmptyStateScrollable extends StatelessWidget {
-  const EmptyStateScrollable({
-    super.key,
-    required this.child,
-  });
+  const EmptyStateScrollable({super.key, required this.child});
 
   final Widget child;
 

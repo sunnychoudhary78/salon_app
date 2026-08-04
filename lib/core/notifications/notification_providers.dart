@@ -51,6 +51,4 @@ class NotificationLifecycle extends Notifier<void> {
 }
 
 final notificationLifecycleProvider =
-    NotifierProvider<NotificationLifecycle, void>(
-  NotificationLifecycle.new,
-);
+    NotifierProvider<NotificationLifecycle, void>(NotificationLifecycle.new);

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 
 class RatingHistogram extends StatelessWidget {
@@ -28,9 +27,9 @@ class RatingHistogram extends StatelessWidget {
             Text(
               averageRating.toStringAsFixed(1),
               style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                    color: AppColors.accent,
-                    fontWeight: FontWeight.w800,
-                  ),
+                color: context.appColors.accent,
+                fontWeight: FontWeight.w800,
+              ),
             ),
             const SizedBox(height: 4),
             Row(
@@ -40,16 +39,16 @@ class RatingHistogram extends StatelessWidget {
                 return Icon(
                   filled ? Icons.star_rounded : Icons.star_outline_rounded,
                   size: 14,
-                  color: AppColors.accent,
+                  color: context.appColors.accent,
                 );
               }),
             ),
             const SizedBox(height: 4),
             Text(
               '$reviewCount review${reviewCount == 1 ? '' : 's'}',
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: colors.textMuted,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.labelSmall?.copyWith(color: colors.textMuted),
             ),
           ],
         ),
@@ -66,12 +65,16 @@ class RatingHistogram extends StatelessWidget {
                   children: [
                     Text(
                       '$star',
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: colors.textMuted,
-                          ),
+                      style: Theme.of(
+                        context,
+                      ).textTheme.labelSmall?.copyWith(color: colors.textMuted),
                     ),
                     const SizedBox(width: 4),
-                    Icon(Icons.star_rounded, size: 10, color: AppColors.accent),
+                    Icon(
+                      Icons.star_rounded,
+                      size: 10,
+                      color: context.appColors.accent,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: ClipRRect(
@@ -79,9 +82,12 @@ class RatingHistogram extends StatelessWidget {
                         child: LinearProgressIndicator(
                           value: fraction,
                           minHeight: 6,
-                          backgroundColor:
-                              colors.glassBorder.withValues(alpha: 0.3),
-                          color: AppColors.accent.withValues(alpha: 0.85),
+                          backgroundColor: colors.glassBorder.withValues(
+                            alpha: 0.3,
+                          ),
+                          color: context.appColors.accent.withValues(
+                            alpha: 0.85,
+                          ),
                         ),
                       ),
                     ),
@@ -91,8 +97,8 @@ class RatingHistogram extends StatelessWidget {
                       child: Text(
                         count.toString(),
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: colors.textMuted,
-                            ),
+                          color: colors.textMuted,
+                        ),
                       ),
                     ),
                   ],

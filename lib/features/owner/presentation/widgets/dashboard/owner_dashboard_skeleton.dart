@@ -17,13 +17,21 @@ class OwnerDashboardSkeleton extends StatelessWidget {
         const SizedBox(height: 12),
         const Row(
           children: [
-            Expanded(child: ShimmerBox(width: double.infinity, height: 72, radius: 14)),
+            Expanded(
+              child: ShimmerBox(width: double.infinity, height: 72, radius: 14),
+            ),
             SizedBox(width: 8),
-            Expanded(child: ShimmerBox(width: double.infinity, height: 72, radius: 14)),
+            Expanded(
+              child: ShimmerBox(width: double.infinity, height: 72, radius: 14),
+            ),
             SizedBox(width: 8),
-            Expanded(child: ShimmerBox(width: double.infinity, height: 72, radius: 14)),
+            Expanded(
+              child: ShimmerBox(width: double.infinity, height: 72, radius: 14),
+            ),
             SizedBox(width: 8),
-            Expanded(child: ShimmerBox(width: double.infinity, height: 72, radius: 14)),
+            Expanded(
+              child: ShimmerBox(width: double.infinity, height: 72, radius: 14),
+            ),
           ],
         ),
         const SizedBox(height: 12),

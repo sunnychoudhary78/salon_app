@@ -26,8 +26,8 @@ class PendingSignupNotifier extends Notifier<PendingSignup?> {
 
 final pendingSignupProvider =
     NotifierProvider<PendingSignupNotifier, PendingSignup?>(
-  PendingSignupNotifier.new,
-);
+      PendingSignupNotifier.new,
+    );
 
 class Auth extends AsyncNotifier<AuthState?> {
   @override
@@ -60,16 +60,19 @@ class Auth extends AsyncNotifier<AuthState?> {
   }
 
   Future<OtpVerifyResult> verifyOtp(String phone, String otp) async {
-    final result = await ref.read(authRepositoryProvider).verifyOtp(
-          phone: phone,
-          otp: otp,
-        );
+    final result = await ref
+        .read(authRepositoryProvider)
+        .verifyOtp(phone: phone, otp: otp);
 
     if (result.isNewUser) {
-      ref.read(pendingSignupProvider.notifier).set(PendingSignup(
-        signupToken: result.signupToken!,
-        phone: result.phone ?? phone,
-      ));
+      ref
+          .read(pendingSignupProvider.notifier)
+          .set(
+            PendingSignup(
+              signupToken: result.signupToken!,
+              phone: result.phone ?? phone,
+            ),
+          );
     } else if (result.authState != null) {
       ref.read(pendingSignupProvider.notifier).clear();
       state = AsyncData(result.authState);
@@ -81,6 +84,7 @@ class Auth extends AsyncNotifier<AuthState?> {
 
   Future<void> completeProfile({
     required String name,
+    required String gender,
     String? email,
   }) async {
     final pending = ref.read(pendingSignupProvider);
@@ -88,9 +92,12 @@ class Auth extends AsyncNotifier<AuthState?> {
       throw StateError('No pending signup session');
     }
 
-    final authState = await ref.read(authRepositoryProvider).completeProfile(
+    final authState = await ref
+        .read(authRepositoryProvider)
+        .completeProfile(
           signupToken: pending.signupToken,
           name: name,
+          gender: gender,
           email: email,
         );
     ref.read(pendingSignupProvider.notifier).clear();
@@ -104,9 +111,7 @@ class Auth extends AsyncNotifier<AuthState?> {
     try {
       CrashReporting.breadcrumb('refresh_profile');
       final profile = await ref.read(authRepositoryProvider).getProfile();
-      state = AsyncData(
-        AuthState.fromProfile(current.token, profile),
-      );
+      state = AsyncData(AuthState.fromProfile(current.token, profile));
       await _syncApprovalState(state.value);
     } catch (e, stack) {
       CrashReporting.recordError(e, stack, reason: 'refreshProfile');

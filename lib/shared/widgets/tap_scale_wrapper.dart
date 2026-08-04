@@ -28,9 +28,7 @@ class _TapScaleWrapperState extends State<TapScaleWrapper> {
   Widget build(BuildContext context) {
     if (!widget.enabled || widget.onTap == null) return widget.child;
 
-    final scale = animationsDisabled(context)
-        ? 1.0
-        : (_pressed ? 0.97 : 1.0);
+    final scale = animationsDisabled(context) ? 1.0 : (_pressed ? 0.97 : 1.0);
 
     return GestureDetector(
       onTapDown: (_) => setState(() => _pressed = true),

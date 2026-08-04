@@ -50,34 +50,31 @@ class _PremiumFilterChipState extends State<PremiumFilterChip> {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (widget.selected) ...[
-            Icon(
-              Icons.check_rounded,
-              size: 16,
-              color: colors.primary,
-            ),
+            Icon(Icons.check_rounded, size: 16, color: colors.primary),
             const SizedBox(width: 6),
           ],
           Text(
             widget.label,
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: widget.selected
-                      ? colors.primary
-                      : colors.textSecondary,
-                  fontWeight:
-                      widget.selected ? FontWeight.w600 : FontWeight.w500,
-                ),
+              color: widget.selected ? colors.primary : colors.textSecondary,
+              fontWeight: widget.selected ? FontWeight.w600 : FontWeight.w500,
+            ),
           ),
         ],
       ),
     );
 
     if (!animationsDisabled(context)) {
-      chip = chip.animate(key: ValueKey(_pulseGeneration)).scale(
+      chip = chip
+          .animate(key: ValueKey(_pulseGeneration))
+          .scale(
             begin: const Offset(1, 1),
             end: const Offset(1.04, 1.04),
             duration: kMicroDuration,
             curve: Curves.easeOut,
-          ).then().scale(
+          )
+          .then()
+          .scale(
             begin: const Offset(1.04, 1.04),
             end: const Offset(1, 1),
             duration: kMicroDuration,

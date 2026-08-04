@@ -8,5 +8,6 @@ class SessionExpiredNotifier extends Notifier<int> {
   void notify() => state++;
 }
 
-final sessionExpiredProvider =
-    NotifierProvider<SessionExpiredNotifier, int>(SessionExpiredNotifier.new);
+final sessionExpiredProvider = NotifierProvider<SessionExpiredNotifier, int>(
+  SessionExpiredNotifier.new,
+);

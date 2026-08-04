@@ -1,11 +1,12 @@
-import 'package:dio/dio.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 import 'dart:async';
 
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
+import 'package:saloon_booking/core/crash/crash_reporting.dart';
 import 'package:saloon_booking/core/lifecycle/user_activity_provider.dart';
-import 'package:saloon_booking/core/network/dio_client.dart';
+import 'package:saloon_booking/core/network/user_facing_error.dart';
 import 'package:saloon_booking/core/notifications/notification_router.dart';
 import 'package:saloon_booking/core/notifications/notification_types.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -14,14 +15,17 @@ import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/core/theme/app_decorations.dart';
 import 'package:saloon_booking/core/utils/booking_timeline_utils.dart';
+import 'package:saloon_booking/core/utils/form_validators.dart';
 import 'package:saloon_booking/features/owner/data/models/owner_model.dart';
 import 'package:saloon_booking/features/owner/data/services/owner_service.dart';
+import 'package:saloon_booking/features/owner/presentation/providers/owner_booking_focus_provider.dart';
 import 'package:saloon_booking/shared/widgets/animated_list_item.dart';
 import 'package:saloon_booking/shared/widgets/async_value_widget.dart';
 import 'package:saloon_booking/shared/widgets/auto_refresh.dart';
 import 'package:saloon_booking/shared/widgets/booking_when_badge.dart';
 import 'package:saloon_booking/shared/widgets/empty_state.dart';
 import 'package:saloon_booking/shared/widgets/glass_card.dart';
+import 'package:saloon_booking/shared/widgets/gradient_background.dart';
 import 'package:saloon_booking/shared/widgets/premium_app_bar.dart';
 import 'package:saloon_booking/shared/widgets/premium_button.dart';
 import 'package:saloon_booking/shared/widgets/premium_dialog.dart';
@@ -40,8 +44,7 @@ class OwnerBookingsScreen extends ConsumerStatefulWidget {
 enum _OwnerBookingAction { accept, reject, complete, confirmCash }
 
 class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen>
-    with SingleTickerProviderStateMixin, WidgetsBindingObserver,
-        AutomaticKeepAliveClientMixin {
+    with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   static const _bookingsTabIndex = 2;
 
   late TabController _tabController;
@@ -50,9 +53,12 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen>
   List<OwnerBookingModel>? _localBookings;
   String? _highlightedBookingId;
   String? _pendingFocusId;
+  bool _pendingOpenDetail = false;
   Timer? _highlightTimer;
   bool _wantKeepAlive = true;
   bool _todayFilterActive = false;
+  Future<void>? _refreshFuture;
+  DateTime? _lastRefreshAt;
 
   @override
   bool get wantKeepAlive => _wantKeepAlive;
@@ -60,12 +66,9 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen>
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     _tabController = TabController(length: 2, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final tab = ref.read(ownerShellTabIndexProvider);
-      if (tab == _bookingsTabIndex) unawaited(_refreshBookings());
       if (ref.read(ownerBookingsTodayFilterProvider)) {
         setState(() => _todayFilterActive = true);
       }
@@ -74,7 +77,6 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen>
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
     _tabController.dispose();
     _highlightTimer?.cancel();
     final filterNotifier = ref.read(ownerBookingsTodayFilterProvider.notifier);
@@ -85,9 +87,7 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen>
   List<OwnerBookingModel> _applyTodayFilter(List<OwnerBookingModel> items) {
     if (!_todayFilterActive) return items;
     final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
-    return items
-        .where((b) => b.bookingDate.startsWith(today))
-        .toList();
+    return items.where((b) => b.bookingDate.startsWith(today)).toList();
   }
 
   void _clearTodayFilter() {
@@ -95,23 +95,41 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen>
     ref.read(ownerBookingsTodayFilterProvider.notifier).clear();
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed || !mounted) return;
-    if (ref.read(ownerShellTabIndexProvider) == _bookingsTabIndex) {
-      unawaited(_refreshBookings());
-    }
-  }
-
-  Future<void> _refreshBookings() async {
+  Future<void> _refreshBookings({bool force = false}) {
     // Don't clobber optimistic UI while an accept/reject/complete is running.
-    if (_processingBookingId != null) return;
-    ref.invalidate(ownerAllBookingsProvider);
-    final fresh = await ref.read(ownerAllBookingsProvider.future);
-    if (mounted) setState(() => _localBookings = fresh);
+    if (_processingBookingId != null) return Future.value();
+    final inFlight = _refreshFuture;
+    if (inFlight != null) return inFlight;
+    final lastRefreshAt = _lastRefreshAt;
+    if (!force &&
+        lastRefreshAt != null &&
+        DateTime.now().difference(lastRefreshAt) <
+            const Duration(seconds: 10)) {
+      return Future.value();
+    }
+
+    final future = CrashReporting.measureAsync(
+      'owner_bookings_refresh',
+      () async {
+        ref.invalidate(ownerAllBookingsProvider);
+        final fresh = await ref.read(ownerAllBookingsProvider.future);
+        if (mounted) setState(() => _localBookings = fresh);
+      },
+    );
+    _refreshFuture = future;
+    return future.whenComplete(() {
+      if (identical(_refreshFuture, future)) {
+        _refreshFuture = null;
+        _lastRefreshAt = DateTime.now();
+      }
+    });
   }
 
-  void _focusBooking(String bookingId, List<OwnerBookingModel> items) {
+  void _focusBooking(
+    String bookingId,
+    List<OwnerBookingModel> items, {
+    bool openDetail = false,
+  }) {
     final inActive = ownerActiveBookings(items).any((b) => b.id == bookingId);
     final inPast = ownerPastBookings(items).any((b) => b.id == bookingId);
     if (!inActive && !inPast) return;
@@ -124,15 +142,23 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen>
       _highlightTimer = Timer(const Duration(seconds: 4), () {
         if (mounted) setState(() => _highlightedBookingId = null);
       });
+
+      if (openDetail) {
+        final groups = _groupByRequest(items);
+        for (final group in groups) {
+          if (group.any((b) => b.id == bookingId)) {
+            unawaited(_showBookingDetail(group));
+            break;
+          }
+        }
+      }
     });
   }
 
   /// Groups bookings that came from one multi-service request (same groupId)
   /// into a single entry, preserving the incoming order. Legacy rows without a
   /// groupId each become their own group.
-  List<List<OwnerBookingModel>> _groupByRequest(
-    List<OwnerBookingModel> items,
-  ) {
+  List<List<OwnerBookingModel>> _groupByRequest(List<OwnerBookingModel> items) {
     final groups = <List<OwnerBookingModel>>[];
     final indexByKey = <String, int>{};
     for (final booking in items) {
@@ -192,8 +218,7 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen>
 
   String _formatBookingDateTime(String date, String time) {
     final parsed = DateTime.tryParse(date);
-    final dateLabel =
-        parsed != null ? DateFormat.yMMMd().format(parsed) : date;
+    final dateLabel = parsed != null ? DateFormat.yMMMd().format(parsed) : date;
     if (time.isEmpty) return dateLabel;
     return '$dateLabel · $time';
   }
@@ -205,14 +230,11 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen>
       'COMPLETED' => AppColors.primaryLight,
       'CANCELLED' => context.appColors.textMuted,
       'REJECTED' => AppColors.error,
-      _ => AppColors.accent,
+      _ => context.appColors.accent,
     };
   }
 
-  String _errorMessage(Object error) {
-    if (error is DioException) return error.apiException.message;
-    return error.toString();
-  }
+  String _errorMessage(Object error) => userFacingErrorMessage(error);
 
   Future<bool> _runBookingAction({
     required String bookingId,
@@ -379,8 +401,8 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen>
                         (currentBooking.customer?.name ?? 'C')
                             .substring(0, 1)
                             .toUpperCase(),
-                        style: const TextStyle(
-                          color: AppColors.accent,
+                        style: TextStyle(
+                          color: context.appColors.accent,
                           fontWeight: FontWeight.w700,
                           fontSize: 18,
                         ),
@@ -398,10 +420,10 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen>
                           if (currentBooking.bookingNumber != null)
                             Text(
                               '#${currentBooking.bookingNumber}',
-                              style: Theme.of(ctx)
-                                  .textTheme
-                                  .bodySmall
-                                  ?.copyWith(color: context.appColors.textMuted),
+                              style: Theme.of(ctx).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: context.appColors.textMuted,
+                                  ),
                             ),
                         ],
                       ),
@@ -455,15 +477,15 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen>
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: AppColors.accent.withValues(alpha: 0.12),
+                      color: context.appColors.accent.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
                       'Urgent booking'
                       '${currentBooking.premiumAmount != null ? ' · ₹${currentBooking.premiumAmount!.toStringAsFixed(0)} premium' : ''}',
-                      style: Theme.of(
-                        ctx,
-                      ).textTheme.bodyMedium?.copyWith(color: AppColors.accent),
+                      style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
+                        color: context.appColors.accent,
+                      ),
                     ),
                   ),
                 ],
@@ -516,8 +538,8 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen>
                     Text(
                       currentBooking.paymentWaitingMessage,
                       style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
-                            color: context.appColors.textMuted,
-                          ),
+                        color: context.appColors.textMuted,
+                      ),
                     )
                   else ...[
                     if (currentBooking.requiresCashConfirmation) ...[
@@ -604,7 +626,7 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen>
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
-          color: highlighted ? AppColors.accent : Colors.transparent,
+          color: highlighted ? context.appColors.accent : Colors.transparent,
           width: 2,
         ),
       ),
@@ -635,14 +657,15 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen>
                     children: [
                       CircleAvatar(
                         radius: 18,
-                        backgroundColor:
-                            AppColors.primary.withValues(alpha: 0.2),
+                        backgroundColor: AppColors.primary.withValues(
+                          alpha: 0.2,
+                        ),
                         child: Text(
                           (booking.customer?.name ?? 'C')
                               .substring(0, 1)
                               .toUpperCase(),
-                          style: const TextStyle(
-                            color: AppColors.accent,
+                          style: TextStyle(
+                            color: context.appColors.accent,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -658,9 +681,7 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen>
                             ),
                             Text(
                               servicesLabel,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
+                              style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(
                                     color: context.appColors.textMuted,
                                   ),
@@ -668,10 +689,8 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen>
                             if (serviceNames.length > 1)
                               Text(
                                 '${serviceNames.length} services in this request',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .labelSmall
-                                    ?.copyWith(color: AppColors.accent),
+                                style: Theme.of(context).textTheme.labelSmall
+                                    ?.copyWith(color: context.appColors.accent),
                               ),
                           ],
                         ),
@@ -691,7 +710,9 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen>
                           Icon(
                             Icons.schedule_rounded,
                             size: 16,
-                            color: AppColors.accent.withValues(alpha: 0.85),
+                            color: context.appColors.accent.withValues(
+                              alpha: 0.85,
+                            ),
                           ),
                           const SizedBox(width: 6),
                           Text(
@@ -715,13 +736,15 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen>
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: AppColors.accent.withValues(alpha: 0.2),
+                            color: context.appColors.accent.withValues(
+                              alpha: 0.2,
+                            ),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Text(
+                          child: Text(
                             'URGENT',
                             style: TextStyle(
-                              color: AppColors.accent,
+                              color: context.appColors.accent,
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
                             ),
@@ -733,10 +756,9 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen>
                     const SizedBox(height: 6),
                     Text(
                       booking.salonName!,
-                      style: Theme.of(context)
-                          .textTheme
-                          .labelMedium
-                          ?.copyWith(color: AppColors.accent),
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: context.appColors.accent,
+                      ),
                     ),
                   ],
                   if (booking.staffName != null) ...[
@@ -744,8 +766,8 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen>
                     Text(
                       'Staff: ${booking.staffName}',
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                            color: context.appColors.textMuted,
-                          ),
+                        color: context.appColors.textMuted,
+                      ),
                     ),
                   ],
                   if (status == 'PENDING') ...[
@@ -791,8 +813,8 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen>
                       child: Text(
                         booking.paymentWaitingMessage,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: context.appColors.textMuted,
-                            ),
+                          color: context.appColors.textMuted,
+                        ),
                       ),
                     ),
                   if (status == 'ACCEPTED' && booking.canComplete)
@@ -844,7 +866,7 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen>
           .animate(onPlay: (controller) => controller.repeat(reverse: true))
           .shimmer(
             duration: 1200.ms,
-            color: AppColors.accent.withValues(alpha: 0.12),
+            color: context.appColors.accent.withValues(alpha: 0.12),
           );
     }
     return card;
@@ -902,7 +924,10 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen>
             index: index,
             child: Padding(
               padding: EdgeInsets.only(top: entry.topGap ? 20 : 0, bottom: 12),
-              child: SectionHeader(title: entry.title!, subtitle: entry.subtitle),
+              child: SectionHeader(
+                title: entry.title!,
+                subtitle: entry.subtitle,
+              ),
             ),
           );
         }
@@ -981,28 +1006,46 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen>
       if (next == null || next.bookingId.isEmpty) return;
       if (next.userRole != NotificationUserRoles.salonOwner) return;
       _pendingFocusId = next.bookingId;
+      _pendingOpenDetail = false;
       Future.microtask(
         () => ref.read(pendingNotificationTargetProvider.notifier).clear(),
       );
     });
 
+    ref.listen(ownerBookingFocusProvider, (previous, next) {
+      if (next == null || next.bookingId.isEmpty) return;
+      _pendingFocusId = next.bookingId;
+      _pendingOpenDetail = next.openDetail;
+      if (_todayFilterActive) {
+        setState(() => _todayFilterActive = false);
+      }
+      Future.microtask(
+        () => ref.read(ownerBookingFocusProvider.notifier).clear(),
+      );
+    });
+
     final visibleBookings = bookings.maybeWhen(
       data: (items) => _applyTodayFilter(items),
-      loading: () => _localBookings == null
-          ? null
-          : _applyTodayFilter(_localBookings!),
-      error: (error, stackTrace) => _localBookings == null
-          ? null
-          : _applyTodayFilter(_localBookings!),
-      orElse: () => _localBookings == null
-          ? null
-          : _applyTodayFilter(_localBookings!),
+      loading: () =>
+          _localBookings == null ? null : _applyTodayFilter(_localBookings!),
+      error: (error, stackTrace) =>
+          _localBookings == null ? null : _applyTodayFilter(_localBookings!),
+      orElse: () =>
+          _localBookings == null ? null : _applyTodayFilter(_localBookings!),
     );
 
-    if (_pendingFocusId != null && visibleBookings != null) {
-      final focusId = _pendingFocusId!;
-      _pendingFocusId = null;
-      _focusBooking(focusId, visibleBookings);
+    if (_pendingFocusId != null) {
+      final allItems = bookings.maybeWhen(
+        data: (items) => items,
+        orElse: () => _localBookings,
+      );
+      if (allItems != null) {
+        final focusId = _pendingFocusId!;
+        final openDetail = _pendingOpenDetail;
+        _pendingFocusId = null;
+        _pendingOpenDetail = false;
+        _focusBooking(focusId, allItems, openDetail: openDetail);
+      }
     }
     // Compute the active/past split once per build and reuse it for tab labels
     // and tab views (previously it ran up to 4x per rebuild).
@@ -1039,59 +1082,74 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen>
               ]
             : null,
       ),
-      body: AutoRefresh(
-        enabled: isBookingsTabActive,
-        onRefresh: _refreshBookings,
-        child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-            child: GlassCard(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              elevated: false,
-              child: TabBar(
-                controller: _tabController,
-                tabs: tabs,
-                dividerColor: Colors.transparent,
-                indicatorSize: TabBarIndicatorSize.tab,
-                indicator: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  gradient: LinearGradient(
-                    colors: [
-                      AppColors.primary.withValues(alpha: 0.3),
-                      AppColors.accent.withValues(alpha: 0.15),
-                    ],
+      body: GradientBackground(
+        child: AutoRefresh(
+          enabled: isBookingsTabActive,
+          onRefresh: _refreshBookings,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                child: GlassCard(
+                  padding: const EdgeInsets.all(4),
+                  elevated: true,
+                  radius: 18,
+                  child: TabBar(
+                    controller: _tabController,
+                    tabs: tabs,
+                    dividerColor: Colors.transparent,
+                    indicatorSize: TabBarIndicatorSize.tab,
+                    labelStyle: Theme.of(context).textTheme.labelLarge
+                        ?.copyWith(fontWeight: FontWeight.w800),
+                    unselectedLabelStyle: Theme.of(context)
+                        .textTheme
+                        .labelLarge
+                        ?.copyWith(fontWeight: FontWeight.w600),
+                    indicator: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      gradient: context.appColors.accentGradient,
+                      boxShadow: [
+                        BoxShadow(
+                          color: context.appColors.accent.withValues(
+                            alpha: 0.22,
+                          ),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    labelColor: context.appColors.onAccent,
+                    unselectedLabelColor: context.appColors.textSecondary,
                   ),
                 ),
               ),
-            ),
-          ),
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: _refreshBookings,
-              child: visibleBookings == null
-                  ? AsyncValueWidget(
-                      value: bookings,
-                      data: (items) {
-                        return TabBarView(
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: () => _refreshBookings(force: true),
+                  child: visibleBookings == null
+                      ? AsyncValueWidget(
+                          value: bookings,
+                          data: (items) {
+                            return TabBarView(
+                              controller: _tabController,
+                              children: [
+                                _buildActiveList(ownerActiveBookings(items)),
+                                _buildPastList(ownerPastBookings(items)),
+                              ],
+                            );
+                          },
+                        )
+                      : TabBarView(
                           controller: _tabController,
                           children: [
-                            _buildActiveList(ownerActiveBookings(items)),
-                            _buildPastList(ownerPastBookings(items)),
+                            _buildActiveList(active),
+                            _buildPastList(past),
                           ],
-                        );
-                      },
-                    )
-                  : TabBarView(
-                      controller: _tabController,
-                      children: [
-                        _buildActiveList(active),
-                        _buildPastList(past),
-                      ],
-                    ),
-            ),
+                        ),
+                ),
+              ),
+            ],
           ),
-        ],
         ),
       ),
     );
@@ -1114,6 +1172,8 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen>
           controller: reasonController,
           label: 'Reason (optional)',
           maxLines: 3,
+          inputFormatters: [LengthLimitingTextInputFormatter(kNotesMaxLength)],
+          validator: validateOptionalNotes,
         ),
         confirmLabel: 'Reject',
         cancelLabel: 'Cancel',
@@ -1197,7 +1257,7 @@ class _DetailRow extends StatelessWidget {
               color: AppColors.primary.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon, size: 16, color: AppColors.accent),
+            child: Icon(icon, size: 16, color: context.appColors.accent),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1207,15 +1267,12 @@ class _DetailRow extends StatelessWidget {
                 Text(
                   label,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: context.appColors.textMuted,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    color: context.appColors.textMuted,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  value,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
+                Text(value, style: Theme.of(context).textTheme.bodyMedium),
               ],
             ),
           ),

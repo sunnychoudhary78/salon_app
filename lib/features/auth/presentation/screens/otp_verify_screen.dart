@@ -1,10 +1,9 @@
 import 'dart:async';
 
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:saloon_booking/core/network/dio_client.dart';
+import 'package:saloon_booking/core/network/user_facing_error.dart';
 import 'package:saloon_booking/core/routing/route_paths.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
@@ -97,10 +96,8 @@ class _OtpVerifyScreenState extends ConsumerState<OtpVerifyScreen> {
       _startTimer();
       OtpSmsListener.instance.activateSession();
       OtpSmsListener.instance.startBackgroundListen();
-    } on DioException catch (e) {
-      setState(() => _error = e.apiException.message);
     } catch (e) {
-      setState(() => _error = e.toString());
+      if (mounted) setState(() => _error = userFacingErrorMessage(e));
     } finally {
       if (mounted) setState(() => _resending = false);
     }
@@ -124,10 +121,9 @@ class _OtpVerifyScreenState extends ConsumerState<OtpVerifyScreen> {
     });
 
     try {
-      final result = await ref.read(authProvider.notifier).verifyOtp(
-            widget.phone,
-            otp,
-          );
+      final result = await ref
+          .read(authProvider.notifier)
+          .verifyOtp(widget.phone, otp);
       if (!mounted) return;
 
       if (result.isNewUser) {
@@ -139,10 +135,8 @@ class _OtpVerifyScreenState extends ConsumerState<OtpVerifyScreen> {
             : RoutePaths.customerHome;
         context.go(home);
       }
-    } on DioException catch (e) {
-      setState(() => _error = e.apiException.message);
     } catch (e) {
-      setState(() => _error = e.toString());
+      if (mounted) setState(() => _error = userFacingErrorMessage(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -172,10 +166,10 @@ class _OtpVerifyScreenState extends ConsumerState<OtpVerifyScreen> {
                   ? 'Expires in ${_secondsLeft ~/ 60}:${(_secondsLeft % 60).toString().padLeft(2, '0')}'
                   : 'Code expired',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: _secondsLeft > 0
-                        ? context.appColors.textSecondary
-                        : AppColors.error,
-                  ),
+                color: _secondsLeft > 0
+                    ? context.appColors.textSecondary
+                    : AppColors.error,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 28),
@@ -210,6 +204,9 @@ class _OtpVerifyScreenState extends ConsumerState<OtpVerifyScreen> {
               loading: _loading,
               icon: Icons.verified_rounded,
               onPressed: _secondsLeft > 0 ? _verify : null,
+              disabledMessage: _secondsLeft <= 0
+                  ? 'OTP expired. Please resend.'
+                  : null,
             ),
             const SizedBox(height: 12),
             TextButton(

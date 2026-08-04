@@ -36,7 +36,9 @@ class SalonDistanceBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.primary.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.primaryLight.withValues(alpha: 0.35)),
+        border: Border.all(
+          color: AppColors.primaryLight.withValues(alpha: 0.35),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

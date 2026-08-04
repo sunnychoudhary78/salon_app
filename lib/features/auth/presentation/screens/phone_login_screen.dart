@@ -1,10 +1,9 @@
 import 'dart:async';
 
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:saloon_booking/core/network/dio_client.dart';
+import 'package:saloon_booking/core/network/user_facing_error.dart';
 import 'package:saloon_booking/core/utils/phone_validation.dart';
 import 'package:saloon_booking/core/routing/route_paths.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
@@ -49,10 +48,8 @@ class _PhoneLoginScreenState extends ConsumerState<PhoneLoginScreen> {
       OtpSmsListener.instance.startBackgroundListen();
       unawaited(OtpSmsListener.instance.logAppSignature());
       context.push(RoutePaths.otpVerify, extra: phone);
-    } on DioException catch (e) {
-      if (mounted) setState(() => _error = e.apiException.message);
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+      if (mounted) setState(() => _error = userFacingErrorMessage(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -125,7 +122,11 @@ class _ErrorBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline_rounded, color: AppColors.error, size: 18),
+          const Icon(
+            Icons.error_outline_rounded,
+            color: AppColors.error,
+            size: 18,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(

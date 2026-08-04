@@ -11,7 +11,9 @@ class NotificationRouter {
 
   void navigate(NotificationPayload payload) {
     if (payload.bookingId != null && payload.bookingId!.isNotEmpty) {
-      _ref.read(pendingNotificationTargetProvider.notifier).set(
+      _ref
+          .read(pendingNotificationTargetProvider.notifier)
+          .set(
             PendingNotificationTarget(
               bookingId: payload.bookingId!,
               type: payload.type,
@@ -50,13 +52,11 @@ class NotificationRouter {
     if (userRole == NotificationUserRoles.salonOwner) {
       return switch (type) {
         NotificationTypes.newBooking ||
-        NotificationTypes.bookingCancelled =>
-          RoutePaths.ownerBookings,
+        NotificationTypes.bookingCancelled => RoutePaths.ownerBookings,
         NotificationTypes.paymentReceived => RoutePaths.ownerEarnings,
         NotificationTypes.salonApplicationSubmitted ||
         NotificationTypes.salonApplicationApproved ||
-        NotificationTypes.salonApplicationRejected =>
-          RoutePaths.ownerDashboard,
+        NotificationTypes.salonApplicationRejected => RoutePaths.ownerDashboard,
         NotificationTypes.newReview => RoutePaths.ownerReviews,
         _ => null,
       };
@@ -68,8 +68,7 @@ class NotificationRouter {
       NotificationTypes.bookingCompleted ||
       NotificationTypes.appointmentReminder ||
       NotificationTypes.bookingCancelled ||
-      NotificationTypes.paymentSuccessful =>
-        RoutePaths.customerBookings,
+      NotificationTypes.paymentSuccessful => RoutePaths.customerBookings,
       NotificationTypes.promotionalOffer => RoutePaths.customerHome,
       _ => null,
     };
@@ -88,7 +87,8 @@ class PendingNotificationTarget {
   final String userRole;
 }
 
-class PendingNotificationTargetNotifier extends Notifier<PendingNotificationTarget?> {
+class PendingNotificationTargetNotifier
+    extends Notifier<PendingNotificationTarget?> {
   @override
   PendingNotificationTarget? build() => null;
 
@@ -98,9 +98,10 @@ class PendingNotificationTargetNotifier extends Notifier<PendingNotificationTarg
 }
 
 final pendingNotificationTargetProvider =
-    NotifierProvider<PendingNotificationTargetNotifier, PendingNotificationTarget?>(
-  PendingNotificationTargetNotifier.new,
-);
+    NotifierProvider<
+      PendingNotificationTargetNotifier,
+      PendingNotificationTarget?
+    >(PendingNotificationTargetNotifier.new);
 
 final notificationRouterProvider = Provider<NotificationRouter>((ref) {
   return NotificationRouter(ref);

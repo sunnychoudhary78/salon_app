@@ -11,10 +11,7 @@ import 'package:saloon_booking/shared/widgets/glass_card.dart';
 import 'package:saloon_booking/shared/widgets/premium_button.dart';
 
 class SalonApplicationStatusCard extends ConsumerWidget {
-  const SalonApplicationStatusCard({
-    super.key,
-    required this.application,
-  });
+  const SalonApplicationStatusCard({super.key, required this.application});
 
   final SalonApplicationProfileModel application;
 
@@ -48,9 +45,9 @@ class SalonApplicationStatusCard extends ConsumerWidget {
   Future<void> _refresh(WidgetRef ref, BuildContext context) async {
     await ref.read(authProvider.notifier).refreshProfile();
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Application status updated')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Application status updated')));
   }
 
   @override
@@ -65,9 +62,9 @@ class SalonApplicationStatusCard extends ConsumerWidget {
             Text(
               _pendingTitle,
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: context.appColors.textPrimary,
-                    fontWeight: FontWeight.w700,
-                  ),
+                color: context.appColors.textPrimary,
+                fontWeight: FontWeight.w700,
+              ),
             ),
             const SizedBox(height: 8),
             Text('Salon: ${application.salonName}'),
@@ -79,10 +76,7 @@ class SalonApplicationStatusCard extends ConsumerWidget {
               ),
             ],
             const SizedBox(height: 12),
-            Text(
-              _pendingMessage,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
+            Text(_pendingMessage, style: Theme.of(context).textTheme.bodySmall),
             const SizedBox(height: 12),
             Row(
               children: [
@@ -118,9 +112,9 @@ class SalonApplicationStatusCard extends ConsumerWidget {
             Text(
               _rejectedTitle,
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: context.appColors.textPrimary,
-                    fontWeight: FontWeight.w700,
-                  ),
+                color: context.appColors.textPrimary,
+                fontWeight: FontWeight.w700,
+              ),
             ),
             const SizedBox(height: 8),
             Text('Salon: ${application.salonName}'),
@@ -141,8 +135,7 @@ class SalonApplicationStatusCard extends ConsumerWidget {
                 label: 'Try again',
                 variant: PremiumButtonVariant.accent,
                 onPressed: () {
-                  if (application.isUpdate &&
-                      application.salonId != null) {
+                  if (application.isUpdate && application.salonId != null) {
                     context.push(
                       '${RoutePaths.ownerSalons}/${application.salonId}/edit',
                     );
@@ -191,13 +184,11 @@ class _ApplicationStatusShell extends StatelessWidget {
             height: 4,
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [
-                  accentColor,
-                  accentColor.withValues(alpha: 0.4),
-                ],
+                colors: [accentColor, accentColor.withValues(alpha: 0.4)],
               ),
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(16)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(16),
+              ),
             ),
           ),
           Padding(

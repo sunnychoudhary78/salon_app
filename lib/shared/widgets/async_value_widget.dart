@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:saloon_booking/core/network/user_facing_error.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/shared/widgets/glass_card.dart';
@@ -25,7 +26,7 @@ class AsyncValueWidget<T> extends StatelessWidget {
     return value.when(
       loading: () => loading ?? const LoadingView(),
       error: (e, st) =>
-          error?.call(e, st) ?? ErrorView(message: e.toString()),
+          error?.call(e, st) ?? ErrorView(message: userFacingErrorMessage(e)),
       data: data,
     );
   }
@@ -201,11 +202,7 @@ class _ShimmerBoxState extends State<ShimmerBox>
             gradient: LinearGradient(
               begin: Alignment(-1.0 + _controller.value * 2, 0),
               end: Alignment(1.0 + _controller.value * 2, 0),
-              colors: [
-                colors.glassFill,
-                colors.glassBorder,
-                colors.glassFill,
-              ],
+              colors: [colors.glassFill, colors.glassBorder, colors.glassFill],
             ),
           ),
         );

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/core/utils/salon_time_utils.dart';
 
@@ -28,9 +27,9 @@ class SalonHoursPickerRow extends StatelessWidget {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: Theme.of(context).colorScheme.copyWith(
-                  primary: AppColors.accent,
-                ),
+            colorScheme: Theme.of(
+              context,
+            ).colorScheme.copyWith(primary: context.appColors.accent),
           ),
           child: child!,
         );
@@ -109,9 +108,9 @@ class _TimePickerTile extends StatelessWidget {
             children: [
               Text(
                 label,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: colors.textSecondary,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.labelSmall?.copyWith(color: colors.textSecondary),
               ),
               const SizedBox(height: 6),
               Row(
@@ -119,7 +118,7 @@ class _TimePickerTile extends StatelessWidget {
                   Icon(
                     Icons.schedule_rounded,
                     size: 18,
-                    color: AppColors.accent.withValues(alpha: 0.9),
+                    color: context.appColors.accent.withValues(alpha: 0.9),
                   ),
                   const SizedBox(width: 8),
                   Expanded(

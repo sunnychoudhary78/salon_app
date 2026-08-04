@@ -44,17 +44,11 @@ class GlassCard extends StatelessWidget {
     );
 
     if (animateOnMount) {
-      card = card.appEntrance(
-        context: context,
-        style: EntranceStyle.scaleIn,
-      );
+      card = card.appEntrance(context: context, style: EntranceStyle.scaleIn);
     }
 
     if (onTap == null) return card;
 
-    return TapScaleWrapper(
-      onTap: onTap,
-      child: card,
-    );
+    return TapScaleWrapper(onTap: onTap, child: card);
   }
 }

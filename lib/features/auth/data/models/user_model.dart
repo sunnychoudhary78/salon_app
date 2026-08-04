@@ -1,21 +1,17 @@
 import 'package:saloon_booking/core/utils/json_parse_utils.dart';
 
 class RoleModel {
-  const RoleModel({
-    required this.id,
-    required this.name,
-    this.hierarchyLevel,
-  });
+  const RoleModel({required this.id, required this.name, this.hierarchyLevel});
 
   final String id;
   final String name;
   final int? hierarchyLevel;
 
   factory RoleModel.fromJson(Map<String, dynamic> json) => RoleModel(
-        id: requireString(json, 'id'),
-        name: requireString(json, 'name'),
-        hierarchyLevel: json['hierarchy_level'] as int?,
-      );
+    id: requireString(json, 'id'),
+    name: requireString(json, 'name'),
+    hierarchyLevel: json['hierarchy_level'] as int?,
+  );
 }
 
 class UserModel {
@@ -36,30 +32,29 @@ class UserModel {
   final String? status;
 
   factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
-        id: requireString(json, 'id'),
-        name: requireString(json, 'name'),
-        email: optionalString(json, 'email'),
-        phone: optionalString(json, 'phone'),
-        status: optionalString(json, 'status'),
-        roles: (json['roles'] as List<dynamic>? ?? [])
-            .map((e) => RoleModel.fromJson(e as Map<String, dynamic>))
-            .toList(),
-      );
+    id: requireString(json, 'id'),
+    name: requireString(json, 'name'),
+    email: optionalString(json, 'email'),
+    phone: optionalString(json, 'phone'),
+    status: optionalString(json, 'status'),
+    roles: (json['roles'] as List<dynamic>? ?? [])
+        .map((e) => RoleModel.fromJson(e as Map<String, dynamic>))
+        .toList(),
+  );
 
   UserModel copyWith({
     String? name,
     String? email,
     String? phone,
     List<RoleModel>? roles,
-  }) =>
-      UserModel(
-        id: id,
-        name: name ?? this.name,
-        email: email ?? this.email,
-        phone: phone ?? this.phone,
-        roles: roles ?? this.roles,
-        status: status,
-      );
+  }) => UserModel(
+    id: id,
+    name: name ?? this.name,
+    email: email ?? this.email,
+    phone: phone ?? this.phone,
+    roles: roles ?? this.roles,
+    status: status,
+  );
 }
 
 class CustomerProfileModel {
@@ -67,17 +62,20 @@ class CustomerProfileModel {
     required this.id,
     this.profileImage,
     this.dob,
+    this.gender,
   });
 
   final String id;
   final String? profileImage;
   final String? dob;
+  final String? gender;
 
   factory CustomerProfileModel.fromJson(Map<String, dynamic> json) =>
       CustomerProfileModel(
         id: requireString(json, 'id'),
         profileImage: optionalString(json, 'profile_image'),
         dob: json['dob']?.toString(),
+        gender: optionalString(json, 'gender'),
       );
 }
 
@@ -150,9 +148,9 @@ class AuthResponse {
   final UserModel user;
 
   factory AuthResponse.fromJson(Map<String, dynamic> json) => AuthResponse(
-        token: requireString(json, 'token'),
-        user: UserModel.fromJson(json['user'] as Map<String, dynamic>),
-      );
+    token: requireString(json, 'token'),
+    user: UserModel.fromJson(json['user'] as Map<String, dynamic>),
+  );
 }
 
 class OtpVerifyResult {
@@ -234,12 +232,11 @@ class AuthState {
     CustomerProfileModel? customer,
     SalonOwnerProfileModel? salonOwner,
     SalonApplicationProfileModel? salonApplication,
-  }) =>
-      AuthState(
-        token: token,
-        user: user ?? this.user,
-        customer: customer ?? this.customer,
-        salonOwner: salonOwner ?? this.salonOwner,
-        salonApplication: salonApplication ?? this.salonApplication,
-      );
+  }) => AuthState(
+    token: token,
+    user: user ?? this.user,
+    customer: customer ?? this.customer,
+    salonOwner: salonOwner ?? this.salonOwner,
+    salonApplication: salonApplication ?? this.salonApplication,
+  );
 }

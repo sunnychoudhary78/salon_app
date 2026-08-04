@@ -54,10 +54,7 @@ class SecureStorageService {
 
   Future<void> clearAll() async {
     try {
-      await withStorageTimeout(
-        _storage.deleteAll(),
-        label: 'clearAll',
-      );
+      await withStorageTimeout(_storage.deleteAll(), label: 'clearAll');
     } catch (e, stack) {
       CrashReporting.recordError(e, stack, reason: 'clearAll');
     }

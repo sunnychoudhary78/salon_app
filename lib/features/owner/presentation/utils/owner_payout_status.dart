@@ -1,11 +1,6 @@
 import 'package:saloon_booking/features/owner/data/models/owner_model.dart';
 
-enum OwnerPayoutStatus {
-  missing,
-  pending,
-  rejected,
-  verified,
-}
+enum OwnerPayoutStatus { missing, pending, rejected, verified }
 
 OwnerPayoutStatus resolveOwnerPayoutStatus(OwnerPayoutAccountModel? account) {
   if (account == null) return OwnerPayoutStatus.missing;
@@ -24,10 +19,8 @@ bool ownerPayoutNeedsAction(OwnerPayoutAccountModel? account) {
 
 String ownerPayoutStatusMessage(OwnerPayoutStatus status) {
   return switch (status) {
-    OwnerPayoutStatus.missing =>
-      'Add bank details to receive settlements',
-    OwnerPayoutStatus.pending =>
-      'Payout account is pending verification',
+    OwnerPayoutStatus.missing => 'Add bank details to receive settlements',
+    OwnerPayoutStatus.pending => 'Payout account is pending verification',
     OwnerPayoutStatus.rejected =>
       'Payout account verification was rejected — please update your details',
     OwnerPayoutStatus.verified => 'Payout account connected',

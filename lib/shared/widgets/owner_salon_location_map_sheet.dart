@@ -20,7 +20,6 @@ import 'package:saloon_booking/features/owner/data/services/places_search_servic
 import 'package:saloon_booking/shared/widgets/location_error_hint.dart';
 import 'package:saloon_booking/shared/widgets/premium_button.dart';
 
-
 enum MapDisplayState { loading, interactive, unavailable }
 
 const _defaultMapCenter = LatLng(20.5937, 78.9629);
@@ -77,6 +76,7 @@ class _OwnerSalonLocationMapSheetState
   MapDisplayState _mapState = MapDisplayState.loading;
   SalonLocationSelection? _draft;
   LatLng _cameraTarget = _defaultMapCenter;
+
   /// Camera we intend to show; applied when the map controller is ready.
   LatLng? _pendingCameraTarget;
   List<PlaceSuggestion> _suggestions = [];
@@ -92,15 +92,20 @@ class _OwnerSalonLocationMapSheetState
   int _reverseRequestId = 0;
   bool _skipNextIdleReverse = false;
   bool _mapReady = false;
+
   /// Ensures primary auto GPS runs at most once per sheet instance.
   bool _didAttemptAutoGpsInit = false;
+
   /// True once auto/manual GPS successfully moved the camera.
   bool _autoGpsSucceeded = false;
+
   /// One silent retry after user returns from Settings / system location UI.
   bool _didRetryGpsOnResume = false;
+
   /// Whether this sheet instance should auto-bias from GPS (new salon).
   bool _allowAutoGps = false;
   bool _gpsFetchInFlight = false;
+
   /// True while resolving GPS + address on open (shows loading overlay).
   bool _initializingLocation = false;
 
@@ -167,8 +172,9 @@ class _OwnerSalonLocationMapSheetState
 
   void _startMapInitTimeout() {
     _mapInitTimer?.cancel();
-    final duration =
-        _initializingLocation ? _mapInitTimeoutWhileGps : _mapInitTimeout;
+    final duration = _initializingLocation
+        ? _mapInitTimeoutWhileGps
+        : _mapInitTimeout;
     _mapInitTimer = Timer(duration, () {
       if (!mounted) return;
       // Keep waiting while GPS permission / fix is in progress.
@@ -183,7 +189,8 @@ class _OwnerSalonLocationMapSheetState
   }
 
   bool _isDefaultCameraTarget() {
-    return (_cameraTarget.latitude - _defaultMapCenter.latitude).abs() < 0.001 &&
+    return (_cameraTarget.latitude - _defaultMapCenter.latitude).abs() <
+            0.001 &&
         (_cameraTarget.longitude - _defaultMapCenter.longitude).abs() < 0.001;
   }
 
@@ -423,9 +430,7 @@ class _OwnerSalonLocationMapSheetState
       _actionError = null;
     });
     if (moveCamera) {
-      unawaited(
-        _applyCameraTarget(target, skipIdleReverse: skipIdleReverse),
-      );
+      unawaited(_applyCameraTarget(target, skipIdleReverse: skipIdleReverse));
     }
   }
 
@@ -544,7 +549,9 @@ class _OwnerSalonLocationMapSheetState
     });
 
     try {
-      final results = await ref.read(placesSearchServiceProvider).searchPlaces(
+      final results = await ref
+          .read(placesSearchServiceProvider)
+          .searchPlaces(
             query,
             sessionToken: _sessionToken,
             bias: _placesBiasOrNull(),
@@ -591,10 +598,7 @@ class _OwnerSalonLocationMapSheetState
 
         final details = await ref
             .read(placesSearchServiceProvider)
-            .fetchPlaceDetails(
-              place.placeId,
-              sessionToken: _sessionToken,
-            );
+            .fetchPlaceDetails(place.placeId, sessionToken: _sessionToken);
         if (!mounted) return;
         if (details == null || !details.hasValidCoordinates) {
           setState(() {
@@ -678,7 +682,9 @@ class _OwnerSalonLocationMapSheetState
       _suppressSearch = true;
       _searchController.text = selection.displayLabel;
     } on DioException catch (e) {
-      if (CancelToken.isCancel(e) || !mounted || requestId != _reverseRequestId) {
+      if (CancelToken.isCancel(e) ||
+          !mounted ||
+          requestId != _reverseRequestId) {
         return;
       }
       setState(() {
@@ -707,6 +713,29 @@ class _OwnerSalonLocationMapSheetState
     Navigator.pop(context, draft.confirmed());
   }
 
+  String _locationConfirmDisabledMessage() {
+    if (_initializingLocation) {
+      return 'Please wait while location loads';
+    }
+    final draft = _draft;
+    if (draft == null) {
+      return 'Please search and select your salon location';
+    }
+    final hasAddressLine =
+        draft.formattedAddress.trim().isNotEmpty ||
+        draft.street.trim().isNotEmpty;
+    if (!hasAddressLine) {
+      return 'Please select a location with an address';
+    }
+    if (draft.city.trim().isEmpty) {
+      return 'Please select a location with a city';
+    }
+    if (draft.state.trim().isEmpty) {
+      return 'Please select a location with a state';
+    }
+    return 'Please set a valid map pin to continue';
+  }
+
   void _clearSearch() {
     _searchController.clear();
     _searchCancelToken?.cancel();
@@ -719,9 +748,9 @@ class _OwnerSalonLocationMapSheetState
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final canConfirm =
-        !_initializingLocation && _draft?.isComplete == true;
-    final showSuggestions = !_initializingLocation &&
+    final canConfirm = !_initializingLocation && _draft?.isComplete == true;
+    final showSuggestions =
+        !_initializingLocation &&
         _mapState != MapDisplayState.unavailable &&
         _suggestions.isNotEmpty;
 
@@ -742,8 +771,8 @@ class _OwnerSalonLocationMapSheetState
                   child: Text(
                     'Set salon location',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ],
@@ -772,11 +801,11 @@ class _OwnerSalonLocationMapSheetState
                         ),
                       )
                     : _searchController.text.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear_rounded),
-                            onPressed: _clearSearch,
-                          )
-                        : null,
+                    ? IconButton(
+                        icon: const Icon(Icons.clear_rounded),
+                        onPressed: _clearSearch,
+                      )
+                    : null,
               ),
             ),
           ),
@@ -787,9 +816,9 @@ class _OwnerSalonLocationMapSheetState
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
               child: Text(
                 _searchError!,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colors.textSecondary,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: colors.textSecondary),
               ),
             ),
           ],
@@ -805,16 +834,14 @@ class _OwnerSalonLocationMapSheetState
                           draft: _draft,
                           selectingPlaceId: _selectingPlaceId,
                           onSelect: _selectSuggestion,
-                          onUseCurrentLocation: (_gpsLoading ||
-                                  _initializingLocation)
+                          onUseCurrentLocation:
+                              (_gpsLoading || _initializingLocation)
                               ? null
                               : _useCurrentLocation,
                           gpsLoading: _gpsLoading || _initializingLocation,
                         ),
                         if (_initializingLocation)
-                          const Positioned.fill(
-                            child: _LocationInitOverlay(),
-                          ),
+                          const Positioned.fill(child: _LocationInitOverlay()),
                       ],
                     )
                   : ClipRRect(
@@ -873,9 +900,9 @@ class _OwnerSalonLocationMapSheetState
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
               child: Text(
                 'Move the map to adjust the pin',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colors.textSecondary,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: colors.textSecondary),
               ),
             ),
           ],
@@ -910,6 +937,9 @@ class _OwnerSalonLocationMapSheetState
                   label: 'Confirm location',
                   variant: PremiumButtonVariant.accent,
                   onPressed: canConfirm ? _confirm : null,
+                  disabledMessage: canConfirm
+                      ? null
+                      : _locationConfirmDisabledMessage(),
                 ),
               ],
             ),
@@ -945,7 +975,8 @@ class _OwnerLocationMapViewState extends State<_OwnerLocationMapView> {
   @override
   void initState() {
     super.initState();
-    final hasPin = widget.initialTarget.latitude != _defaultMapCenter.latitude ||
+    final hasPin =
+        widget.initialTarget.latitude != _defaultMapCenter.latitude ||
         widget.initialTarget.longitude != _defaultMapCenter.longitude;
     _initialCamera = CameraPosition(
       target: widget.initialTarget,
@@ -984,7 +1015,7 @@ class _FixedCenterPin extends StatelessWidget {
         child: Icon(
           Icons.location_on_rounded,
           size: 48,
-          color: AppColors.accent,
+          color: context.appColors.accent,
           shadows: [
             Shadow(
               color: Colors.black.withValues(alpha: 0.35),
@@ -1038,7 +1069,7 @@ class _SuggestionsList extends StatelessWidget {
               dense: true,
               leading: Icon(
                 Icons.location_on_outlined,
-                color: AppColors.accent.withValues(alpha: 0.9),
+                color: context.appColors.accent.withValues(alpha: 0.9),
                 size: 22,
               ),
               title: Text(
@@ -1053,8 +1084,8 @@ class _SuggestionsList extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: colors.textSecondary,
-                          ),
+                        color: colors.textSecondary,
+                      ),
                     )
                   : null,
               trailing: isSelecting
@@ -1139,9 +1170,9 @@ class _FallbackPanel extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               'Suggestions',
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: colors.textSecondary,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.labelLarge?.copyWith(color: colors.textSecondary),
             ),
             const SizedBox(height: 8),
             Expanded(
@@ -1157,9 +1188,9 @@ class _FallbackPanel extends StatelessWidget {
             Text(
               'Search for your salon area above, then pick a suggestion to continue.',
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colors.textSecondary,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: colors.textSecondary),
             ),
             const Spacer(),
           ],
@@ -1191,7 +1222,7 @@ class _SelectedPreview extends StatelessWidget {
         children: [
           Icon(
             Icons.place_rounded,
-            color: AppColors.accent.withValues(alpha: 0.9),
+            color: context.appColors.accent.withValues(alpha: 0.9),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -1200,17 +1231,17 @@ class _SelectedPreview extends StatelessWidget {
               children: [
                 Text(
                   selection.displayLabel,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
                 ),
                 if (detail.isNotEmpty) ...[
                   const SizedBox(height: 4),
                   Text(
                     detail,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colors.textSecondary,
-                        ),
+                      color: colors.textSecondary,
+                    ),
                   ),
                 ],
                 const SizedBox(height: 4),
@@ -1219,9 +1250,9 @@ class _SelectedPreview extends StatelessWidget {
                     selection.latitude,
                     selection.longitude,
                   ),
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: colors.textMuted,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelSmall?.copyWith(color: colors.textMuted),
                 ),
               ],
             ),
@@ -1252,9 +1283,9 @@ class _MapSkeleton extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               'Loading map…',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colors.textSecondary,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: colors.textSecondary),
             ),
           ],
         ),
@@ -1290,17 +1321,17 @@ class _LocationInitOverlay extends StatelessWidget {
               Text(
                 'Finding your location…',
                 textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 6),
               Text(
                 'This may take a few seconds if GPS was off',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: context.appColors.textSecondary,
-                    ),
+                  color: context.appColors.textSecondary,
+                ),
               ),
             ],
           ),
@@ -1346,10 +1377,7 @@ class _LoadingChip extends StatelessWidget {
 }
 
 class _CurrentLocationFab extends StatelessWidget {
-  const _CurrentLocationFab({
-    required this.loading,
-    required this.onTap,
-  });
+  const _CurrentLocationFab({required this.loading, required this.onTap});
 
   final bool loading;
   final VoidCallback? onTap;

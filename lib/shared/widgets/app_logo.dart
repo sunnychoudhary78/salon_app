@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/core/config/app_config.dart';
-import 'package:saloon_booking/core/theme/app_colors.dart';
 
 class AppLogo extends StatelessWidget {
   const AppLogo({
@@ -34,11 +34,11 @@ class AppLogo extends StatelessWidget {
       content = Container(
         padding: EdgeInsets.all(size * 0.12),
         decoration: BoxDecoration(
-          gradient: AppColors.accentGradient,
+          gradient: context.appColors.accentGradient,
           borderRadius: BorderRadius.circular(borderRadius),
           boxShadow: [
             BoxShadow(
-              color: AppColors.accent.withValues(alpha: 0.4),
+              color: context.appColors.accent.withValues(alpha: 0.4),
               blurRadius: 28,
               offset: const Offset(0, 8),
             ),
@@ -65,12 +65,12 @@ class AppLogo extends StatelessWidget {
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: AppColors.accent.withValues(alpha: 0.35),
+                color: context.appColors.accent.withValues(alpha: 0.35),
                 blurRadius: 48,
                 spreadRadius: 8,
               ),
               BoxShadow(
-                color: AppColors.accentDark.withValues(alpha: 0.2),
+                color: context.appColors.accentDark.withValues(alpha: 0.2),
                 blurRadius: 80,
                 spreadRadius: 16,
               ),

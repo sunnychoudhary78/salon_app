@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:saloon_booking/core/network/user_facing_error.dart';
 import 'package:saloon_booking/core/notifications/notification_payload.dart';
 import 'package:saloon_booking/core/notifications/notification_router.dart';
 import 'package:saloon_booking/core/theme/app_decorations.dart';
@@ -67,7 +68,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       await ref.read(notificationActionsProvider).markRead(notification.id);
     }
     if (!mounted) return;
-    ref.read(notificationRouterProvider).navigate(
+    ref
+        .read(notificationRouterProvider)
+        .navigate(
           NotificationPayload(
             type: notification.type,
             screen: notification.screen,
@@ -88,7 +91,8 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         : customerShellTabIndexProvider;
 
     ref.listen(tabIndexProvider, (previous, next) {
-      if (next == _notificationsTabIndex && previous != _notificationsTabIndex) {
+      if (next == _notificationsTabIndex &&
+          previous != _notificationsTabIndex) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           ref.read(notificationsProvider.notifier).refresh();
@@ -124,7 +128,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
             padding: const EdgeInsets.all(24),
             children: [
               ErrorView(
-                message: e.toString(),
+                message: userFacingErrorMessage(e),
                 onRetry: () =>
                     ref.read(notificationsProvider.notifier).refresh(),
               ),
@@ -148,15 +152,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                   AppDecorations.scrollBottomPadding(context),
                 ),
                 children: [
-                  SectionHeader(
-                    title: 'Inbox',
-                    subtitle: emptySubtitle,
-                  ),
+                  SectionHeader(title: 'Inbox', subtitle: emptySubtitle),
                   const SizedBox(height: 32),
-                  EmptyView(
-                    message: 'No notifications yet',
-                    icon: emptyIcon,
-                  ),
+                  EmptyView(message: 'No notifications yet', icon: emptyIcon),
                 ],
               );
             }
@@ -173,7 +171,8 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
               children: [
                 SectionHeader(
                   title: 'Inbox',
-                  subtitle: '${state.items.length} notification${state.items.length == 1 ? '' : 's'}',
+                  subtitle:
+                      '${state.items.length} notification${state.items.length == 1 ? '' : 's'}',
                 ),
                 const SizedBox(height: 14),
                 ...state.items.asMap().entries.map(

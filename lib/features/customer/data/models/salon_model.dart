@@ -1,18 +1,6 @@
+import 'package:saloon_booking/core/constants/salon_service_names.dart';
 import 'package:saloon_booking/core/utils/json_parse_utils.dart';
 import 'package:saloon_booking/features/payments/data/models/payment_model.dart';
-
-class ServiceCategoryModel {
-  const ServiceCategoryModel({required this.id, required this.name});
-
-  final String id;
-  final String name;
-
-  factory ServiceCategoryModel.fromJson(Map<String, dynamic> json) =>
-      ServiceCategoryModel(
-        id: json['id'].toString(),
-        name: requireString(json, 'name'),
-      );
-}
 
 double _parseDouble(dynamic value, {double fallback = 0}) {
   if (value == null) return fallback;
@@ -38,7 +26,6 @@ class ServiceModel {
     this.description,
     this.discountPrice,
     this.status,
-    this.category,
   });
 
   final String id;
@@ -48,7 +35,6 @@ class ServiceModel {
   final String? description;
   final double? discountPrice;
   final String? status;
-  final ServiceCategoryModel? category;
 
   double get effectivePrice =>
       discountPrice != null && discountPrice! > 0 && discountPrice! < price
@@ -56,6 +42,8 @@ class ServiceModel {
       : price;
 
   bool get hasActiveDiscount => effectivePrice < price;
+
+  bool get isActive => status == null || status == 'ACTIVE';
 
   factory ServiceModel.fromJson(Map<String, dynamic> json) => ServiceModel(
     id: json['id'].toString(),
@@ -67,21 +55,14 @@ class ServiceModel {
         ? null
         : _parseDouble(json['discount_price']),
     status: json['status'] as String?,
-    category: json['category'] != null
-        ? ServiceCategoryModel.fromJson(
-            json['category'] as Map<String, dynamic>,
-          )
-        : null,
   );
 
   Map<String, dynamic> toCreateJson({
-    required String categoryId,
     String? description,
     int? durationMinutes,
     double? discountPrice,
     String? status,
   }) => {
-    'category_id': categoryId,
     'service_name': serviceName,
     'price': price,
     'description': ?description,
@@ -134,16 +115,16 @@ class StaffModel {
   }
 
   factory StaffModel.fromJson(Map<String, dynamic> json) => StaffModel(
-        id: json['id'].toString(),
-        name: requireString(json, 'name'),
-        profileImage: json['profile_image'] as String?,
-        status: json['status'] as String?,
-        sortOrder: _parseInt(json['sort_order']) ?? 0,
-        averageRating: json['average_rating'] == null
-            ? null
-            : _parseDouble(json['average_rating']),
-        reviewCount: _parseInt(json['review_count']) ?? 0,
-      );
+    id: json['id'].toString(),
+    name: requireString(json, 'name'),
+    profileImage: json['profile_image'] as String?,
+    status: json['status'] as String?,
+    sortOrder: _parseInt(json['sort_order']) ?? 0,
+    averageRating: json['average_rating'] == null
+        ? null
+        : _parseDouble(json['average_rating']),
+    reviewCount: _parseInt(json['review_count']) ?? 0,
+  );
 }
 
 class SlotsTodaySummary {
@@ -171,11 +152,11 @@ class SlotsTodaySummary {
   bool get shouldShowOnCard => status != 'unknown' && total > 0;
 
   String get infoLineLabel => switch (status) {
-        'open' => '$available slot${available == 1 ? '' : 's'} open today',
-        'limited' => 'Limited slots today',
-        'full' => 'Fully booked today',
-        _ => '',
-      };
+    'open' => '$available slot${available == 1 ? '' : 's'} open today',
+    'limited' => 'Limited slots today',
+    'full' => 'Fully booked today',
+    _ => '',
+  };
 }
 
 class PremiumConfigModel {
@@ -218,6 +199,16 @@ class SalonSlotModel {
     final start = _formatTime(slotStart);
     final end = _formatTime(slotEnd);
     return '$start – $end';
+  }
+
+  /// Start time only, e.g. `1:00 PM` — denser slot chips.
+  String get startLabel => _formatTime(slotStart);
+
+  /// Hour component of [slotStart] (0–23), or 0 if unparsable.
+  int get startHour {
+    final parts = slotStart.split(':');
+    if (parts.isEmpty) return 0;
+    return int.tryParse(parts[0]) ?? 0;
   }
 
   static String _formatTime(String raw) {
@@ -273,6 +264,7 @@ class SalonModel {
   const SalonModel({
     required this.id,
     required this.salonName,
+    this.salonType = SalonType.unisex,
     this.description,
     this.address,
     this.formattedAddress,
@@ -306,6 +298,7 @@ class SalonModel {
 
   final String id;
   final String salonName;
+  final SalonType salonType;
   final String? description;
   final String? address;
   final String? formattedAddress;
@@ -337,6 +330,20 @@ class SalonModel {
   final double? premiumBookingFee;
 
   bool get isActiveForCustomers => status == 'ACTIVE' && isActive;
+
+  /// Title-case label matching web/admin salon status enum.
+  String get statusLabel {
+    switch (status?.toUpperCase()) {
+      case 'ACTIVE':
+        return 'Active';
+      case 'SUSPENDED':
+        return 'Suspended';
+      case 'CLOSED':
+        return 'Closed';
+      default:
+        return isActive ? 'Active' : 'Inactive';
+    }
+  }
 
   String? get displayCoverImage =>
       coverImage ?? (galleryImages.isNotEmpty ? galleryImages.first : null);
@@ -383,6 +390,7 @@ class SalonModel {
   factory SalonModel.fromJson(Map<String, dynamic> json) => SalonModel(
     id: json['id'].toString(),
     salonName: requireString(json, 'salon_name'),
+    salonType: SalonType.parse(json['salon_type'] as String?),
     description: json['description'] as String?,
     address: (json['street'] as String? ?? json['address'] as String?),
     formattedAddress: json['formatted_address'] as String?,

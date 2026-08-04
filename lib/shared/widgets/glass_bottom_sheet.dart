@@ -29,10 +29,7 @@ Future<T?> showGlassBottomSheet<T>({
 }
 
 class GlassBottomSheetSurface extends StatelessWidget {
-  const GlassBottomSheetSurface({
-    super.key,
-    required this.child,
-  });
+  const GlassBottomSheetSurface({super.key, required this.child});
 
   final Widget child;
 
@@ -47,9 +44,7 @@ class GlassBottomSheetSurface extends StatelessWidget {
         borderRadius: const BorderRadius.vertical(
           top: Radius.circular(AppColors.radiusSheet),
         ),
-        border: Border(
-          top: BorderSide(color: colors.glassBorder),
-        ),
+        border: Border(top: BorderSide(color: colors.glassBorder)),
       ),
       child: child,
     );

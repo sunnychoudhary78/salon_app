@@ -1,11 +1,11 @@
 import 'dart:async';
 
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:saloon_booking/core/lifecycle/user_activity_provider.dart';
 import 'package:go_router/go_router.dart';
-import 'package:saloon_booking/core/network/dio_client.dart';
+import 'package:saloon_booking/core/network/user_facing_error.dart';
 import 'package:saloon_booking/core/notifications/notification_router.dart';
 import 'package:saloon_booking/core/notifications/notification_types.dart';
 import 'package:saloon_booking/core/routing/route_paths.dart';
@@ -33,8 +33,7 @@ class CustomerBookingsScreen extends ConsumerStatefulWidget {
       _CustomerBookingsScreenState();
 }
 
-class _CustomerBookingsScreenState
-    extends ConsumerState<CustomerBookingsScreen>
+class _CustomerBookingsScreenState extends ConsumerState<CustomerBookingsScreen>
     with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   static const _bookingsTabIndex = 2;
 
@@ -95,16 +94,11 @@ class _CustomerBookingsScreenState
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(successMessage)));
-    } on DioException catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.apiException.message)));
     } catch (e) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.toString())));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(userFacingErrorMessage(e))),
+      );
     }
   }
 
@@ -114,11 +108,33 @@ class _CustomerBookingsScreenState
       expand: false,
       size: PremiumButtonSize.small,
       variant: PremiumButtonVariant.ghost,
-      onPressed: () => _runPaymentAction(
-        context,
-        () => ref.read(bookingActionsProvider.notifier).cancel(bookingId),
-        'Booking cancelled',
-      ),
+      onPressed: () async {
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Cancel booking?'),
+            content: const Text(
+              'Are you sure you want to cancel this booking request?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Keep'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Cancel booking'),
+              ),
+            ],
+          ),
+        );
+        if (confirmed != true || !context.mounted) return;
+        await _runPaymentAction(
+          context,
+          () => ref.read(bookingActionsProvider.notifier).cancel(bookingId),
+          'Booking cancelled',
+        );
+      },
     );
   }
 
@@ -163,7 +179,9 @@ class _CustomerBookingsScreenState
                 ? null
                 : () => _runPaymentAction(
                     context,
-                    () => ref.read(paymentActionsProvider.notifier).payOnline(
+                    () => ref
+                        .read(paymentActionsProvider.notifier)
+                        .payOnline(
                           booking: representative,
                           checkoutKind: 'PREMIUM_ONLY',
                         ),
@@ -182,7 +200,9 @@ class _CustomerBookingsScreenState
                   ? null
                   : () => _runPaymentAction(
                       context,
-                      () => ref.read(paymentActionsProvider.notifier).payOnline(
+                      () => ref
+                          .read(paymentActionsProvider.notifier)
+                          .payOnline(
                             booking: representative,
                             checkoutKind: 'COMBINED',
                           ),
@@ -215,7 +235,9 @@ class _CustomerBookingsScreenState
                 ? null
                 : () => _runPaymentAction(
                     context,
-                    () => ref.read(paymentActionsProvider.notifier).payOnline(
+                    () => ref
+                        .read(paymentActionsProvider.notifier)
+                        .payOnline(
                           booking: representative,
                           checkoutKind: 'SALON_FEE',
                         ),
@@ -242,13 +264,14 @@ class _CustomerBookingsScreenState
     }
 
     for (final booking in group) {
-      if (booking.canReview) {
+      if (customerCanReview(booking)) {
+        final staffName = booking.staff?.name;
         rows.add(
           _actionsBar([
             PremiumButton(
-              label: booking.staff != null
-                  ? 'Rate ${booking.staff!.name}'
-                  : 'Review ${booking.service?.serviceName ?? 'service'}',
+              label: staffName != null && staffName.isNotEmpty
+                  ? 'Rate salon · $staffName'
+                  : 'Rate salon',
               expand: false,
               size: PremiumButtonSize.small,
               variant: PremiumButtonVariant.accent,
@@ -263,10 +286,10 @@ class _CustomerBookingsScreenState
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Text(
-              '${booking.service?.serviceName ?? 'Service'} reviewed',
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: AppColors.success,
-              ),
+              'Salon reviewed',
+              style: Theme.of(
+                context,
+              ).textTheme.labelSmall?.copyWith(color: AppColors.success),
             ),
           ),
         );
@@ -390,20 +413,20 @@ class _CustomerBookingsScreenState
         return AnimatedListItem(
           index: index,
           child: AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          margin: const EdgeInsets.symmetric(vertical: 2),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            border: highlighted
-                ? Border.all(color: AppColors.accent, width: 2)
-                : Border.all(color: Colors.transparent, width: 2),
+            duration: const Duration(milliseconds: 300),
+            margin: const EdgeInsets.symmetric(vertical: 2),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              border: highlighted
+                  ? Border.all(color: context.appColors.accent, width: 2)
+                  : Border.all(color: Colors.transparent, width: 2),
+            ),
+            child: BookingCard(
+              booking: representative,
+              serviceNames: serviceNames,
+              trailing: _groupTrailing(context, ref, group),
+            ),
           ),
-          child: BookingCard(
-            booking: representative,
-            serviceNames: serviceNames,
-            trailing: _groupTrailing(context, ref, group),
-          ),
-        ),
         );
       },
     );
@@ -459,81 +482,78 @@ class _CustomerBookingsScreenState
           await ref.read(myBookingsProvider.future);
         },
         child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-            child: GlassCard(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              elevated: false,
-              child: TabBar(
-                controller: _tabController,
-                tabs: items == null
-                    ? const [
-                        Tab(text: 'Active'),
-                        Tab(text: 'Past'),
-                      ]
-                    : [
-                        Tab(text: 'Active (${active.length})'),
-                        Tab(text: 'Past (${past.length})'),
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: GlassCard(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                elevated: false,
+                child: TabBar(
+                  controller: _tabController,
+                  tabs: items == null
+                      ? const [Tab(text: 'Active'), Tab(text: 'Past')]
+                      : [
+                          Tab(text: 'Active (${active.length})'),
+                          Tab(text: 'Past (${past.length})'),
+                        ],
+                  dividerColor: Colors.transparent,
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  indicator: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    gradient: LinearGradient(
+                      colors: [
+                        AppColors.primary.withValues(alpha: 0.3),
+                        context.appColors.accent.withValues(alpha: 0.15),
                       ],
-                dividerColor: Colors.transparent,
-                indicatorSize: TabBarIndicatorSize.tab,
-                indicator: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  gradient: LinearGradient(
-                    colors: [
-                      AppColors.primary.withValues(alpha: 0.3),
-                      AppColors.accent.withValues(alpha: 0.15),
-                    ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: () async => ref.invalidate(myBookingsProvider),
-              child: AsyncValueWidget(
-                value: bookings,
-                data: (items) {
-                  if (items.isEmpty) {
-                    return ListView(
-                      padding: EdgeInsets.fromLTRB(
-                        16,
-                        16,
-                        16,
-                        AppDecorations.scrollBottomPadding(context),
-                      ),
-                      children: [
-                        EmptyView(
-                          message:
-                              'No bookings yet — discover a salon and book your first appointment',
-                          icon: Icons.calendar_month_outlined,
-                          action: () => context.go(RoutePaths.customerHome),
-                          actionLabel: 'Explore salons',
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: () async => ref.invalidate(myBookingsProvider),
+                child: AsyncValueWidget(
+                  value: bookings,
+                  data: (items) {
+                    if (items.isEmpty) {
+                      return ListView(
+                        padding: EdgeInsets.fromLTRB(
+                          16,
+                          16,
+                          16,
+                          AppDecorations.scrollBottomPadding(context),
                         ),
+                        children: [
+                          EmptyView(
+                            message:
+                                'No bookings yet — discover a salon and book your first appointment',
+                            icon: Icons.calendar_month_outlined,
+                            action: () => context.go(RoutePaths.customerHome),
+                            actionLabel: 'Explore salons',
+                          ),
+                        ],
+                      );
+                    }
+
+                    if (_pendingFocusId != null) {
+                      final focusId = _pendingFocusId!;
+                      _pendingFocusId = null;
+                      _focusBooking(focusId, active, past);
+                    }
+
+                    return TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _buildBookingList(context, active, isActiveTab: true),
+                        _buildBookingList(context, past, isActiveTab: false),
                       ],
                     );
-                  }
-
-                  if (_pendingFocusId != null) {
-                    final focusId = _pendingFocusId!;
-                    _pendingFocusId = null;
-                    _focusBooking(focusId, active, past);
-                  }
-
-                  return TabBarView(
-                    controller: _tabController,
-                    children: [
-                      _buildBookingList(context, active, isActiveTab: true),
-                      _buildBookingList(context, past, isActiveTab: false),
-                    ],
-                  );
-                },
+                  },
+                ),
               ),
             ),
-          ),
-        ],
+          ],
         ),
       ),
     );

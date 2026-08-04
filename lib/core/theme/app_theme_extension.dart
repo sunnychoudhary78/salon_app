@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:saloon_booking/core/theme/accent_palette.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
 
 /// Theme-aware semantic colors for Option B v2 — Soft Luxury.
@@ -68,12 +69,12 @@ class AppThemeExtension extends ThemeExtension<AppThemeExtension> {
 
   /// Hairline-first ambient shadow (no accent glow).
   List<BoxShadow> cardShadow({Color? color}) => [
-        BoxShadow(
-          color: color ?? elevationShadow,
-          blurRadius: 16,
-          offset: const Offset(0, 4),
-        ),
-      ];
+    BoxShadow(
+      color: color ?? elevationShadow,
+      blurRadius: 16,
+      offset: const Offset(0, 4),
+    ),
+  ];
 
   static const dark = AppThemeExtension(
     backgroundGradient: LinearGradient(
@@ -157,6 +158,32 @@ class AppThemeExtension extends ThemeExtension<AppThemeExtension> {
     drawerGradientEnd: AppColors.lightSubtle,
   );
 
+  static AppThemeExtension lightFor(AccentPalette palette) {
+    final tokens = palette.tokens;
+    return light.copyWith(
+      accent: tokens.accent,
+      accentDark: tokens.accentDark,
+      accentSoft: tokens.softLight,
+      accentGradient: LinearGradient(colors: [tokens.accent, tokens.accent]),
+      glowAccent: tokens.accent,
+      onAccent: tokens.onAccent,
+    );
+  }
+
+  static AppThemeExtension darkFor(AccentPalette palette) {
+    final tokens = palette.tokens;
+    return dark.copyWith(
+      accent: tokens.accentLight,
+      accentDark: tokens.accentDark,
+      accentSoft: tokens.softDark,
+      accentGradient: LinearGradient(
+        colors: [tokens.accentLight, tokens.accentLight],
+      ),
+      glowAccent: tokens.accentLight,
+      onAccent: tokens.onAccent,
+    );
+  }
+
   @override
   AppThemeExtension copyWith({
     LinearGradient? backgroundGradient,
@@ -211,8 +238,7 @@ class AppThemeExtension extends ThemeExtension<AppThemeExtension> {
       navBarBackground: navBarBackground ?? this.navBarBackground,
       onPrimary: onPrimary ?? this.onPrimary,
       onAccent: onAccent ?? this.onAccent,
-      drawerGradientStart:
-          drawerGradientStart ?? this.drawerGradientStart,
+      drawerGradientStart: drawerGradientStart ?? this.drawerGradientStart,
       drawerGradientEnd: drawerGradientEnd ?? this.drawerGradientEnd,
     );
   }
@@ -221,7 +247,8 @@ class AppThemeExtension extends ThemeExtension<AppThemeExtension> {
   AppThemeExtension lerp(ThemeExtension<AppThemeExtension>? other, double t) {
     if (other is! AppThemeExtension) return this;
     return AppThemeExtension(
-      backgroundGradient: LinearGradient.lerp(
+      backgroundGradient:
+          LinearGradient.lerp(
             backgroundGradient,
             other.backgroundGradient,
             t,
@@ -229,7 +256,7 @@ class AppThemeExtension extends ThemeExtension<AppThemeExtension> {
           backgroundGradient,
       authGradient:
           LinearGradient.lerp(authGradient, other.authGradient, t) ??
-              authGradient,
+          authGradient,
       surface: Color.lerp(surface, other.surface, t)!,
       surfaceElevated: Color.lerp(surfaceElevated, other.surfaceElevated, t)!,
       surfaceSunken: Color.lerp(surfaceSunken, other.surfaceSunken, t)!,
@@ -250,16 +277,25 @@ class AppThemeExtension extends ThemeExtension<AppThemeExtension> {
       accentSoft: Color.lerp(accentSoft, other.accentSoft, t)!,
       accentGradient:
           LinearGradient.lerp(accentGradient, other.accentGradient, t) ??
-              accentGradient,
+          accentGradient,
       glowAccent: Color.lerp(glowAccent, other.glowAccent, t)!,
-      navBarBackground:
-          Color.lerp(navBarBackground, other.navBarBackground, t)!,
+      navBarBackground: Color.lerp(
+        navBarBackground,
+        other.navBarBackground,
+        t,
+      )!,
       onPrimary: Color.lerp(onPrimary, other.onPrimary, t)!,
       onAccent: Color.lerp(onAccent, other.onAccent, t)!,
-      drawerGradientStart:
-          Color.lerp(drawerGradientStart, other.drawerGradientStart, t)!,
-      drawerGradientEnd:
-          Color.lerp(drawerGradientEnd, other.drawerGradientEnd, t)!,
+      drawerGradientStart: Color.lerp(
+        drawerGradientStart,
+        other.drawerGradientStart,
+        t,
+      )!,
+      drawerGradientEnd: Color.lerp(
+        drawerGradientEnd,
+        other.drawerGradientEnd,
+        t,
+      )!,
     );
   }
 }

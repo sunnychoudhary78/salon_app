@@ -1,18 +1,21 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:saloon_booking/core/network/dio_client.dart';
+import 'package:saloon_booking/core/constants/salon_service_names.dart';
+import 'package:saloon_booking/core/network/user_facing_error.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_decorations.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
+import 'package:saloon_booking/core/utils/form_validators.dart';
 import 'package:saloon_booking/core/utils/phone_validation.dart';
 import 'package:saloon_booking/core/utils/salon_time_utils.dart';
 import 'package:saloon_booking/features/auth/presentation/providers/auth_provider.dart';
 import 'package:saloon_booking/features/customer/data/models/salon_model.dart';
 import 'package:saloon_booking/features/owner/data/models/salon_location_selection.dart';
 import 'package:saloon_booking/features/owner/data/services/owner_service.dart';
+import 'package:saloon_booking/features/owner/presentation/widgets/salon_type_picker.dart';
 import 'package:saloon_booking/shared/widgets/animated_entrance.dart';
 import 'package:saloon_booking/shared/widgets/glass_card.dart';
 import 'package:saloon_booking/shared/widgets/gradient_background.dart';
@@ -25,11 +28,7 @@ import 'package:saloon_booking/shared/widgets/salon_image_picker.dart';
 import 'package:saloon_booking/shared/widgets/section_header.dart';
 
 class EditSalonScreen extends ConsumerStatefulWidget {
-  const EditSalonScreen({
-    super.key,
-    required this.salonId,
-    this.focusField,
-  });
+  const EditSalonScreen({super.key, required this.salonId, this.focusField});
 
   final String salonId;
   final String? focusField;
@@ -39,6 +38,7 @@ class EditSalonScreen extends ConsumerStatefulWidget {
 }
 
 class _EditSalonScreenState extends ConsumerState<EditSalonScreen> {
+  final _formKey = GlobalKey<FormState>();
   final _salonNameController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _phoneController = TextEditingController();
@@ -51,6 +51,7 @@ class _EditSalonScreenState extends ConsumerState<EditSalonScreen> {
   TimeOfDay? _openingTime;
   TimeOfDay? _closingTime;
   SalonLocationSelection? _location;
+  SalonType _salonType = SalonType.unisex;
 
   List<String> _existingImageUrls = [];
   List<XFile> _newImages = [];
@@ -83,15 +84,17 @@ class _EditSalonScreenState extends ConsumerState<EditSalonScreen> {
     if (_initialized) return;
     _initialized = true;
     _salonNameController.text = salon.salonName;
+    _salonType = salon.salonType;
     _descriptionController.text = salon.description ?? '';
     _phoneController.text = salon.phone ?? '';
     if (salon.premiumBookingFee != null) {
-      _premiumFeeController.text =
-          salon.premiumBookingFee!.toStringAsFixed(0);
+      _premiumFeeController.text = salon.premiumBookingFee!.toStringAsFixed(0);
     }
-    _openingTime = parseSalonTime(salon.openingTime) ??
+    _openingTime =
+        parseSalonTime(salon.openingTime) ??
         const TimeOfDay(hour: 9, minute: 0);
-    _closingTime = parseSalonTime(salon.closingTime) ??
+    _closingTime =
+        parseSalonTime(salon.closingTime) ??
         const TimeOfDay(hour: 21, minute: 0);
     _location = SalonLocationSelection.fromSalonFields(
       address: salon.address,
@@ -145,16 +148,13 @@ class _EditSalonScreenState extends ConsumerState<EditSalonScreen> {
     final uploaded = _newImages.isEmpty
         ? <String>[]
         : await ref
-            .read(ownerOnboardingActionsProvider)
-            .uploadSalonImages(_newImages);
+              .read(ownerOnboardingActionsProvider)
+              .uploadSalonImages(_newImages);
 
     final allUrls = [..._existingImageUrls, ...uploaded];
     if (allUrls.isEmpty) return {};
 
-    return {
-      'cover_image': allUrls.first,
-      'gallery_images': allUrls,
-    };
+    return {'cover_image': allUrls.first, 'gallery_images': allUrls};
   }
 
   Future<void> _savePremiumFee() async {
@@ -174,10 +174,9 @@ class _EditSalonScreenState extends ConsumerState<EditSalonScreen> {
     });
 
     try {
-      await ref.read(ownerServiceProvider).updatePremiumBookingFee(
-            salonId: widget.salonId,
-            fee: fee,
-          );
+      await ref
+          .read(ownerServiceProvider)
+          .updatePremiumBookingFee(salonId: widget.salonId, fee: fee);
       ref.invalidate(ownerSalonsProvider);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -189,10 +188,8 @@ class _EditSalonScreenState extends ConsumerState<EditSalonScreen> {
           ),
         ),
       );
-    } on DioException catch (e) {
-      setState(() => _premiumError = e.apiException.message);
     } catch (e) {
-      setState(() => _premiumError = e.toString());
+      if (mounted) setState(() => _premiumError = userFacingErrorMessage(e));
     } finally {
       if (mounted) setState(() => _savingPremiumFee = false);
     }
@@ -204,6 +201,10 @@ class _EditSalonScreenState extends ConsumerState<EditSalonScreen> {
   }
 
   Future<void> _submit() async {
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      setState(() => _error = 'Please fix the highlighted fields');
+      return;
+    }
     final phone = normalizePhoneDigits(_phoneController.text);
     final location = _location;
     if (_salonNameController.text.trim().isEmpty ||
@@ -231,10 +232,13 @@ class _EditSalonScreenState extends ConsumerState<EditSalonScreen> {
     });
 
     try {
-      await ref.read(ownerOnboardingActionsProvider).submitUpdateRequest(
+      await ref
+          .read(ownerOnboardingActionsProvider)
+          .submitUpdateRequest(
             salonId: widget.salonId,
             body: {
               'salon_name': _salonNameController.text.trim(),
+              'salon_type': _salonType.apiValue,
               'description': _descriptionController.text.trim().isEmpty
                   ? null
                   : _descriptionController.text.trim(),
@@ -255,10 +259,8 @@ class _EditSalonScreenState extends ConsumerState<EditSalonScreen> {
         ),
       );
       context.pop();
-    } on DioException catch (e) {
-      setState(() => _error = e.apiException.message);
     } catch (e) {
-      setState(() => _error = e.toString());
+      if (mounted) setState(() => _error = userFacingErrorMessage(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -285,8 +287,7 @@ class _EditSalonScreenState extends ConsumerState<EditSalonScreen> {
             ),
             Expanded(
               child: salonsAsync.when(
-                loading: () =>
-                    const Center(child: CircularProgressIndicator()),
+                loading: () => const Center(child: CircularProgressIndicator()),
                 error: (e, _) => Center(
                   child: Padding(
                     padding: const EdgeInsets.all(24),
@@ -306,11 +307,9 @@ class _EditSalonScreenState extends ConsumerState<EditSalonScreen> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            '$e',
+                            userFacingErrorMessage(e),
                             textAlign: TextAlign.center,
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall
+                            style: Theme.of(context).textTheme.bodySmall
                                 ?.copyWith(color: context.appColors.textMuted),
                           ),
                         ],
@@ -319,39 +318,41 @@ class _EditSalonScreenState extends ConsumerState<EditSalonScreen> {
                   ),
                 ),
                 data: (salons) {
-                    SalonModel? salon;
-                    for (final item in salons) {
-                      if (item.id == widget.salonId) {
-                        salon = item;
-                        break;
-                      }
+                  SalonModel? salon;
+                  for (final item in salons) {
+                    if (item.id == widget.salonId) {
+                      salon = item;
+                      break;
                     }
+                  }
 
-                    if (salon == null) {
-                      return Center(
-                        child: GlassCard(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.store_outlined,
-                                size: 40,
-                                color: context.appColors.textMuted,
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                'Salon not found',
-                                style: Theme.of(context).textTheme.titleSmall,
-                              ),
-                            ],
-                          ),
+                  if (salon == null) {
+                    return Center(
+                      child: GlassCard(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.store_outlined,
+                              size: 40,
+                              color: context.appColors.textMuted,
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'Salon not found',
+                              style: Theme.of(context).textTheme.titleSmall,
+                            ),
+                          ],
                         ),
-                      );
-                    }
+                      ),
+                    );
+                  }
 
-                    _initializeFromSalon(salon);
+                  _initializeFromSalon(salon);
 
-                    return SingleChildScrollView(
+                  return Form(
+                    key: _formKey,
+                    child: SingleChildScrollView(
                       padding: EdgeInsets.fromLTRB(
                         20,
                         8,
@@ -375,13 +376,21 @@ class _EditSalonScreenState extends ConsumerState<EditSalonScreen> {
                                 children: [
                                   Text(
                                     'Basic info',
-                                    style:
-                                        Theme.of(context).textTheme.titleSmall,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.titleSmall,
                                   ),
                                   const SizedBox(height: 16),
                                   PremiumTextField(
                                     controller: _salonNameController,
                                     label: 'Salon name *',
+                                    validator: validateRequiredName,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  SalonTypePicker(
+                                    value: _salonType,
+                                    onChanged: (type) =>
+                                        setState(() => _salonType = type),
                                   ),
                                   const SizedBox(height: 16),
                                   PremiumTextField(
@@ -389,6 +398,12 @@ class _EditSalonScreenState extends ConsumerState<EditSalonScreen> {
                                     focusNode: _descriptionFocus,
                                     label: 'Description',
                                     maxLines: 3,
+                                    inputFormatters: [
+                                      LengthLimitingTextInputFormatter(
+                                        kNotesMaxLength,
+                                      ),
+                                    ],
+                                    validator: validateOptionalNotes,
                                   ),
                                   const SizedBox(height: 16),
                                   PremiumTextField(
@@ -397,6 +412,7 @@ class _EditSalonScreenState extends ConsumerState<EditSalonScreen> {
                                     label: 'Salon phone *',
                                     keyboardType: TextInputType.phone,
                                     inputFormatters: phoneDigitInputFormatters,
+                                    validator: validatePhoneDigits,
                                   ),
                                 ],
                               ),
@@ -408,8 +424,9 @@ class _EditSalonScreenState extends ConsumerState<EditSalonScreen> {
                                 children: [
                                   Text(
                                     'Location',
-                                    style:
-                                        Theme.of(context).textTheme.titleSmall,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.titleSmall,
                                   ),
                                   const SizedBox(height: 16),
                                   OwnerSalonLocationCard(
@@ -430,8 +447,9 @@ class _EditSalonScreenState extends ConsumerState<EditSalonScreen> {
                                 children: [
                                   Text(
                                     'Hours',
-                                    style:
-                                        Theme.of(context).textTheme.titleSmall,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.titleSmall,
                                   ),
                                   const SizedBox(height: 16),
                                   SalonHoursPickerRow(
@@ -452,8 +470,9 @@ class _EditSalonScreenState extends ConsumerState<EditSalonScreen> {
                                 children: [
                                   Text(
                                     'Urgent booking',
-                                    style:
-                                        Theme.of(context).textTheme.titleSmall,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.titleSmall,
                                   ),
                                   const SizedBox(height: 8),
                                   platformPremiumAsync.when(
@@ -472,20 +491,22 @@ class _EditSalonScreenState extends ConsumerState<EditSalonScreen> {
                                           .textTheme
                                           .bodySmall
                                           ?.copyWith(
-                                            color: context.appColors.textSecondary,
+                                            color:
+                                                context.appColors.textSecondary,
                                           ),
                                     ),
                                     data: (config) => Text(
                                       config.enabled
                                           ? 'Leave empty to use platform default '
-                                              '(₹${config.fee.toStringAsFixed(0)}). '
-                                              'Changes apply immediately.'
+                                                '(₹${config.fee.toStringAsFixed(0)}). '
+                                                'Changes apply immediately.'
                                           : 'Urgent bookings are disabled platform-wide.',
                                       style: Theme.of(context)
                                           .textTheme
                                           .bodySmall
                                           ?.copyWith(
-                                            color: context.appColors.textSecondary,
+                                            color:
+                                                context.appColors.textSecondary,
                                           ),
                                     ),
                                   ),
@@ -519,8 +540,8 @@ class _EditSalonScreenState extends ConsumerState<EditSalonScreen> {
                                                   height: 18,
                                                   child:
                                                       CircularProgressIndicator(
-                                                    strokeWidth: 2,
-                                                  ),
+                                                        strokeWidth: 2,
+                                                      ),
                                                 )
                                               : const Text('Save fee'),
                                         ),
@@ -548,15 +569,17 @@ class _EditSalonScreenState extends ConsumerState<EditSalonScreen> {
                                 children: [
                                   Text(
                                     'Images',
-                                    style:
-                                        Theme.of(context).textTheme.titleSmall,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.titleSmall,
                                   ),
                                   const SizedBox(height: 16),
                                   SalonImageEditor(
                                     existingUrls: _existingImageUrls,
                                     newImages: _newImages,
-                                    onExistingUrlsChanged: (urls) =>
-                                        setState(() => _existingImageUrls = urls),
+                                    onExistingUrlsChanged: (urls) => setState(
+                                      () => _existingImageUrls = urls,
+                                    ),
                                     onNewImagesChanged: (images) =>
                                         setState(() => _newImages = images),
                                   ),
@@ -589,13 +612,14 @@ class _EditSalonScreenState extends ConsumerState<EditSalonScreen> {
                           ],
                         ),
                       ),
-                    );
-                  },
-                ),
+                    ),
+                  );
+                },
               ),
-            ],
-          ),
+            ),
+          ],
         ),
+      ),
       bottomNavigationBar: ScreenActionBar(
         label: 'Submit for approval',
         loading: _loading,

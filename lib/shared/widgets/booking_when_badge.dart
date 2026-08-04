@@ -29,20 +29,20 @@ class BookingWhenBadge extends StatelessWidget {
 
     final (text, color, icon) = switch (label) {
       BookingWhenLabel.today => (
-          'Today',
-          AppColors.accent,
-          Icons.today_rounded,
-        ),
+        'Today',
+        context.appColors.accent,
+        Icons.today_rounded,
+      ),
       BookingWhenLabel.upcoming => (
-          'Upcoming',
-          AppColors.success,
-          Icons.event_rounded,
-        ),
+        'Upcoming',
+        AppColors.success,
+        Icons.event_rounded,
+      ),
       BookingWhenLabel.past => (
-          'Past',
-          colors.textMuted,
-          Icons.history_rounded,
-        ),
+        'Past',
+        colors.textMuted,
+        Icons.history_rounded,
+      ),
     };
 
     return Container(

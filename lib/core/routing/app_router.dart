@@ -36,6 +36,8 @@ import 'package:saloon_booking/features/owner/presentation/screens/owner_salons_
 import 'package:saloon_booking/features/owner/presentation/screens/owner_shell.dart';
 import 'package:saloon_booking/features/owner/presentation/screens/pending_approval_screen.dart';
 import 'package:saloon_booking/features/notifications/presentation/screens/notifications_screen.dart';
+import 'package:saloon_booking/features/profile/presentation/screens/change_phone_otp_screen.dart';
+import 'package:saloon_booking/features/profile/presentation/screens/change_phone_screen.dart';
 import 'package:saloon_booking/features/profile/presentation/screens/edit_profile_screen.dart';
 import 'package:saloon_booking/features/profile/presentation/screens/profile_screen.dart';
 import 'package:saloon_booking/features/settings/presentation/screens/settings_screen.dart';
@@ -93,8 +95,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return _homeForUser(authState);
       }
 
-      if (isSalonOwnerAccount(authState) &&
-          location.startsWith('/customer/')) {
+      if (isSalonOwnerAccount(authState) && location.startsWith('/customer/')) {
         return RoutePaths.ownerDashboard;
       }
 
@@ -115,9 +116,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: RoutePaths.otpVerify,
-        builder: (_, state) => OtpVerifyScreen(
-          phone: state.extra as String? ?? '',
-        ),
+        builder: (_, state) =>
+            OtpVerifyScreen(phone: state.extra as String? ?? ''),
       ),
       GoRoute(
         path: RoutePaths.completeProfile,
@@ -150,6 +150,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                     pageBuilder: fadeSlideBuilder(
                       (_, __) => const EditProfileScreen(),
                     ),
+                  ),
+                  GoRoute(
+                    path: 'change-phone',
+                    pageBuilder: fadeSlideBuilder(
+                      (_, __) => const ChangePhoneScreen(),
+                    ),
+                    routes: [
+                      GoRoute(
+                        path: 'otp',
+                        pageBuilder: (context, state) => fadeSlidePage<void>(
+                          key: state.pageKey,
+                          child: ChangePhoneOtpScreen(
+                            phone: state.extra as String? ?? '',
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -194,9 +211,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '${RoutePaths.customerSalons}/:id',
         pageBuilder: (context, state) => fadeSlidePage<void>(
           key: state.pageKey,
-          child: SalonDetailScreen(
-            salonId: state.pathParameters['id']!,
-          ),
+          child: SalonDetailScreen(salonId: state.pathParameters['id']!),
         ),
         routes: [
           GoRoute(
@@ -297,7 +312,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: RoutePaths.ownerNotifications,
-                builder: (_, __) => const NotificationsScreen(isOwnerMode: true),
+                builder: (_, __) =>
+                    const NotificationsScreen(isOwnerMode: true),
               ),
             ],
           ),
@@ -312,6 +328,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                     pageBuilder: fadeSlideBuilder(
                       (_, __) => const EditProfileScreen(),
                     ),
+                  ),
+                  GoRoute(
+                    path: 'change-phone',
+                    pageBuilder: fadeSlideBuilder(
+                      (_, __) => const ChangePhoneScreen(isOwnerMode: true),
+                    ),
+                    routes: [
+                      GoRoute(
+                        path: 'otp',
+                        pageBuilder: (context, state) => fadeSlidePage<void>(
+                          key: state.pageKey,
+                          child: ChangePhoneOtpScreen(
+                            phone: state.extra as String? ?? '',
+                            isOwnerMode: true,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -335,9 +369,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: RoutePaths.ownerEarnings,
-        pageBuilder: fadeSlideBuilder(
-          (_, __) => const OwnerEarningsScreen(),
-        ),
+        pageBuilder: fadeSlideBuilder((_, __) => const OwnerEarningsScreen()),
       ),
       GoRoute(
         path: RoutePaths.ownerEarningsTransactions,
@@ -353,9 +385,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: RoutePaths.becomeOwner,
-        pageBuilder: modalUpBuilder(
-          (_, __) => const SalonOwnerWizardScreen(),
-        ),
+        pageBuilder: modalUpBuilder((_, __) => const SalonOwnerWizardScreen()),
       ),
       GoRoute(
         path: RoutePaths.applySalon,
@@ -363,9 +393,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: RoutePaths.pendingApproval,
-        pageBuilder: fadeSlideBuilder(
-          (_, __) => const PendingApprovalScreen(),
-        ),
+        pageBuilder: fadeSlideBuilder((_, __) => const PendingApprovalScreen()),
       ),
     ],
   );

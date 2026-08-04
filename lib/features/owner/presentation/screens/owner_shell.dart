@@ -22,6 +22,7 @@ class OwnerShell extends ConsumerStatefulWidget {
 
 class _OwnerShellState extends ConsumerState<OwnerShell> {
   DateTime? _lastBackPress;
+  bool _drawerOpen = false;
 
   static const _dashboardIndex = 0;
   static const _salonsIndex = 1;
@@ -69,7 +70,11 @@ class _OwnerShellState extends ConsumerState<OwnerShell> {
       label: 'Dashboard',
       index: _dashboardIndex,
     ),
-    DrawerNavItem(icon: Icons.person_rounded, label: 'Profile', index: _profileIndex),
+    DrawerNavItem(
+      icon: Icons.person_rounded,
+      label: 'Profile',
+      index: _profileIndex,
+    ),
     DrawerNavItem(
       icon: Icons.calendar_month_rounded,
       label: 'Bookings',
@@ -80,8 +85,16 @@ class _OwnerShellState extends ConsumerState<OwnerShell> {
       label: 'Notifications',
       index: _notificationsIndex,
     ),
-    DrawerNavItem(icon: Icons.store_rounded, label: 'My Salons', index: _salonsIndex),
-    DrawerNavItem(icon: Icons.star_rounded, label: 'Reviews', index: _reviewsIndex),
+    DrawerNavItem(
+      icon: Icons.store_rounded,
+      label: 'My Salons',
+      index: _salonsIndex,
+    ),
+    DrawerNavItem(
+      icon: Icons.star_rounded,
+      label: 'Reviews',
+      index: _reviewsIndex,
+    ),
     DrawerNavItem(
       icon: Icons.settings_rounded,
       label: 'Settings',
@@ -99,15 +112,23 @@ class _OwnerShellState extends ConsumerState<OwnerShell> {
   @override
   Widget build(BuildContext context) {
     final unreadCount = ref.watch(unreadCountProvider).value ?? 0;
-    final dashboard = ref.watch(ownerDashboardProvider).value;
+    // Dashboard and payout data are only needed inside the drawer. Avoid
+    // fetching and parsing both on every owner tab just to build the shell.
+    final dashboard = _drawerOpen
+        ? ref.watch(ownerDashboardProvider).value
+        : null;
+    final payoutAccount = _drawerOpen
+        ? ref.watch(ownerPayoutAccountProvider).value
+        : null;
     final pendingBookings = dashboard?.summary.bookings.pending ?? 0;
     final profilePercent =
         dashboard?.summary.profileCompleteness.averagePercent ?? 100;
-    final payoutAccount = ref.watch(ownerPayoutAccountProvider).value;
-    final attentionHint = buildOwnerSetupHint(
-      payoutAccount: payoutAccount,
-      profilePercent: profilePercent,
-    );
+    final attentionHint = _drawerOpen
+        ? buildOwnerSetupHint(
+            payoutAccount: payoutAccount,
+            profilePercent: profilePercent,
+          )
+        : null;
     final currentIndex = widget.navigationShell.currentIndex;
 
     final publishedTab = ref.read(ownerShellTabIndexProvider);
@@ -120,34 +141,39 @@ class _OwnerShellState extends ConsumerState<OwnerShell> {
 
     return SystemUiScope(
       child: PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, result) {
-        if (didPop) return;
-        _handleBack(context);
-      },
-      child: Scaffold(
-        drawer: AppDrawer(
-          items: _drawerItems,
-          selectedIndex: currentIndex,
-          onSelect: _onSelect,
-          headerSubtitle: 'Owner Portal',
-          isOwnerMode: true,
-          badgeCounts: _badgeCounts(unreadCount, pendingBookings),
-          attentionHint: attentionHint,
-          onAttentionHintTap: attentionHint != null
-              ? () => _onSelect(_dashboardIndex)
-              : null,
-        ),
-        body: GradientBackground(
-          child: Builder(
-            builder: (context) => ShellNavigationScope(
-              openDrawer: () => Scaffold.of(context).openDrawer(),
-              child: widget.navigationShell,
+        canPop: false,
+        onPopInvokedWithResult: (didPop, result) {
+          if (didPop) return;
+          _handleBack(context);
+        },
+        child: Scaffold(
+          onDrawerChanged: (isOpened) {
+            if (_drawerOpen != isOpened) {
+              setState(() => _drawerOpen = isOpened);
+            }
+          },
+          drawer: AppDrawer(
+            items: _drawerItems,
+            selectedIndex: currentIndex,
+            onSelect: _onSelect,
+            headerSubtitle: 'Owner',
+            isOwnerMode: true,
+            badgeCounts: _badgeCounts(unreadCount, pendingBookings),
+            attentionHint: attentionHint,
+            onAttentionHintTap: attentionHint != null
+                ? () => _onSelect(_dashboardIndex)
+                : null,
+          ),
+          body: GradientBackground(
+            child: Builder(
+              builder: (context) => ShellNavigationScope(
+                openDrawer: () => Scaffold.of(context).openDrawer(),
+                child: widget.navigationShell,
+              ),
             ),
           ),
         ),
       ),
-    ),
     );
   }
 }

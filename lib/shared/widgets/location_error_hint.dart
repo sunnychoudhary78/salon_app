@@ -28,9 +28,9 @@ class LocationErrorHint extends StatelessWidget {
       children: [
         Text(
           locationFailureMessage(failure),
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppColors.warning,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: AppColors.warning),
         ),
         if (_shouldShowSettings) ...[
           const SizedBox(height: 4),

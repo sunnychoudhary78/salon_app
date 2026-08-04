@@ -37,11 +37,13 @@ class AuthRepository {
   Future<AuthState> completeProfile({
     required String signupToken,
     required String name,
+    required String gender,
     String? email,
   }) async {
     final auth = await _service.completeProfile(
       signupToken: signupToken,
       name: name,
+      gender: gender,
       email: email,
     );
     await _storage.writeToken(auth.token);

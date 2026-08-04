@@ -41,6 +41,9 @@ class NotificationService with WidgetsBindingObserver {
   bool _authRequested = false;
   bool _observerAdded = false;
   String? _currentToken;
+  Future<bool>? _registrationFuture;
+  DateTime? _lastRegistrationAttempt;
+  Timer? _resumeRegistrationTimer;
 
   // Coalesce bursts of notifications into a single round of provider
   // invalidations so the UI thread is not flooded when several messages arrive
@@ -82,10 +85,28 @@ class NotificationService with WidgetsBindingObserver {
     _tokenRefreshSub = _messaging.onTokenRefresh.listen(_onTokenRefresh);
   }
 
-  Future<bool> onAuthenticated() async {
-    if (!isAndroid) return false;
+  Future<bool> onAuthenticated() {
+    if (!isAndroid) return Future.value(false);
     _authRequested = true;
-    if (_sessionRegistered) return true;
+    if (_sessionRegistered) return Future.value(true);
+    final inFlight = _registrationFuture;
+    if (inFlight != null) return inFlight;
+
+    final future = CrashReporting.measureAsync(
+      'notification_registration',
+      _authenticate,
+      slowThreshold: const Duration(seconds: 2),
+    );
+    _registrationFuture = future;
+    return future.whenComplete(() {
+      if (identical(_registrationFuture, future)) {
+        _registrationFuture = null;
+        _lastRegistrationAttempt = DateTime.now();
+      }
+    });
+  }
+
+  Future<bool> _authenticate() async {
     await initialize();
 
     final granted = await _requestPermission();
@@ -103,10 +124,22 @@ class NotificationService with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) return;
     // Recover from an earlier failure (e.g. user just granted notification
-    // permission from system settings and returned to the app).
-    if (_authRequested && !_sessionRegistered) {
-      unawaited(onAuthenticated());
+    // permission from system settings and returned to the app). Delay this so
+    // screen-specific refreshes do not all hit platform channels at once.
+    if (!_authRequested || _sessionRegistered) return;
+    final lastAttempt = _lastRegistrationAttempt;
+    if (lastAttempt != null &&
+        DateTime.now().difference(lastAttempt) < const Duration(seconds: 15)) {
+      return;
     }
+    _resumeRegistrationTimer?.cancel();
+    _resumeRegistrationTimer = Timer(const Duration(seconds: 2), () {
+      _resumeRegistrationTimer = null;
+      if (_authRequested && !_sessionRegistered) {
+        CrashReporting.breadcrumb('notification_registration_resume');
+        unawaited(onAuthenticated());
+      }
+    });
   }
 
   Future<bool> _requestPermission() async {
@@ -252,6 +285,8 @@ class NotificationService with WidgetsBindingObserver {
     _currentToken = null;
     _sessionRegistered = false;
     _authRequested = false;
+    _resumeRegistrationTimer?.cancel();
+    _resumeRegistrationTimer = null;
     final prefs = await _read.read(sharedPreferencesProvider.future);
     await prefs.remove(_registeredTokenKey);
   }
@@ -262,13 +297,16 @@ class NotificationService with WidgetsBindingObserver {
       _observerAdded = false;
     }
     _refreshDebounce?.cancel();
+    _resumeRegistrationTimer?.cancel();
     await _tokenRefreshSub?.cancel();
     await _foregroundSub?.cancel();
     await _openedAppSub?.cancel();
   }
 }
 
-final localNotificationServiceProvider = Provider<LocalNotificationService>((ref) {
+final localNotificationServiceProvider = Provider<LocalNotificationService>((
+  ref,
+) {
   return LocalNotificationService();
 });
 

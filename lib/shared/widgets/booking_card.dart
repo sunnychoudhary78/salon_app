@@ -56,7 +56,7 @@ class _BookingCardState extends State<BookingCard> {
         'COMPLETED' => AppColors.primaryLight,
         'CANCELLED' => context.appColors.textMuted,
         'REJECTED' => AppColors.error,
-        _ => AppColors.accent,
+        _ => context.appColors.accent,
       };
 
   String _paymentStatusLabel() {
@@ -143,23 +143,22 @@ class _BookingCardState extends State<BookingCard> {
                     Icon(
                       Icons.schedule_rounded,
                       size: 18,
-                      color: AppColors.accent,
+                      color: context.appColors.accent,
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         _formatDateTime(),
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              color: colors.textPrimary,
-                              fontWeight: FontWeight.w700,
-                            ),
+                          color: colors.textPrimary,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                     BookingWhenBadge(
                       date: booking.bookingDate,
                       time: booking.bookingTime,
-                      durationMinutes:
-                          booking.service?.durationMinutes ?? 30,
+                      durationMinutes: booking.service?.durationMinutes ?? 30,
                       compact: true,
                     ),
                     if (booking.isPremium) ...[
@@ -170,13 +169,15 @@ class _BookingCardState extends State<BookingCard> {
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
-                          color: AppColors.accent.withValues(alpha: 0.2),
+                          color: context.appColors.accent.withValues(
+                            alpha: 0.2,
+                          ),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Text(
+                        child: Text(
                           'URGENT',
                           style: TextStyle(
-                            color: AppColors.accent,
+                            color: context.appColors.accent,
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
                           ),
@@ -232,8 +233,9 @@ class _BookingCardState extends State<BookingCard> {
                         children: [
                           Text(
                             'Details',
-                            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                                  color: AppColors.accent,
+                            style: Theme.of(context).textTheme.labelLarge
+                                ?.copyWith(
+                                  color: context.appColors.accent,
                                   fontWeight: FontWeight.w600,
                                 ),
                           ),
@@ -243,7 +245,7 @@ class _BookingCardState extends State<BookingCard> {
                                 ? Icons.expand_less_rounded
                                 : Icons.expand_more_rounded,
                             size: 18,
-                            color: AppColors.accent,
+                            color: context.appColors.accent,
                           ),
                         ],
                       ),
@@ -331,14 +333,14 @@ class _InfoRow extends StatelessWidget {
         Icon(
           icon,
           size: 14,
-          color: accent ? AppColors.accent : colors.textMuted,
+          color: accent ? context.appColors.accent : colors.textMuted,
         ),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
             text,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: accent ? AppColors.accent : colors.textSecondary,
+              color: accent ? context.appColors.accent : colors.textSecondary,
               fontWeight: accent ? FontWeight.w600 : FontWeight.normal,
             ),
           ),
@@ -356,8 +358,6 @@ class _PhoneRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.appColors;
-
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
@@ -365,17 +365,11 @@ class _PhoneRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 2),
         child: Row(
           children: [
-            const Icon(
-              Icons.phone_outlined,
-              size: 14,
-              color: AppColors.accent,
-            ),
-            const SizedBox(width: 8),
             Expanded(
               child: Text(
                 phone,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.accent,
+                  color: context.appColors.accent,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -383,7 +377,7 @@ class _PhoneRow extends StatelessWidget {
             Icon(
               Icons.call_rounded,
               size: 16,
-              color: colors.textMuted,
+              color: context.appColors.accent,
             ),
           ],
         ),

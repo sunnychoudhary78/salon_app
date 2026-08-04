@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:saloon_booking/core/routing/route_paths.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/features/owner/data/models/owner_dashboard_v2_model.dart';
+import 'package:saloon_booking/features/owner/presentation/utils/owner_dashboard_appointment_ui.dart';
 import 'package:saloon_booking/features/owner/presentation/utils/owner_profile_completion_nav.dart';
 import 'package:saloon_booking/features/owner/presentation/widgets/dashboard/premium_chip.dart';
 import 'package:saloon_booking/shared/widgets/glass_card.dart';
 
-class OwnerActionCenter extends StatefulWidget {
+class OwnerActionCenter extends ConsumerStatefulWidget {
   const OwnerActionCenter({
     super.key,
     required this.attention,
@@ -19,10 +21,10 @@ class OwnerActionCenter extends StatefulWidget {
   final int previewLimit;
 
   @override
-  State<OwnerActionCenter> createState() => _OwnerActionCenterState();
+  ConsumerState<OwnerActionCenter> createState() => _OwnerActionCenterState();
 }
 
-class _OwnerActionCenterState extends State<OwnerActionCenter> {
+class _OwnerActionCenterState extends ConsumerState<OwnerActionCenter> {
   bool _expanded = false;
 
   @override
@@ -30,7 +32,9 @@ class _OwnerActionCenterState extends State<OwnerActionCenter> {
     final items = _collectItems();
     if (items.isEmpty) return const SizedBox.shrink();
 
-    final visible = _expanded ? items : items.take(widget.previewLimit).toList();
+    final visible = _expanded
+        ? items
+        : items.take(widget.previewLimit).toList();
     final hasMore = items.length > widget.previewLimit;
 
     return Column(
@@ -38,24 +42,30 @@ class _OwnerActionCenterState extends State<OwnerActionCenter> {
       children: [
         Row(
           children: [
-            Icon(Icons.warning_amber_rounded, color: AppColors.warning, size: 20),
+            const Icon(
+              Icons.warning_amber_rounded,
+              color: AppColors.warning,
+              size: 20,
+            ),
             const SizedBox(width: 8),
             Text(
               'Needs attention (${items.length})',
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
             ),
           ],
         ),
         const SizedBox(height: 10),
-        ...visible.map((entry) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: _ActionRow(
-                entry: entry,
-                onTap: () => _handleTap(context, entry),
-              ),
-            )),
+        ...visible.map(
+          (entry) => Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: _ActionRow(
+              entry: entry,
+              onTap: () => _handleTap(context, entry),
+            ),
+          ),
+        ),
         if (hasMore && !_expanded)
           TextButton(
             onPressed: () => setState(() => _expanded = true),
@@ -74,15 +84,16 @@ class _OwnerActionCenterState extends State<OwnerActionCenter> {
 
     const excludedTypes = {'payout_account', 'profile_completeness'};
 
-    final sections = widget.attention.sections
-        .where((s) => !excludedTypes.contains(s.type))
-        .toList()
-      ..sort((a, b) {
-        final pa = priority[a.type] ?? 99;
-        final pb = priority[b.type] ?? 99;
-        if (pa != pb) return pa.compareTo(pb);
-        return b.count.compareTo(a.count);
-      });
+    final sections =
+        widget.attention.sections
+            .where((s) => !excludedTypes.contains(s.type))
+            .toList()
+          ..sort((a, b) {
+            final pa = priority[a.type] ?? 99;
+            final pb = priority[b.type] ?? 99;
+            if (pa != pb) return pa.compareTo(pb);
+            return b.count.compareTo(a.count);
+          });
 
     final entries = <_ActionEntry>[];
     for (final section in sections) {
@@ -99,7 +110,12 @@ class _OwnerActionCenterState extends State<OwnerActionCenter> {
       case 'pending_bookings':
       case 'cash_confirmations_pending':
       case 'premium_unpaid':
-        context.go(RoutePaths.ownerBookings);
+        final bookingId = entry.item.bookingId;
+        if (bookingId != null && bookingId.isNotEmpty) {
+          openOwnerBookingFocus(ref, context, bookingId: bookingId);
+        } else {
+          context.go(RoutePaths.ownerBookings);
+        }
       case 'payout_account':
         context.push(RoutePaths.ownerPayoutAccount);
       case 'profile_completeness':
@@ -145,7 +161,7 @@ class _ActionRow extends StatelessWidget {
         decoration: isPremiumUnpaid
             ? BoxDecoration(
                 border: Border(
-                  left: BorderSide(color: AppColors.accent, width: 4),
+                  left: BorderSide(color: context.appColors.accent, width: 4),
                 ),
               )
             : null,
@@ -163,9 +179,8 @@ class _ActionRow extends StatelessWidget {
                       Expanded(
                         child: Text(
                           title,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(fontWeight: FontWeight.w600),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -180,10 +195,10 @@ class _ActionRow extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       subtitle,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: colors.textMuted,
-                          ),
-                      maxLines: 1,
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.copyWith(color: colors.textMuted),
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
@@ -221,13 +236,37 @@ class _ActionRow extends StatelessWidget {
     switch (entry.section.type) {
       case 'pending_bookings':
       case 'premium_unpaid':
+        final parts = <String>[];
+        final number = item.bookingNumber;
+        if (number != null && number.isNotEmpty) parts.add('#$number');
         final time = _formatTime(item.bookingTime);
         final date = item.bookingDate ?? '';
-        if (time.isNotEmpty && date.isNotEmpty) return '$date · $time';
-        return item.salonName;
+        if (time.isNotEmpty && date.isNotEmpty) {
+          parts.add('$date · $time');
+        } else if (time.isNotEmpty) {
+          parts.add(time);
+        } else if (date.isNotEmpty) {
+          parts.add(date);
+        }
+        if (item.salonName != null && item.salonName!.isNotEmpty) {
+          parts.add(item.salonName!);
+        }
+        if (parts.isEmpty) return item.salonName;
+        return parts.join(' · ');
       case 'cash_confirmations_pending':
-        if (item.amount != null) return '₹${item.amount!.toStringAsFixed(0)}';
-        return item.salonName;
+        final parts = <String>[];
+        final number = item.bookingNumber;
+        if (number != null && number.isNotEmpty) parts.add('#$number');
+        if (item.amount != null) {
+          parts.add('₹${item.amount!.toStringAsFixed(0)}');
+        }
+        final time = _formatTime(item.bookingTime);
+        if (time.isNotEmpty) parts.add(time);
+        if (item.salonName != null && item.salonName!.isNotEmpty) {
+          parts.add(item.salonName!);
+        }
+        if (parts.isEmpty) return item.salonName;
+        return parts.join(' · ');
       case 'profile_completeness':
         if (item.completenessPercent != null) {
           return '${item.completenessPercent}% complete';
@@ -254,7 +293,7 @@ class _ActionRow extends StatelessWidget {
     };
     return Text(
       label,
-      style: TextStyle(
+      style: const TextStyle(
         color: AppColors.primary,
         fontWeight: FontWeight.w700,
         fontSize: 13,

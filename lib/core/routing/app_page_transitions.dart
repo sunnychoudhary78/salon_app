@@ -65,16 +65,16 @@ CustomTransitionPage<T> modalUpPage<T>({
 }
 
 /// Helper for GoRoute pageBuilder with fade-slide transition.
-GoRouterPageBuilder fadeSlideBuilder(Widget Function(BuildContext, GoRouterState) builder) {
-  return (context, state) => fadeSlidePage<void>(
-        key: state.pageKey,
-        child: builder(context, state),
-      );
+GoRouterPageBuilder fadeSlideBuilder(
+  Widget Function(BuildContext, GoRouterState) builder,
+) {
+  return (context, state) =>
+      fadeSlidePage<void>(key: state.pageKey, child: builder(context, state));
 }
 
-GoRouterPageBuilder modalUpBuilder(Widget Function(BuildContext, GoRouterState) builder) {
-  return (context, state) => modalUpPage<void>(
-        key: state.pageKey,
-        child: builder(context, state),
-      );
+GoRouterPageBuilder modalUpBuilder(
+  Widget Function(BuildContext, GoRouterState) builder,
+) {
+  return (context, state) =>
+      modalUpPage<void>(key: state.pageKey, child: builder(context, state));
 }

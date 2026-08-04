@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
-import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 
 class StepProgressHeader extends StatelessWidget {
@@ -24,9 +23,9 @@ class StepProgressHeader extends StatelessWidget {
       children: [
         Text(
           'Step ${currentStep + 1} of $totalSteps',
-          style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: AppColors.accent,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.labelLarge?.copyWith(color: context.appColors.accent),
         ),
         const SizedBox(height: 4),
         Text(
@@ -41,7 +40,7 @@ class StepProgressHeader extends StatelessWidget {
             dotHeight: 8,
             dotWidth: 8,
             expansionFactor: 3,
-            activeDotColor: AppColors.accent,
+            activeDotColor: context.appColors.accent,
             dotColor: colors.glassBorder,
           ),
           onDotClicked: (_) {},

@@ -13,6 +13,7 @@ class ScreenActionBar extends StatelessWidget {
     this.icon,
     this.loading = false,
     this.variant = PremiumButtonVariant.accent,
+    this.disabledMessage,
   });
 
   final String label;
@@ -21,6 +22,7 @@ class ScreenActionBar extends StatelessWidget {
   final IconData? icon;
   final bool loading;
   final PremiumButtonVariant variant;
+  final String? disabledMessage;
 
   @override
   Widget build(BuildContext context) {
@@ -54,6 +56,7 @@ class ScreenActionBar extends StatelessWidget {
                 loading: loading,
                 variant: variant,
                 onPressed: onPressed,
+                disabledMessage: disabledMessage,
               ),
             ),
           ),

@@ -50,13 +50,16 @@ class PlaceSuggestion {
   }
 
   bool get hasValidCoordinates =>
-      latitude != 0 && longitude != 0 && latitude.isFinite && longitude.isFinite;
+      latitude != 0 &&
+      longitude != 0 &&
+      latitude.isFinite &&
+      longitude.isFinite;
 
   factory PlaceSuggestion.fromJson(Map<String, dynamic> json) {
     final formatted = (json['formatted_address'] as String? ?? '').trim();
     final label = (json['label'] as String? ?? '').trim();
-    final street = (json['street'] as String? ?? json['address'] as String? ?? '')
-        .trim();
+    final street =
+        (json['street'] as String? ?? json['address'] as String? ?? '').trim();
     return PlaceSuggestion(
       placeId: json['place_id']?.toString() ?? '',
       label: label,

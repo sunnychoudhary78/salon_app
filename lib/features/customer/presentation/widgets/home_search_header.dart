@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/features/customer/data/providers/salon_browse_filters_provider.dart';
+import 'package:saloon_booking/features/customer/presentation/widgets/audience_mode_toggle.dart';
 
 class HomeSearchHeader extends ConsumerStatefulWidget {
   const HomeSearchHeader({
@@ -52,12 +53,22 @@ class _HomeSearchHeaderState extends ConsumerState<HomeSearchHeader> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Hello, ${widget.firstName}',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: colors.textSecondary,
-                fontWeight: FontWeight.w500,
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Hello, ${widget.firstName}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: colors.textSecondary,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
+            ),
+            const SizedBox(width: 10),
+            const AudienceModeToggle(),
+          ],
         ),
         const SizedBox(height: 12),
         Row(
@@ -104,14 +115,14 @@ class _SearchField extends StatelessWidget {
       child: TextField(
         controller: controller,
         onChanged: onChanged,
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: colors.textPrimary,
-            ),
+        style: Theme.of(
+          context,
+        ).textTheme.bodyMedium?.copyWith(color: colors.textPrimary),
         decoration: InputDecoration(
           hintText: 'Search salons…',
-          hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: colors.textMuted,
-              ),
+          hintStyle: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: colors.textMuted),
           contentPadding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
           filled: true,
           fillColor: colors.surface,
@@ -150,10 +161,7 @@ class _SearchField extends StatelessWidget {
 }
 
 class _FilterButton extends StatelessWidget {
-  const _FilterButton({
-    required this.hasActiveFilters,
-    required this.onTap,
-  });
+  const _FilterButton({required this.hasActiveFilters, required this.onTap});
 
   final bool hasActiveFilters;
   final VoidCallback onTap;
@@ -181,9 +189,7 @@ class _FilterButton extends StatelessWidget {
               Icon(
                 Icons.tune_rounded,
                 size: 22,
-                color: hasActiveFilters
-                    ? colors.primary
-                    : colors.textSecondary,
+                color: hasActiveFilters ? colors.primary : colors.textSecondary,
               ),
               if (hasActiveFilters)
                 Positioned(
@@ -195,10 +201,7 @@ class _FilterButton extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: colors.accent,
                       shape: BoxShape.circle,
-                      border: Border.all(
-                        color: colors.surface,
-                        width: 1.5,
-                      ),
+                      border: Border.all(color: colors.surface, width: 1.5),
                     ),
                   ),
                 ),

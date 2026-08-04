@@ -105,8 +105,8 @@ class NotificationsList extends AsyncNotifier<NotificationsListState> {
 
 final notificationsProvider =
     AsyncNotifierProvider<NotificationsList, NotificationsListState>(
-  NotificationsList.new,
-);
+      NotificationsList.new,
+    );
 
 final unreadCountProvider = FutureProvider.autoDispose<int>((ref) {
   return ref.watch(notificationHistoryServiceProvider).getUnreadCount();

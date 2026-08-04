@@ -33,7 +33,10 @@ class IdleDebugOverlay extends ConsumerWidget {
               color: Colors.black.withValues(alpha: 0.72),
               borderRadius: BorderRadius.circular(8),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 child: DefaultTextStyle(
                   style: const TextStyle(
                     color: Colors.white70,

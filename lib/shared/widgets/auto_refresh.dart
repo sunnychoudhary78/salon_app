@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:saloon_booking/core/crash/crash_reporting.dart';
 import 'package:saloon_booking/core/lifecycle/user_activity_provider.dart';
 
 /// Periodically invokes [onRefresh] while mounted and also refreshes when the
@@ -18,6 +19,7 @@ class AutoRefresh extends ConsumerStatefulWidget {
     required this.onRefresh,
     required this.child,
     this.interval = const Duration(minutes: 4),
+    this.minimumGap = const Duration(seconds: 10),
     this.refreshOnResume = true,
     this.enabled = true,
   });
@@ -25,6 +27,7 @@ class AutoRefresh extends ConsumerStatefulWidget {
   final Future<void> Function() onRefresh;
   final Widget child;
   final Duration interval;
+  final Duration minimumGap;
   final bool refreshOnResume;
   final bool enabled;
 
@@ -37,10 +40,11 @@ class _AutoRefreshState extends ConsumerState<AutoRefresh>
   static final _random = Random();
 
   Timer? _timer;
+  Timer? _resumeTimer;
   bool _refreshing = false;
+  DateTime? _lastRunAt;
 
-  bool get _canPoll =>
-      widget.enabled && !ref.read(userIdleProvider) && mounted;
+  bool get _canPoll => widget.enabled && !ref.read(userIdleProvider) && mounted;
 
   @override
   void initState() {
@@ -58,6 +62,8 @@ class _AutoRefreshState extends ConsumerState<AutoRefresh>
       } else {
         _timer?.cancel();
         _timer = null;
+        _resumeTimer?.cancel();
+        _resumeTimer = null;
       }
     } else if (oldWidget.interval != widget.interval && widget.enabled) {
       _startTimer();
@@ -73,12 +79,19 @@ class _AutoRefreshState extends ConsumerState<AutoRefresh>
   Future<void> _run() async {
     if (_refreshing || !mounted || !widget.enabled) return;
     if (ref.read(userIdleProvider)) return;
+    final lastRunAt = _lastRunAt;
+    if (lastRunAt != null &&
+        DateTime.now().difference(lastRunAt) < widget.minimumGap) {
+      return;
+    }
     _refreshing = true;
+    _lastRunAt = DateTime.now();
     try {
-      await widget.onRefresh();
+      await CrashReporting.measureAsync('auto_refresh', widget.onRefresh);
       ref.read(lastAutoRefreshAtProvider.notifier).mark();
-    } catch (_) {
+    } catch (error) {
       // Auto-refresh is best-effort; ignore transient errors.
+      CrashReporting.log('auto_refresh_failed: $error');
     } finally {
       _refreshing = false;
     }
@@ -87,10 +100,12 @@ class _AutoRefreshState extends ConsumerState<AutoRefresh>
   void _scheduleResumeRefresh() {
     if (!widget.refreshOnResume || !widget.enabled) return;
     if (ref.read(userIdleProvider)) return;
+    _resumeTimer?.cancel();
     final delay = Duration(milliseconds: _random.nextInt(2000));
-    Future.delayed(delay, () {
+    _resumeTimer = Timer(delay, () {
+      _resumeTimer = null;
       if (mounted && widget.enabled && !ref.read(userIdleProvider)) {
-        _run();
+        unawaited(_run());
       }
     });
   }
@@ -99,9 +114,12 @@ class _AutoRefreshState extends ConsumerState<AutoRefresh>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     switch (state) {
       case AppLifecycleState.resumed:
-        ref.read(userIdleProvider.notifier).recordActivity();
-        _scheduleResumeRefresh();
-        if (widget.enabled) _startTimer();
+        if (widget.enabled) {
+          ref.read(userIdleProvider.notifier).recordActivity();
+          CrashReporting.breadcrumb('auto_refresh_resume');
+          _scheduleResumeRefresh();
+          _startTimer();
+        }
         break;
       case AppLifecycleState.paused:
       case AppLifecycleState.inactive:
@@ -109,6 +127,8 @@ class _AutoRefreshState extends ConsumerState<AutoRefresh>
       case AppLifecycleState.hidden:
         _timer?.cancel();
         _timer = null;
+        _resumeTimer?.cancel();
+        _resumeTimer = null;
         break;
     }
   }
@@ -116,6 +136,7 @@ class _AutoRefreshState extends ConsumerState<AutoRefresh>
   @override
   void dispose() {
     _timer?.cancel();
+    _resumeTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }

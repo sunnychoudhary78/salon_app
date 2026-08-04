@@ -10,12 +10,7 @@ const Duration kPageDuration = Duration(milliseconds: 380);
 /// Max list index used for stagger delay (avoids long cascades).
 const int kMaxStaggerIndex = 8;
 
-enum EntranceStyle {
-  fadeUp,
-  fadeIn,
-  slideRight,
-  scaleIn,
-}
+enum EntranceStyle { fadeUp, fadeIn, slideRight, scaleIn }
 
 /// Whether platform / user prefers reduced motion.
 bool animationsDisabled(BuildContext context) {
@@ -65,10 +60,7 @@ extension AppEntranceExtension on Widget {
               curve: Curves.easeOutCubic,
             );
       case EntranceStyle.fadeIn:
-        return chain.fadeIn(
-          duration: duration,
-          curve: Curves.easeOutCubic,
-        );
+        return chain.fadeIn(duration: duration, curve: Curves.easeOutCubic);
       case EntranceStyle.slideRight:
         return chain
             .fadeIn(duration: duration, curve: Curves.easeOutCubic)
@@ -93,13 +85,9 @@ extension AppEntranceExtension on Widget {
   /// Subtle continuous float for empty-state icons.
   Widget appFloatLoop({required BuildContext context}) {
     if (animationsDisabled(context)) return this;
-    return animate(onPlay: (controller) => controller.repeat(reverse: true))
-        .slideY(
-          begin: 0,
-          end: -0.02,
-          duration: 2000.ms,
-          curve: Curves.easeInOut,
-        );
+    return animate(
+      onPlay: (controller) => controller.repeat(reverse: true),
+    ).slideY(begin: 0, end: -0.02, duration: 2000.ms, curve: Curves.easeInOut);
   }
 }
 

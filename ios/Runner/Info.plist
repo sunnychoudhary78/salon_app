@@ -54,5 +54,18 @@
 	<string>CATCHY needs access to your photo library so you can add salon images.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>CATCHY uses your location to show nearby salons and distances.</string>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>tel</string>
+		<string>mailto</string>
+		<string>upi</string>
+		<string>gpay</string>
+		<string>tez</string>
+		<string>phonepe</string>
+		<string>paytm</string>
+		<string>paytmmp</string>
+		<string>bhim</string>
+		<string>amazonpay</string>
+	</array>
 </dict>
 </plist>

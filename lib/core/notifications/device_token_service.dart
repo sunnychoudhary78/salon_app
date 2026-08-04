@@ -11,10 +11,7 @@ class DeviceTokenService {
   Future<void> register(String token) async {
     await _dio.post(
       '${AppConfig.appPrefix}/device-token',
-      data: {
-        'token': token,
-        'platform': 'android',
-      },
+      data: {'token': token, 'platform': 'android'},
     );
   }
 

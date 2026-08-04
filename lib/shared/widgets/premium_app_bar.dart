@@ -12,9 +12,9 @@ class PremiumAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.showMenu = true,
     this.leading,
   }) : assert(
-          titleWidget != null || title != null,
-          'Provide either title or titleWidget',
-        );
+         titleWidget != null || title != null,
+         'Provide either title or titleWidget',
+       );
 
   final String? title;
   final String? subtitle;
@@ -25,12 +25,12 @@ class PremiumAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Size get preferredSize => Size.fromHeight(
-        titleWidget != null
-            ? kToolbarHeight + 12
-            : subtitle != null
-                ? kToolbarHeight + 8
-                : kToolbarHeight,
-      );
+    titleWidget != null
+        ? kToolbarHeight + 12
+        : subtitle != null
+        ? kToolbarHeight + 8
+        : kToolbarHeight,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -40,7 +40,8 @@ class PremiumAppBar extends StatelessWidget implements PreferredSizeWidget {
 
     return AppBar(
       automaticallyImplyLeading: showDrawerButton || leading != null,
-      title: titleWidget ??
+      title:
+          titleWidget ??
           (subtitle != null
               ? Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -48,30 +49,56 @@ class PremiumAppBar extends StatelessWidget implements PreferredSizeWidget {
                     Text(
                       title!,
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            color: colors.textPrimary,
-                          ),
+                        color: colors.textPrimary,
+                      ),
                     ),
                     Text(
                       subtitle!,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: colors.textSecondary,
-                          ),
+                        color: colors.textSecondary,
+                      ),
                     ),
                   ],
                 )
               : Text(
                   title!,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: colors.textPrimary,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(color: colors.textPrimary),
                 )),
       titleSpacing: showDrawerButton || leading != null ? 0 : 16,
-      leading: leading ??
+      leading:
+          leading ??
           (showDrawerButton
-              ? IconButton(
-                  icon: const Icon(Icons.menu_rounded),
-                  onPressed: shellNav.openDrawer,
-                  tooltip: 'Open menu',
+              ? Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: Center(
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: shellNav.openDrawer,
+                        borderRadius: BorderRadius.circular(12),
+                        child: Ink(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: colors.surfaceElevated.withValues(
+                              alpha: 0.72,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: colors.glassBorder.withValues(alpha: 0.65),
+                            ),
+                          ),
+                          child: Icon(
+                            Icons.menu_rounded,
+                            color: colors.textPrimary,
+                            size: 22,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 )
               : null),
       actions: actions,
@@ -81,7 +108,7 @@ class PremiumAppBar extends StatelessWidget implements PreferredSizeWidget {
       scrolledUnderElevation: 0,
       surfaceTintColor: Colors.transparent,
       shape: Border(
-        bottom: BorderSide(color: colors.glassBorder),
+        bottom: BorderSide(color: colors.glassBorder.withValues(alpha: 0.55)),
       ),
     );
   }

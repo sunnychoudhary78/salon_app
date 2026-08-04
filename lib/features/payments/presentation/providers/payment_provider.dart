@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:saloon_booking/features/auth/presentation/providers/auth_provider.dart';
 import 'package:saloon_booking/features/customer/data/models/salon_model.dart';
 import 'package:saloon_booking/features/customer/data/services/customer_service.dart';
 import 'package:saloon_booking/features/payments/data/services/payment_service.dart';
@@ -21,17 +22,25 @@ class PaymentActions extends AsyncNotifier<void> {
     state = const AsyncLoading();
     final groupId = _groupId(booking);
     final result = await AsyncValue.guard(() async {
-      final order = await ref.read(paymentServiceProvider).createRazorpayOrder(
+      final order = await ref
+          .read(paymentServiceProvider)
+          .createRazorpayOrder(
             bookingGroupId: groupId,
             checkoutKind: checkoutKind,
           );
+      final user = ref.read(authProvider).value?.user;
+      final contact = user?.phone?.replaceAll(RegExp(r'\D'), '');
       final checkout = await RazorpayCheckout().open(
         payment: order,
         name: booking.salon?.salonName ?? 'CATCHY',
         description: _descriptionForCheckout(checkoutKind, booking),
+        contact: (contact != null && contact.isNotEmpty) ? contact : null,
+        email: user?.email,
       );
       try {
-        await ref.read(paymentServiceProvider).verifyRazorpayPaymentWithRetry(
+        await ref
+            .read(paymentServiceProvider)
+            .verifyRazorpayPaymentWithRetry(
               orderId: checkout.orderId,
               paymentId: checkout.paymentId,
               signature: checkout.signature,
@@ -83,10 +92,7 @@ class PaymentActions extends AsyncNotifier<void> {
   }
 
   bool _isCheckoutRecorded(List<BookingModel> group, String checkoutKind) {
-    final rep = group.firstWhere(
-      (b) => b.isPremium,
-      orElse: () => group.first,
-    );
+    final rep = group.firstWhere((b) => b.isPremium, orElse: () => group.first);
     if (checkoutKind == 'PREMIUM_ONLY' || checkoutKind == 'COMBINED') {
       if (rep.premiumPaymentStatus != 'PAID') return false;
     }
@@ -100,9 +106,9 @@ class PaymentActions extends AsyncNotifier<void> {
   Future<void> selectPayAtShop(BookingModel booking) async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(
-      () => ref.read(paymentServiceProvider).selectPayAtShop(
-            bookingGroupId: _groupId(booking),
-          ),
+      () => ref
+          .read(paymentServiceProvider)
+          .selectPayAtShop(bookingGroupId: _groupId(booking)),
     );
     ref.invalidate(myBookingsProvider);
     if (state.hasError) throw state.error!;

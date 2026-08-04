@@ -44,9 +44,7 @@ class PremiumBottomNav extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: colors.navBarBackground,
-        border: Border(
-          top: BorderSide(color: colors.glassBorder),
-        ),
+        border: Border(top: BorderSide(color: colors.glassBorder)),
         boxShadow: [
           BoxShadow(
             color: colors.elevationShadow,
@@ -56,10 +54,7 @@ class PremiumBottomNav extends StatelessWidget {
         ],
       ),
       child: Padding(
-        padding: EdgeInsets.only(
-          bottom: bottomPadding + 8,
-          top: 8,
-        ),
+        padding: EdgeInsets.only(bottom: bottomPadding + 8, top: 8),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: items.map((item) {
@@ -171,10 +166,11 @@ class _NavItemState extends State<_NavItem> {
               Text(
                 widget.item.label,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      fontWeight:
-                          widget.selected ? FontWeight.w600 : FontWeight.w500,
-                      color: widget.selected ? activeColor : inactiveColor,
-                    ),
+                  fontWeight: widget.selected
+                      ? FontWeight.w600
+                      : FontWeight.w500,
+                  color: widget.selected ? activeColor : inactiveColor,
+                ),
               ),
             ],
           ),
@@ -185,10 +181,7 @@ class _NavItemState extends State<_NavItem> {
 }
 
 class _NavBadge extends StatelessWidget {
-  const _NavBadge({
-    required this.count,
-    required this.borderColor,
-  });
+  const _NavBadge({required this.count, required this.borderColor});
 
   final int count;
   final Color borderColor;

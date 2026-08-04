@@ -13,8 +13,28 @@ class ProfileService {
   final Dio _dio;
 
   Future<ProfileResponse> updateProfile(Map<String, dynamic> body) async {
-    final response =
-        await _dio.patch('${AppConfig.appPrefix}/profile', data: body);
+    final response = await _dio.patch(
+      '${AppConfig.appPrefix}/profile',
+      data: body,
+    );
+    return ProfileResponse.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<void> requestPhoneChangeOtp({required String phone}) async {
+    await _dio.post(
+      '${AppConfig.appPrefix}/profile/phone/otp-request',
+      data: {'phone': phone},
+    );
+  }
+
+  Future<ProfileResponse> verifyPhoneChangeOtp({
+    required String phone,
+    required String otp,
+  }) async {
+    final response = await _dio.post(
+      '${AppConfig.appPrefix}/profile/phone/otp-verify',
+      data: {'phone': phone, 'otp': otp},
+    );
     return ProfileResponse.fromJson(response.data as Map<String, dynamic>);
   }
 
@@ -48,26 +68,46 @@ class ProfileActions {
 
   Future<void> updateProfileFields({
     String? name,
-    String? phone,
     String? email,
     String? profileImage,
     bool clearProfileImage = false,
     String? dob,
+    String? gender,
   }) async {
     final response = await _ref.read(profileServiceProvider).updateProfile({
       if (name != null) 'name': name,
-      if (phone != null) 'phone': phone,
       if (email != null) 'email': email.isEmpty ? null : email,
       if (clearProfileImage) 'profile_image': null,
       if (!clearProfileImage && profileImage != null)
         'profile_image': profileImage,
       if (dob != null) 'dob': dob,
+      if (gender != null) 'gender': gender,
     });
+    await _applyProfile(response);
+  }
+
+  Future<void> requestPhoneChangeOtp({required String phone}) async {
+    await _ref
+        .read(profileServiceProvider)
+        .requestPhoneChangeOtp(phone: phone);
+  }
+
+  Future<void> verifyPhoneChangeOtp({
+    required String phone,
+    required String otp,
+  }) async {
+    final response = await _ref
+        .read(profileServiceProvider)
+        .verifyPhoneChangeOtp(phone: phone, otp: otp);
+    await _applyProfile(response);
+  }
+
+  Future<void> _applyProfile(ProfileResponse response) async {
     final current = _ref.read(authProvider).value;
     if (current != null) {
-      _ref.read(authProvider.notifier).updateAuthState(
-            AuthState.fromProfile(current.token, response),
-          );
+      _ref
+          .read(authProvider.notifier)
+          .updateAuthState(AuthState.fromProfile(current.token, response));
       await _ref.read(hasApprovedSalonsProvider.notifier).refresh();
     }
   }

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:saloon_booking/core/location/selected_location.dart';
 import 'package:saloon_booking/core/location/selected_location_provider.dart';
-import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/features/customer/data/providers/salon_browse_filters_provider.dart';
 import 'package:saloon_booking/shared/widgets/glass_bottom_sheet.dart';
@@ -49,7 +48,9 @@ class _SalonFiltersSheetState extends ConsumerState<_SalonFiltersSheet> {
   }
 
   void _apply() {
-    ref.read(salonBrowseFiltersProvider.notifier).applyFilters(
+    ref
+        .read(salonBrowseFiltersProvider.notifier)
+        .applyFilters(
           minRating: _minRating,
           maxDistanceKm: _hasGpsLocation ? _maxDistanceKm : null,
           hasAvailableSlots: _hasAvailableSlots,
@@ -80,31 +81,31 @@ class _SalonFiltersSheetState extends ConsumerState<_SalonFiltersSheet> {
           Text(
             'Filters',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: context.appColors.textPrimary,
-                  fontWeight: FontWeight.w700,
-                ),
+              color: context.appColors.textPrimary,
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(height: 6),
           Text(
             'Refine salons by distance, rating, and availability',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: context.appColors.textSecondary,
-                ),
+              color: context.appColors.textSecondary,
+            ),
           ),
           const SizedBox(height: 24),
           Text(
             'Availability',
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: context.appColors.textPrimary,
-                  fontWeight: FontWeight.w600,
-                ),
+              color: context.appColors.textPrimary,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 8),
           Text(
             'Show salons with open slots today, most availability first',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: context.appColors.textMuted,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: context.appColors.textMuted),
           ),
           const SizedBox(height: 12),
           _FilterChipRow(
@@ -119,17 +120,17 @@ class _SalonFiltersSheetState extends ConsumerState<_SalonFiltersSheet> {
           Text(
             'Distance',
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: context.appColors.textPrimary,
-                  fontWeight: FontWeight.w600,
-                ),
+              color: context.appColors.textPrimary,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           if (!hasGps) ...[
             const SizedBox(height: 8),
             Text(
               'Enable GPS location to filter by distance',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: context.appColors.textMuted,
-                  ),
+                color: context.appColors.textMuted,
+              ),
             ),
           ] else ...[
             const SizedBox(height: 12),
@@ -148,9 +149,9 @@ class _SalonFiltersSheetState extends ConsumerState<_SalonFiltersSheet> {
           Text(
             'Rating',
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: context.appColors.textPrimary,
-                  fontWeight: FontWeight.w600,
-                ),
+              color: context.appColors.textPrimary,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 12),
           _FilterChipRow(
@@ -170,10 +171,7 @@ class _SalonFiltersSheetState extends ConsumerState<_SalonFiltersSheet> {
             onPressed: _apply,
           ),
           const SizedBox(height: 8),
-          TextButton(
-            onPressed: _clearAll,
-            child: const Text('Clear all'),
-          ),
+          TextButton(onPressed: _clearAll, child: const Text('Clear all')),
         ],
       ),
     );
@@ -215,16 +213,18 @@ class _FilterChipRow extends StatelessWidget {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(20),
                 gradient: isSelected
-                    ? AppColors.accentGradient
+                    ? context.appColors.accentGradient
                     : LinearGradient(
                         colors: [
-                          context.appColors.surfaceElevated.withValues(alpha: 0.9),
+                          context.appColors.surfaceElevated.withValues(
+                            alpha: 0.9,
+                          ),
                           context.appColors.surface.withValues(alpha: 0.7),
                         ],
                       ),
                 border: Border.all(
                   color: isSelected
-                      ? AppColors.accent.withValues(alpha: 0.6)
+                      ? context.appColors.accent.withValues(alpha: 0.6)
                       : context.appColors.glassBorder.withValues(alpha: 0.5),
                 ),
               ),

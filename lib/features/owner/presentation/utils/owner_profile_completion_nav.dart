@@ -59,9 +59,7 @@ void navigateToProfileGap(
   }
 
   if (focus != null && _editFocusFields.contains(focus)) {
-    context.push(
-      '${RoutePaths.ownerSalons}/$salonId/edit?focus=$focus',
-    );
+    context.push('${RoutePaths.ownerSalons}/$salonId/edit?focus=$focus');
     return;
   }
 

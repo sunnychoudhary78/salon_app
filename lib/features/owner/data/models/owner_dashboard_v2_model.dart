@@ -17,9 +17,8 @@ class OwnerDashboardV2Model {
   final OwnerDashboardSchedule schedule;
   final OwnerDashboardPerformance performance;
 
-  int get premiumTodayCount => schedule.appointments
-      .where((a) => a.hasPremiumService)
-      .length;
+  int get premiumTodayCount =>
+      schedule.appointments.where((a) => a.hasPremiumService).length;
 
   int get premiumUnpaidCount {
     for (final section in attention.sections) {
@@ -73,7 +72,8 @@ class OwnerDashboardMeta {
 
   factory OwnerDashboardMeta.fromJson(Map<String, dynamic> json) =>
       OwnerDashboardMeta(
-        salonIds: (json['salon_ids'] as List<dynamic>?)
+        salonIds:
+            (json['salon_ids'] as List<dynamic>?)
                 ?.map((e) => e.toString())
                 .toList() ??
             const [],
@@ -163,7 +163,8 @@ class OwnerDashboardSummary {
         notifications: OwnerDashboardNotifications.fromJson(
           json['notifications'] as Map<String, dynamic>? ?? const {},
         ),
-        bySalon: (json['by_salon'] as List<dynamic>?)
+        bySalon:
+            (json['by_salon'] as List<dynamic>?)
                 ?.map(
                   (e) => OwnerDashboardSalonSummary.fromJson(
                     e as Map<String, dynamic>,
@@ -260,9 +261,7 @@ class OwnerDashboardReputationSummary {
   final double? averageRating;
   final int reviewCount;
 
-  factory OwnerDashboardReputationSummary.fromJson(
-    Map<String, dynamic> json,
-  ) =>
+  factory OwnerDashboardReputationSummary.fromJson(Map<String, dynamic> json) =>
       OwnerDashboardReputationSummary(
         averageRating: json['average_rating'] == null
             ? null
@@ -309,19 +308,19 @@ class OwnerDashboardProfileCompleteness {
 
   factory OwnerDashboardProfileCompleteness.fromJson(
     Map<String, dynamic> json,
-  ) =>
-      OwnerDashboardProfileCompleteness(
-        averagePercent: json['average_percent'] as int? ?? 100,
-        incompleteCount: json['incomplete_count'] as int? ?? 0,
-        salons: (json['salons'] as List<dynamic>?)
-                ?.map(
-                  (e) => OwnerDashboardProfileSalon.fromJson(
-                    e as Map<String, dynamic>,
-                  ),
-                )
-                .toList() ??
-            const [],
-      );
+  ) => OwnerDashboardProfileCompleteness(
+    averagePercent: json['average_percent'] as int? ?? 100,
+    incompleteCount: json['incomplete_count'] as int? ?? 0,
+    salons:
+        (json['salons'] as List<dynamic>?)
+            ?.map(
+              (e) => OwnerDashboardProfileSalon.fromJson(
+                e as Map<String, dynamic>,
+              ),
+            )
+            .toList() ??
+        const [],
+  );
 }
 
 class OwnerDashboardProfileSalon {
@@ -341,7 +340,8 @@ class OwnerDashboardProfileSalon {
       OwnerDashboardProfileSalon(
         salonId: json['salon_id']?.toString() ?? '',
         salonName: json['salon_name'] as String? ?? '',
-        missing: (json['missing'] as List<dynamic>?)
+        missing:
+            (json['missing'] as List<dynamic>?)
                 ?.map((e) => e.toString())
                 .toList() ??
             const [],
@@ -394,7 +394,8 @@ class OwnerDashboardAttention {
   factory OwnerDashboardAttention.fromJson(Map<String, dynamic> json) =>
       OwnerDashboardAttention(
         totalCount: json['total_count'] as int? ?? 0,
-        sections: (json['sections'] as List<dynamic>?)
+        sections:
+            (json['sections'] as List<dynamic>?)
                 ?.map(
                   (e) => OwnerDashboardAttentionSection.fromJson(
                     e as Map<String, dynamic>,
@@ -423,7 +424,8 @@ class OwnerDashboardAttentionSection {
         type: json['type'] as String? ?? '',
         count: json['count'] as int? ?? 0,
         severity: json['severity'] as String? ?? 'low',
-        items: (json['items'] as List<dynamic>?)
+        items:
+            (json['items'] as List<dynamic>?)
                 ?.map(
                   (e) => OwnerDashboardAttentionItem.fromJson(
                     e as Map<String, dynamic>,
@@ -515,7 +517,8 @@ class OwnerDashboardSchedule {
 
   factory OwnerDashboardSchedule.fromJson(Map<String, dynamic> json) =>
       OwnerDashboardSchedule(
-        appointments: (json['appointments'] as List<dynamic>?)
+        appointments:
+            (json['appointments'] as List<dynamic>?)
                 ?.map(
                   (e) => OwnerDashboardAppointment.fromJson(
                     e as Map<String, dynamic>,
@@ -563,12 +566,11 @@ class OwnerDashboardSchedulePagination {
 
   factory OwnerDashboardSchedulePagination.fromJson(
     Map<String, dynamic> json,
-  ) =>
-      OwnerDashboardSchedulePagination(
-        limit: json['limit'] as int? ?? 20,
-        hasMore: json['has_more'] as bool? ?? false,
-        nextCursor: json['next_cursor']?.toString(),
-      );
+  ) => OwnerDashboardSchedulePagination(
+    limit: json['limit'] as int? ?? 20,
+    hasMore: json['has_more'] as bool? ?? false,
+    nextCursor: json['next_cursor']?.toString(),
+  );
 }
 
 class OwnerDashboardAppointment {
@@ -592,8 +594,7 @@ class OwnerDashboardAppointment {
   final List<OwnerDashboardAppointmentService> services;
   final OwnerDashboardPaymentSummary? paymentSummary;
 
-  bool get hasPremiumService =>
-      services.any((s) => s.bookingType == 'PREMIUM');
+  bool get hasPremiumService => services.any((s) => s.bookingType == 'PREMIUM');
 
   String? get premiumPaymentStatus {
     for (final s in services) {
@@ -626,7 +627,8 @@ class OwnerDashboardAppointment {
             : OwnerDashboardAppointmentCustomer.fromJson(
                 json['customer'] as Map<String, dynamic>,
               ),
-        services: (json['services'] as List<dynamic>?)
+        services:
+            (json['services'] as List<dynamic>?)
                 ?.map(
                   (e) => OwnerDashboardAppointmentService.fromJson(
                     e as Map<String, dynamic>,
@@ -664,12 +666,11 @@ class OwnerDashboardAppointmentCustomer {
 
   factory OwnerDashboardAppointmentCustomer.fromJson(
     Map<String, dynamic> json,
-  ) =>
-      OwnerDashboardAppointmentCustomer(
-        id: json['id']?.toString(),
-        name: json['name'] as String?,
-        phone: json['phone'] as String?,
-      );
+  ) => OwnerDashboardAppointmentCustomer(
+    id: json['id']?.toString(),
+    name: json['name'] as String?,
+    phone: json['phone'] as String?,
+  );
 }
 
 class OwnerDashboardAppointmentService {
@@ -693,18 +694,17 @@ class OwnerDashboardAppointmentService {
 
   factory OwnerDashboardAppointmentService.fromJson(
     Map<String, dynamic> json,
-  ) =>
-      OwnerDashboardAppointmentService(
-        bookingId: json['booking_id']?.toString(),
-        bookingNumber: json['booking_number'] as String?,
-        serviceId: json['service_id']?.toString(),
-        serviceName: json['service_name'] as String?,
-        bookingType: json['booking_type'] as String?,
-        premiumAmount: json['premium_amount'] == null
-            ? null
-            : _toDouble(json['premium_amount']),
-        premiumPaymentStatus: json['premium_payment_status'] as String?,
-      );
+  ) => OwnerDashboardAppointmentService(
+    bookingId: json['booking_id']?.toString(),
+    bookingNumber: json['booking_number'] as String?,
+    serviceId: json['service_id']?.toString(),
+    serviceName: json['service_name'] as String?,
+    bookingType: json['booking_type'] as String?,
+    premiumAmount: json['premium_amount'] == null
+        ? null
+        : _toDouble(json['premium_amount']),
+    premiumPaymentStatus: json['premium_payment_status'] as String?,
+  );
 }
 
 class OwnerDashboardPaymentSummary {
@@ -750,40 +750,42 @@ class OwnerDashboardPerformance {
   final OwnerDashboardCustomers customers;
   final bool cached;
 
-  factory OwnerDashboardPerformance.fromJson(Map<String, dynamic> json) =>
-      OwnerDashboardPerformance(
-        period: OwnerDashboardPerformancePeriod.fromJson(
-          json['period'] as Map<String, dynamic>? ?? const {},
-        ),
-        bookingTrend: (json['booking_trend'] as List<dynamic>?)
-                ?.map(
-                  (e) => OwnerDashboardTrendPoint.fromJson(
-                    e as Map<String, dynamic>,
-                  ),
-                )
-                .toList() ??
-            const [],
-        revenueTrend: (json['revenue_trend'] as List<dynamic>?)
-                ?.map(
-                  (e) => OwnerDashboardRevenueTrendPoint.fromJson(
-                    e as Map<String, dynamic>,
-                  ),
-                )
-                .toList() ??
-            const [],
-        topServices: (json['top_services'] as List<dynamic>?)
-                ?.map(
-                  (e) => OwnerDashboardTopService.fromJson(
-                    e as Map<String, dynamic>,
-                  ),
-                )
-                .toList() ??
-            const [],
-        customers: OwnerDashboardCustomers.fromJson(
-          json['customers'] as Map<String, dynamic>? ?? const {},
-        ),
-        cached: json['cached'] as bool? ?? false,
-      );
+  factory OwnerDashboardPerformance.fromJson(
+    Map<String, dynamic> json,
+  ) => OwnerDashboardPerformance(
+    period: OwnerDashboardPerformancePeriod.fromJson(
+      json['period'] as Map<String, dynamic>? ?? const {},
+    ),
+    bookingTrend:
+        (json['booking_trend'] as List<dynamic>?)
+            ?.map(
+              (e) =>
+                  OwnerDashboardTrendPoint.fromJson(e as Map<String, dynamic>),
+            )
+            .toList() ??
+        const [],
+    revenueTrend:
+        (json['revenue_trend'] as List<dynamic>?)
+            ?.map(
+              (e) => OwnerDashboardRevenueTrendPoint.fromJson(
+                e as Map<String, dynamic>,
+              ),
+            )
+            .toList() ??
+        const [],
+    topServices:
+        (json['top_services'] as List<dynamic>?)
+            ?.map(
+              (e) =>
+                  OwnerDashboardTopService.fromJson(e as Map<String, dynamic>),
+            )
+            .toList() ??
+        const [],
+    customers: OwnerDashboardCustomers.fromJson(
+      json['customers'] as Map<String, dynamic>? ?? const {},
+    ),
+    cached: json['cached'] as bool? ?? false,
+  );
 }
 
 class OwnerDashboardPerformancePeriod {

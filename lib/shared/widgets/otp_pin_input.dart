@@ -45,10 +45,10 @@ class OtpPinInput extends StatelessWidget {
 
     final focusedPinTheme = defaultPinTheme.copyWith(
       decoration: defaultPinTheme.decoration?.copyWith(
-        border: Border.all(color: AppColors.accent, width: 1.5),
+        border: Border.all(color: context.appColors.accent, width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: AppColors.accent.withValues(alpha: 0.2),
+            color: context.appColors.accent.withValues(alpha: 0.2),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -58,7 +58,9 @@ class OtpPinInput extends StatelessWidget {
 
     final submittedPinTheme = defaultPinTheme.copyWith(
       decoration: defaultPinTheme.decoration?.copyWith(
-        border: Border.all(color: AppColors.accent.withValues(alpha: 0.6)),
+        border: Border.all(
+          color: context.appColors.accent.withValues(alpha: 0.6),
+        ),
       ),
     );
 
@@ -102,7 +104,7 @@ class OtpPinInput extends StatelessWidget {
               height: 2,
               margin: const EdgeInsets.only(bottom: 12),
               decoration: BoxDecoration(
-                color: AppColors.accent,
+                color: context.appColors.accent,
                 borderRadius: BorderRadius.circular(1),
               ),
             ),

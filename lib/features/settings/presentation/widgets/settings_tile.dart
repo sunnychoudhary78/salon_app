@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 
 class SettingsTile extends StatelessWidget {
@@ -41,7 +40,11 @@ class SettingsTile extends StatelessWidget {
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: colors.glassBorder),
                     ),
-                    child: Icon(icon, size: 20, color: AppColors.accent),
+                    child: Icon(
+                      icon,
+                      size: 20,
+                      color: context.appColors.accent,
+                    ),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -50,20 +53,18 @@ class SettingsTile extends StatelessWidget {
                       children: [
                         Text(
                           title,
-                          style:
-                              Theme.of(context).textTheme.titleSmall?.copyWith(
-                                    color: colors.textPrimary,
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(
+                                color: colors.textPrimary,
+                                fontWeight: FontWeight.w600,
+                              ),
                         ),
                         if (subtitle != null) ...[
                           const SizedBox(height: 2),
                           Text(
                             subtitle!,
-                            style:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: colors.textSecondary,
-                                    ),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: colors.textSecondary),
                           ),
                         ],
                       ],
@@ -80,10 +81,7 @@ class SettingsTile extends StatelessWidget {
           ),
         ),
         if (showDivider)
-          Divider(
-            height: 1,
-            color: colors.glassBorder.withValues(alpha: 0.5),
-          ),
+          Divider(height: 1, color: colors.glassBorder.withValues(alpha: 0.5)),
       ],
     );
   }

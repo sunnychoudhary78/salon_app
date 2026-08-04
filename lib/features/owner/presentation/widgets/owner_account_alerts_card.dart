@@ -25,7 +25,8 @@ class OwnerAccountAlertsCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final payoutAsync = ref.watch(ownerPayoutAccountProvider);
-    final profile = profileCompleteness ??
+    final profile =
+        profileCompleteness ??
         ref.watch(ownerDashboardProvider).value?.summary.profileCompleteness;
 
     return payoutAsync.when(
@@ -102,10 +103,7 @@ class OwnerAccountAlertsCard extends ConsumerWidget {
 }
 
 class _PayoutAlertBanner extends StatelessWidget {
-  const _PayoutAlertBanner({
-    required this.status,
-    required this.onTap,
-  });
+  const _PayoutAlertBanner({required this.status, required this.onTap});
 
   final OwnerPayoutStatus status;
   final VoidCallback onTap;
@@ -145,15 +143,15 @@ class _PayoutAlertBanner extends StatelessWidget {
                     Text(
                       'Payout account',
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       ownerPayoutStatusMessage(status),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: colors.textSecondary,
-                          ),
+                        color: colors.textSecondary,
+                      ),
                     ),
                   ],
                 ),
@@ -193,9 +191,9 @@ class _VerifiedPayoutRow extends StatelessWidget {
             child: Text(
               ownerPayoutStatusMessage(OwnerPayoutStatus.verified),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.success,
-                    fontWeight: FontWeight.w600,
-                  ),
+                color: AppColors.success,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],
@@ -236,17 +234,17 @@ class _ProfileSection extends StatelessWidget {
               Expanded(
                 child: Text(
                   'Salon profile completion',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
                 ),
               ),
               Text(
                 '$percent%',
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: percent < 90 ? AppColors.warning : null,
-                    ),
+                  fontWeight: FontWeight.w700,
+                  color: percent < 90 ? AppColors.warning : null,
+                ),
               ),
             ],
           ),
@@ -254,9 +252,9 @@ class _ProfileSection extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               '${profileCompleteness.incompleteCount} salons need attention',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colors.textMuted,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: colors.textMuted),
             ),
           ],
           const SizedBox(height: 8),
@@ -273,9 +271,9 @@ class _ProfileSection extends StatelessWidget {
             Text(
               'Missing',
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: colors.textMuted,
-                    fontWeight: FontWeight.w700,
-                  ),
+                color: colors.textMuted,
+                fontWeight: FontWeight.w700,
+              ),
             ),
             const SizedBox(height: 6),
             Wrap(
@@ -298,9 +296,9 @@ class _ProfileSection extends StatelessWidget {
                       child: Text(
                         label,
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: AppColors.warning,
-                              fontWeight: FontWeight.w600,
-                            ),
+                          color: AppColors.warning,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   )
@@ -314,8 +312,10 @@ class _ProfileSection extends StatelessWidget {
               onPressed: onCompleteProfile,
               style: FilledButton.styleFrom(
                 visualDensity: VisualDensity.compact,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
               ),
               child: const Text('Complete profile'),
             ),

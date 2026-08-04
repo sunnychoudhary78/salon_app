@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:saloon_booking/core/theme/app_colors.dart';
+import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 
 class StaffAvatar extends StatelessWidget {
   const StaffAvatar({
@@ -55,14 +55,14 @@ class _StaffInitial extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: AppColors.accent.withValues(alpha: 0.15),
+      color: context.appColors.accent.withValues(alpha: 0.15),
       child: Center(
         child: Text(
           initial,
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: AppColors.accent,
-                fontWeight: FontWeight.w700,
-              ),
+            color: context.appColors.accent,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
     );

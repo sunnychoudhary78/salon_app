@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 
@@ -8,6 +9,7 @@ class CrashReporting {
   CrashReporting._();
 
   static FirebaseCrashlytics get _crashlytics => FirebaseCrashlytics.instance;
+  static bool get _isFirebaseReady => Firebase.apps.isNotEmpty;
 
   static Future<void> initialize() async {
     await _crashlytics.setCrashlyticsCollectionEnabled(!kDebugMode);
@@ -29,7 +31,9 @@ class CrashReporting {
     if (kDebugMode) {
       debugPrint('[CrashReporting] $message');
     }
-    _crashlytics.log(message);
+    if (_isFirebaseReady) {
+      _crashlytics.log(message);
+    }
   }
 
   static Future<void> recordError(
@@ -42,15 +46,51 @@ class CrashReporting {
       debugPrint('[CrashReporting] error: $error');
       if (stack != null) debugPrint(stack.toString());
     }
-    await _crashlytics.recordError(
-      error,
-      stack,
-      reason: reason,
-      fatal: fatal,
-    );
+    if (_isFirebaseReady) {
+      await _crashlytics.recordError(
+        error,
+        stack,
+        reason: reason,
+        fatal: fatal,
+      );
+    }
   }
 
   static void breadcrumb(String action) => log('breadcrumb: $action');
+
+  /// Measures work that may affect responsiveness and records only slow runs.
+  static T measure<T>(
+    String operation,
+    T Function() computation, {
+    Duration slowThreshold = const Duration(milliseconds: 16),
+  }) {
+    final stopwatch = Stopwatch()..start();
+    try {
+      return computation();
+    } finally {
+      stopwatch.stop();
+      if (stopwatch.elapsed >= slowThreshold) {
+        log('slow_operation: $operation ${stopwatch.elapsedMilliseconds}ms');
+      }
+    }
+  }
+
+  /// Async counterpart to [measure], useful for lifecycle and refresh traces.
+  static Future<T> measureAsync<T>(
+    String operation,
+    Future<T> Function() computation, {
+    Duration slowThreshold = const Duration(milliseconds: 500),
+  }) async {
+    final stopwatch = Stopwatch()..start();
+    try {
+      return await computation();
+    } finally {
+      stopwatch.stop();
+      if (stopwatch.elapsed >= slowThreshold) {
+        log('slow_operation: $operation ${stopwatch.elapsedMilliseconds}ms');
+      }
+    }
+  }
 }
 
 /// Runs [computation] with a timeout; on timeout invokes [onTimeout] or rethrows.

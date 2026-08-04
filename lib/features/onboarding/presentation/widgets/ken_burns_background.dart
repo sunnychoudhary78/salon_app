@@ -28,9 +28,10 @@ class _KenBurnsBackgroundState extends State<KenBurnsBackground>
       vsync: this,
       duration: const Duration(seconds: 18),
     );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.08).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 1.06,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
     if (widget.isActive) {
       _controller.forward();
     }

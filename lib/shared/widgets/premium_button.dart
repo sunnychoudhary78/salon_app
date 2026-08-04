@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
+import 'package:saloon_booking/core/utils/form_validators.dart';
 import 'package:saloon_booking/shared/widgets/tap_scale_wrapper.dart';
 
 enum PremiumButtonVariant { primary, accent, ghost }
@@ -18,6 +19,7 @@ class PremiumButton extends StatelessWidget {
     this.icon,
     this.expand = true,
     this.size = PremiumButtonSize.medium,
+    this.disabledMessage,
   });
 
   final String label;
@@ -29,6 +31,16 @@ class PremiumButton extends StatelessWidget {
   final IconData? icon;
   final bool expand;
   final PremiumButtonSize size;
+
+  /// When [onPressed] is null and this is set, the button stays visually
+  /// disabled but tapping shows a SnackBar with this message.
+  final String? disabledMessage;
+
+  void _showDisabledReason(BuildContext context) {
+    final message = disabledMessage;
+    if (message == null || message.isEmpty) return;
+    showFormDisabledMessage(context, message);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -89,7 +101,11 @@ class PremiumButton extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               if (icon != null) ...[
-                Icon(icon, size: size == PremiumButtonSize.small ? 16 : 20),
+                Icon(
+                  icon,
+                  size: size == PremiumButtonSize.small ? 16 : 20,
+                  color: foregroundColor,
+                ),
                 SizedBox(width: size == PremiumButtonSize.small ? 6 : 8),
               ],
               Flexible(
@@ -127,18 +143,21 @@ class PremiumButton extends StatelessWidget {
             ],
           );
 
+    final hasDisabledMessage =
+        !loading && onPressed == null && (disabledMessage?.isNotEmpty ?? false);
+
     if (variant == PremiumButtonVariant.ghost) {
-      return SizedBox(
+      final ghostButton = SizedBox(
         width: expand ? double.infinity : null,
         child: OutlinedButton(
           onPressed: loading
               ? null
               : onPressed == null
-                  ? null
-                  : () {
-                      HapticFeedback.lightImpact();
-                      onPressed!();
-                    },
+              ? null
+              : () {
+                  HapticFeedback.lightImpact();
+                  onPressed!();
+                },
           style: OutlinedButton.styleFrom(
             foregroundColor: colors.textPrimary,
             side: BorderSide(color: colors.glassBorder),
@@ -153,29 +172,47 @@ class PremiumButton extends StatelessWidget {
           child: DefaultTextStyle(style: labelStyle, child: child),
         ),
       );
+
+      if (!hasDisabledMessage) return ghostButton;
+
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          HapticFeedback.lightImpact();
+          _showDisabledReason(context);
+        },
+        child: Opacity(opacity: 0.55, child: ghostButton),
+      );
     }
 
-    final enabled = onPressed != null || loading;
+    final visuallyEnabled = onPressed != null || loading;
+    final tapHandler = loading
+        ? null
+        : onPressed ??
+              (hasDisabledMessage ? () => _showDisabledReason(context) : null);
+    final fillColor = backgroundColor ?? colors.primary;
 
     return TapScaleWrapper(
-      onTap: loading ? null : onPressed,
-      enabled: enabled && !loading,
+      onTap: tapHandler,
+      enabled: tapHandler != null,
       child: SizedBox(
         width: expand ? double.infinity : null,
         child: Opacity(
-          opacity: loading ? 0.85 : 1,
+          // Keep theme fill when disabled; dim instead of switching to a
+          // near-black surface that disappears on dark action bars.
+          opacity: loading
+              ? 0.85
+              : visuallyEnabled
+              ? 1
+              : 0.55,
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: enabled ? backgroundColor : colors.surfaceSunken,
+              color: fillColor,
               borderRadius: BorderRadius.circular(borderRadius),
-              border: Border.all(
-                color: enabled ? Colors.transparent : colors.glassBorder,
-              ),
-              boxShadow: enabled
+              boxShadow: visuallyEnabled
                   ? [
                       BoxShadow(
-                        color: (backgroundColor ?? colors.primary)
-                            .withValues(alpha: 0.22),
+                        color: fillColor.withValues(alpha: 0.22),
                         blurRadius: 12,
                         offset: const Offset(0, 4),
                       ),
@@ -193,10 +230,7 @@ class PremiumButton extends StatelessWidget {
                     vertical: vPadding,
                     horizontal: hPadding,
                   ),
-                  child: DefaultTextStyle(
-                    style: labelStyle,
-                    child: child,
-                  ),
+                  child: DefaultTextStyle(style: labelStyle, child: child),
                 ),
               ),
             ),

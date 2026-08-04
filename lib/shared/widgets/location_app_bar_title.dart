@@ -17,24 +17,43 @@ class LocationAppBarTitle extends ConsumerWidget {
     final label = locationState.isLoading && !locationState.location.isSet
         ? 'Detecting location...'
         : locationState.location.isSet
-            ? locationState.location.displayLabel
-            : locationState.gpsDenied
-                ? 'Location unavailable'
-                : 'Select location';
+        ? locationState.location.displayLabel
+        : locationState.gpsDenied
+        ? 'Location unavailable'
+        : 'Select location';
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
+        borderRadius: BorderRadius.circular(14),
+        child: Ink(
+          padding: const EdgeInsets.fromLTRB(10, 7, 8, 7),
+          decoration: BoxDecoration(
+            color: colors.surfaceElevated.withValues(alpha: 0.72),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isWarning
+                  ? AppColors.warning.withValues(alpha: 0.4)
+                  : colors.glassBorder.withValues(alpha: 0.65),
+            ),
+          ),
           child: Row(
             children: [
-              Icon(
-                Icons.location_on_rounded,
-                size: 22,
-                color: isWarning ? AppColors.warning : AppColors.accent,
+              Container(
+                width: 30,
+                height: 30,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: (isWarning ? AppColors.warning : colors.accent)
+                      .withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  Icons.location_on_rounded,
+                  size: 18,
+                  color: isWarning ? AppColors.warning : colors.accent,
+                ),
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -45,21 +64,22 @@ class LocationAppBarTitle extends ConsumerWidget {
                     Text(
                       'Your location',
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: colors.textSecondary,
-                            letterSpacing: 0.2,
-                          ),
+                        color: colors.textMuted,
+                        letterSpacing: 0.2,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     const SizedBox(height: 1),
                     Text(
                       label,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: isWarning
-                                ? AppColors.warning
-                                : colors.textPrimary,
-                            fontWeight: FontWeight.w700,
-                          ),
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: isWarning
+                            ? AppColors.warning
+                            : colors.textPrimary,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ],
                 ),

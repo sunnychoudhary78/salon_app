@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:saloon_booking/core/routing/route_paths.dart';
-import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/features/onboarding/data/onboarding_constants.dart';
 import 'package:saloon_booking/features/onboarding/presentation/providers/onboarding_provider.dart';
 import 'package:saloon_booking/features/onboarding/presentation/widgets/onboarding_bottom_bar.dart';
@@ -58,7 +57,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     final isLastPage = _currentIndex == _slides.length - 1;
 
     return Scaffold(
-      backgroundColor: context.appColors.surface,
+      backgroundColor: Colors.black,
       body: Stack(
         fit: StackFit.expand,
         children: [
@@ -85,7 +84,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   child: TextButton(
                     onPressed: _completing ? null : _completeOnboarding,
                     style: TextButton.styleFrom(
-                      foregroundColor: context.appColors.textSecondary,
+                      foregroundColor: Colors.white.withValues(alpha: 0.85),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 16,
                         vertical: 8,
@@ -94,9 +93,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     child: Text(
                       'Skip',
                       style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                            color: context.appColors.textSecondary,
-                            letterSpacing: 1.2,
-                          ),
+                        color: Colors.white.withValues(alpha: 0.88),
+                        letterSpacing: 1.4,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
                 ),

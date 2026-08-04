@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:saloon_booking/core/config/app_config.dart';
 import 'package:saloon_booking/core/network/api_exception.dart';
 import 'package:saloon_booking/core/network/auth_interceptor.dart';
+import 'package:saloon_booking/core/network/user_facing_error.dart';
 
 final dioProvider = Provider<Dio>((ref) {
   ref.keepAlive();
@@ -47,6 +48,9 @@ extension DioErrorX on DioException {
     if (data != null) {
       return ApiException.fromResponse(data, response?.statusCode);
     }
-    return ApiException(message ?? 'Request failed', statusCode: response?.statusCode);
+    return ApiException(
+      dioTypeFallbackMessage(type),
+      statusCode: response?.statusCode,
+    );
   }
 }

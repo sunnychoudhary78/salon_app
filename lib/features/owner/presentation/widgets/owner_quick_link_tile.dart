@@ -46,10 +46,7 @@ class OwnerQuickLinkTile extends StatelessWidget {
             ),
             const SizedBox(width: 14),
             Expanded(
-              child: Text(
-                label,
-                style: Theme.of(context).textTheme.titleSmall,
-              ),
+              child: Text(label, style: Theme.of(context).textTheme.titleSmall),
             ),
             Icon(Icons.chevron_right_rounded, color: colors.textMuted),
           ],
@@ -84,9 +81,9 @@ class OwnerQuickLinkTile extends StatelessWidget {
             const SizedBox(height: 10),
             Text(
               label,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w600),
               textAlign: TextAlign.center,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,

@@ -1,12 +1,15 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:saloon_booking/core/config/app_config.dart';
+import 'package:saloon_booking/core/crash/crash_reporting.dart';
 import 'package:saloon_booking/core/location/selected_location.dart';
 import 'package:saloon_booking/core/location/selected_location_provider.dart';
 import 'package:saloon_booking/core/network/dio_client.dart';
 import 'package:saloon_booking/features/customer/data/models/salon_model.dart';
+import 'package:saloon_booking/features/customer/data/providers/audience_mode_provider.dart';
 import 'package:saloon_booking/features/customer/data/providers/salon_browse_filters_provider.dart';
 
 class CustomerService {
@@ -22,6 +25,7 @@ class CustomerService {
   Future<BrowseSalonsResult> browseSalons({
     String? search,
     String? city,
+    String? audience,
     bool featured = false,
     bool hasDiscount = false,
     bool hasAvailableSlots = false,
@@ -37,6 +41,7 @@ class CustomerService {
       queryParameters: {
         if (search != null && search.isNotEmpty) 'search': search,
         if (city != null && city.isNotEmpty) 'city': city,
+        if (audience != null && audience.isNotEmpty) 'audience': audience,
         if (featured) 'featured': true,
         if (hasDiscount) 'has_discount': true,
         if (hasAvailableSlots) 'has_available_slots': true,
@@ -126,7 +131,10 @@ class CustomerService {
 
   Future<List<BookingModel>> getMyBookings() async {
     final response = await _dio.get('${AppConfig.appPrefix}/bookings');
-    return parseDataList(response.data, BookingModel.fromJson);
+    return CrashReporting.measure(
+      'customer_bookings_parse',
+      () => parseDataList(response.data, BookingModel.fromJson),
+    );
   }
 
   Future<BookingModel> cancelBooking(String id) async {
@@ -205,11 +213,7 @@ final customerShellTabIndexProvider =
     NotifierProvider<CustomerShellTabIndex, int>(CustomerShellTabIndex.new);
 
 class SalonLocationContext {
-  const SalonLocationContext({
-    this.userLat,
-    this.userLng,
-    this.city,
-  });
+  const SalonLocationContext({this.userLat, this.userLng, this.city});
 
   final double? userLat;
   final double? userLng;
@@ -228,7 +232,6 @@ SalonLocationContext _readSalonLocationContext(Ref ref) {
     userLng: selected.longitude,
   );
 }
-
 
 /// When false (user is searching), for-you rail skips network fetches.
 final homeForYouEnabledProvider = Provider<bool>((ref) {
@@ -257,6 +260,7 @@ SalonModel _mergeSalonEntry(SalonModel primary, SalonModel secondary) {
   return SalonModel(
     id: primary.id,
     salonName: primary.salonName,
+    salonType: primary.salonType,
     description: primary.description ?? secondary.description,
     address: primary.address ?? secondary.address,
     formattedAddress: primary.formattedAddress ?? secondary.formattedAddress,
@@ -276,12 +280,14 @@ SalonModel _mergeSalonEntry(SalonModel primary, SalonModel secondary) {
     closingTime: primary.closingTime ?? secondary.closingTime,
     status: primary.status ?? secondary.status,
     isActive: primary.isActive && secondary.isActive,
-    services: primary.services.isNotEmpty ? primary.services : secondary.services,
+    services: primary.services.isNotEmpty
+        ? primary.services
+        : secondary.services,
     slotsToday: primary.slotsToday ?? secondary.slotsToday,
     isFeatured: primary.isFeatured || secondary.isFeatured,
     hasDiscount: primary.hasDiscount || secondary.hasDiscount,
-    discountedServicesCount: primary.discountedServicesCount >
-            secondary.discountedServicesCount
+    discountedServicesCount:
+        primary.discountedServicesCount > secondary.discountedServicesCount
         ? primary.discountedServicesCount
         : secondary.discountedServicesCount,
     maxSavingsPercent: primary.maxSavingsPercent > secondary.maxSavingsPercent
@@ -312,8 +318,9 @@ List<SalonModel> _mergeForYouSalons(
   }
   for (final salon in discounted) {
     final existing = map[salon.id];
-    map[salon.id] =
-        existing != null ? _mergeSalonEntry(existing, salon) : salon;
+    map[salon.id] = existing != null
+        ? _mergeSalonEntry(existing, salon)
+        : salon;
   }
 
   final merged = map.values.toList();
@@ -336,11 +343,13 @@ final forYouSalonsProvider = FutureProvider.autoDispose<List<SalonModel>>((
   final locationKey = ref.watch(settledSalonLocationKeyProvider);
   if (locationKey.isEmpty) return [];
 
+  final audience = ref.watch(audienceModeValueProvider).apiValue;
   final ctx = _readSalonLocationContext(ref);
   final service = ref.read(customerServiceProvider);
   final results = await Future.wait([
     service.browseSalons(
       featured: true,
+      audience: audience,
       limit: 8,
       city: ctx.city,
       userLat: ctx.userLat,
@@ -348,6 +357,7 @@ final forYouSalonsProvider = FutureProvider.autoDispose<List<SalonModel>>((
     ),
     service.browseSalons(
       hasDiscount: true,
+      audience: audience,
       limit: 8,
       city: ctx.city,
       userLat: ctx.userLat,
@@ -381,15 +391,21 @@ class PaginatedSalonsState {
 
 class PaginatedSalonsNotifier extends AsyncNotifier<PaginatedSalonsState> {
   static const _pageSize = 10;
+  int _reloadGeneration = 0;
+  bool _reloadFrameScheduled = false;
 
   Future<BrowseSalonsResult> _fetchPage(int offset) {
     final ctx = _readSalonLocationContext(ref);
     final filters = ref.read(salonBrowseFiltersProvider);
-    return ref.read(customerServiceProvider).browseSalons(
+    final audience = ref.read(audienceModeValueProvider).apiValue;
+    return ref
+        .read(customerServiceProvider)
+        .browseSalons(
           limit: _pageSize,
           offset: offset,
           search: filters.search.isEmpty ? null : filters.search,
           city: ctx.city,
+          audience: audience,
           userLat: ctx.userLat,
           userLng: ctx.userLng,
           minRating: filters.minRating,
@@ -405,21 +421,42 @@ class PaginatedSalonsNotifier extends AsyncNotifier<PaginatedSalonsState> {
     }
 
     final page = await _fetchPage(0);
-    return PaginatedSalonsState(
-      items: page.salons,
-      hasMore: page.hasMore,
-    );
+    return PaginatedSalonsState(items: page.salons, hasMore: page.hasMore);
   }
 
   @override
   Future<PaginatedSalonsState> build() async {
     ref.keepAlive();
 
+    // Coalesce rapid dependency changes (e.g. hammering Men/Women) into one
+    // post-frame reload so we never mutate state mid-build.
+    void scheduleReload() {
+      _reloadGeneration++;
+      if (_reloadFrameScheduled) return;
+      _reloadFrameScheduled = true;
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        _reloadFrameScheduled = false;
+        if (!ref.mounted) return;
+        final generationAtStart = _reloadGeneration;
+        unawaited(
+          reload().whenComplete(() {
+            // Another toggle landed while this fetch was in flight.
+            if (ref.mounted && generationAtStart != _reloadGeneration) {
+              scheduleReload();
+            }
+          }),
+        );
+      });
+    }
+
     ref.listen(salonBrowseFiltersProvider, (previous, next) {
-      if (previous != next) unawaited(reload());
+      if (previous != next) scheduleReload();
     });
     ref.listen(settledSalonLocationKeyProvider, (previous, next) {
-      if (previous != next) unawaited(reload());
+      if (previous != next) scheduleReload();
+    });
+    ref.listen(audienceModeValueProvider, (previous, next) {
+      if (previous != next) scheduleReload();
     });
 
     return _loadFirstPage();
@@ -430,19 +467,14 @@ class PaginatedSalonsNotifier extends AsyncNotifier<PaginatedSalonsState> {
     final previous = state.value;
     final locationKey = ref.read(settledSalonLocationKeyProvider);
     if (locationKey.isEmpty) {
-      state = const AsyncData(
-        PaginatedSalonsState(items: [], hasMore: true),
-      );
+      state = const AsyncData(PaginatedSalonsState(items: [], hasMore: true));
       return;
     }
 
     try {
       final page = await _fetchPage(0);
       state = AsyncData(
-        PaginatedSalonsState(
-          items: page.salons,
-          hasMore: page.hasMore,
-        ),
+        PaginatedSalonsState(items: page.salons, hasMore: page.hasMore),
       );
     } catch (error, stackTrace) {
       if (previous != null) {
@@ -481,11 +513,9 @@ final paginatedSalonsProvider =
 final salonDetailProvider = FutureProvider.autoDispose
     .family<SalonModel, String>((ref, salonId) {
       final ctx = _readSalonLocationContext(ref);
-      return ref.watch(customerServiceProvider).getSalon(
-            salonId,
-            userLat: ctx.userLat,
-            userLng: ctx.userLng,
-          );
+      return ref
+          .watch(customerServiceProvider)
+          .getSalon(salonId, userLat: ctx.userLat, userLng: ctx.userLng);
     });
 
 final salonReviewsProvider = FutureProvider.autoDispose
@@ -589,7 +619,9 @@ class ReviewActions extends AsyncNotifier<void> {
           .read(customerServiceProvider)
           .createReview(bookingId: bookingId, rating: rating, review: review);
       if (resolvedSalonId == null) {
-        final bookings = await ref.read(customerServiceProvider).getMyBookings();
+        final bookings = await ref
+            .read(customerServiceProvider)
+            .getMyBookings();
         for (final booking in bookings) {
           if (booking.id == bookingId) {
             resolvedSalonId = booking.salon?.id;

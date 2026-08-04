@@ -86,38 +86,35 @@ class PremiumDialog extends StatelessWidget {
                 Text(
                   title,
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: colors.textPrimary,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    color: colors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 if (subtitle != null) ...[
                   const SizedBox(height: 8),
                   Text(
                     subtitle!,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: colors.textSecondary,
-                        ),
+                      color: colors.textSecondary,
+                    ),
                   ),
                 ],
-                if (content != null) ...[
-                  const SizedBox(height: 20),
-                  content!,
-                ],
+                if (content != null) ...[const SizedBox(height: 20), content!],
                 const SizedBox(height: 24),
                 if (confirmLabel != null)
                   PremiumButton(
                     label: confirmLabel!,
                     variant: confirmVariant,
-                    onPressed: onConfirm ??
-                        () => Navigator.of(context).pop(true),
+                    onPressed:
+                        onConfirm ?? () => Navigator.of(context).pop(true),
                   ),
                 if (showCancel && cancelLabel != null) ...[
                   const SizedBox(height: 10),
                   PremiumButton(
                     label: cancelLabel!,
                     variant: PremiumButtonVariant.ghost,
-                    onPressed: onCancel ??
-                        () => Navigator.of(context).pop(false),
+                    onPressed:
+                        onCancel ?? () => Navigator.of(context).pop(false),
                   ),
                 ],
               ],

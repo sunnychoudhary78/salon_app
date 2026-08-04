@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:saloon_booking/core/config/app_config.dart';
+import 'package:saloon_booking/core/crash/crash_reporting.dart';
 import 'package:saloon_booking/core/network/dio_client.dart';
 import 'package:saloon_booking/features/auth/data/models/user_model.dart';
 import 'package:saloon_booking/features/customer/data/models/salon_model.dart';
@@ -166,11 +167,13 @@ class OwnerService {
     return parseDataList(response.data, ServiceModel.fromJson);
   }
 
-  Future<List<ServiceCategoryModel>> getServiceCategories() async {
+  Future<List<String>> getServiceNames({String salonType = 'UNISEX'}) async {
     final response = await _dio.get(
-      '${AppConfig.appPrefix}/service-categories',
+      '${AppConfig.appPrefix}/service-names',
+      queryParameters: {'salon_type': salonType},
     );
-    return parseDataList(response.data, ServiceCategoryModel.fromJson);
+    final data = (response.data as Map<String, dynamic>)['data'];
+    return (data as List<dynamic>).map((e) => e.toString()).toList();
   }
 
   Future<void> createService({
@@ -236,8 +239,10 @@ class OwnerService {
         if (salonId != null && salonId.isNotEmpty) 'salon_id': salonId,
       },
     );
-    return OwnerDashboardV2Model.fromJson(
-      response.data as Map<String, dynamic>,
+    return CrashReporting.measure(
+      'owner_dashboard_parse',
+      () =>
+          OwnerDashboardV2Model.fromJson(response.data as Map<String, dynamic>),
     );
   }
 
@@ -246,9 +251,12 @@ class OwnerService {
       '${AppConfig.appPrefix}/owner/bookings',
       queryParameters: {'status': ?status},
     );
-    return (response.data['data'] as List<dynamic>)
-        .map((e) => OwnerBookingModel.fromJson(e as Map<String, dynamic>))
-        .toList();
+    return CrashReporting.measure(
+      'owner_bookings_parse',
+      () => (response.data['data'] as List<dynamic>)
+          .map((e) => OwnerBookingModel.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
   }
 
   Future<OwnerBookingModel> acceptBooking(String id) async {
@@ -322,9 +330,7 @@ class OwnerService {
   }) async {
     await _dio.patch(
       '${AppConfig.appPrefix}/owner/booking-groups/$groupId/confirm-cash',
-      data: {
-        if (confirmedAmount != null) 'confirmed_amount': confirmedAmount,
-      },
+      data: {if (confirmedAmount != null) 'confirmed_amount': confirmedAmount},
     );
   }
 
@@ -345,12 +351,13 @@ class OwnerService {
     final body = response.data as Map<String, dynamic>;
     final items = (body['data'] as List<dynamic>)
         .map(
-          (e) => OwnerEarningsTransactionModel.fromJson(
-            e as Map<String, dynamic>,
-          ),
+          (e) =>
+              OwnerEarningsTransactionModel.fromJson(e as Map<String, dynamic>),
         )
         .toList();
-    final total = (body['meta'] as Map<String, dynamic>?)?['total'] as int? ?? items.length;
+    final total =
+        (body['meta'] as Map<String, dynamic>?)?['total'] as int? ??
+        items.length;
     return (items: items, total: total);
   }
 
@@ -392,8 +399,8 @@ final ownerServiceProvider = Provider<OwnerService>((ref) {
 
 final ownerDashboardSalonScopeProvider =
     NotifierProvider<OwnerDashboardSalonScope, String?>(
-  OwnerDashboardSalonScope.new,
-);
+      OwnerDashboardSalonScope.new,
+    );
 
 class OwnerDashboardSalonScope extends Notifier<String?> {
   @override
@@ -408,22 +415,22 @@ enum OwnerDashboardPeriod {
   lifetime;
 
   String get apiValue => switch (this) {
-        OwnerDashboardPeriod.last7Days => '7d',
-        OwnerDashboardPeriod.last30Days => '30d',
-        OwnerDashboardPeriod.lifetime => 'lifetime',
-      };
+    OwnerDashboardPeriod.last7Days => '7d',
+    OwnerDashboardPeriod.last30Days => '30d',
+    OwnerDashboardPeriod.lifetime => 'lifetime',
+  };
 
   String get label => switch (this) {
-        OwnerDashboardPeriod.last7Days => 'Last 7 days',
-        OwnerDashboardPeriod.last30Days => 'Last 30 days',
-        OwnerDashboardPeriod.lifetime => 'Lifetime',
-      };
+    OwnerDashboardPeriod.last7Days => 'Last 7 days',
+    OwnerDashboardPeriod.last30Days => 'Last 30 days',
+    OwnerDashboardPeriod.lifetime => 'Lifetime',
+  };
 }
 
 final ownerDashboardPeriodProvider =
     NotifierProvider<OwnerDashboardPeriodNotifier, OwnerDashboardPeriod>(
-  OwnerDashboardPeriodNotifier.new,
-);
+      OwnerDashboardPeriodNotifier.new,
+    );
 
 class OwnerDashboardPeriodNotifier extends Notifier<OwnerDashboardPeriod> {
   @override
@@ -434,8 +441,8 @@ class OwnerDashboardPeriodNotifier extends Notifier<OwnerDashboardPeriod> {
 
 final ownerBookingsTodayFilterProvider =
     NotifierProvider<OwnerBookingsTodayFilter, bool>(
-  OwnerBookingsTodayFilter.new,
-);
+      OwnerBookingsTodayFilter.new,
+    );
 
 class OwnerBookingsTodayFilter extends Notifier<bool> {
   @override
@@ -448,13 +455,12 @@ class OwnerBookingsTodayFilter extends Notifier<bool> {
 
 final ownerDashboardProvider =
     FutureProvider.autoDispose<OwnerDashboardV2Model>((ref) {
-  final salonId = ref.watch(ownerDashboardSalonScopeProvider);
-  final period = ref.watch(ownerDashboardPeriodProvider);
-  return ref.watch(ownerServiceProvider).getDashboard(
-        salonId: salonId,
-        period: period,
-      );
-});
+      final salonId = ref.watch(ownerDashboardSalonScopeProvider);
+      final period = ref.watch(ownerDashboardPeriodProvider);
+      return ref
+          .watch(ownerServiceProvider)
+          .getDashboard(salonId: salonId, period: period);
+    });
 
 final ownerSalonsProvider = FutureProvider.autoDispose<List<SalonModel>>((ref) {
   return ref.watch(ownerServiceProvider).getOwnerSalons();
@@ -462,8 +468,8 @@ final ownerSalonsProvider = FutureProvider.autoDispose<List<SalonModel>>((ref) {
 
 final ownerPremiumConfigProvider =
     FutureProvider.autoDispose<PremiumConfigModel>((ref) {
-  return ref.watch(ownerServiceProvider).getPremiumBookingConfig();
-});
+      return ref.watch(ownerServiceProvider).getPremiumBookingConfig();
+    });
 
 final ownerSalonApplicationsProvider =
     FutureProvider.autoDispose<List<SalonApplicationModel>>((ref) {
@@ -487,18 +493,12 @@ final ownerServicesProvider = FutureProvider.family<List<ServiceModel>, String>(
   },
 );
 
-final ownerStaffProvider = FutureProvider.family<List<StaffModel>, String>(
-  (ref, salonId) {
-    ref.keepAlive();
-    return ref.watch(ownerServiceProvider).getSalonStaff(salonId);
-  },
-);
-
-final serviceCategoriesProvider = FutureProvider<List<ServiceCategoryModel>>((
+final ownerStaffProvider = FutureProvider.family<List<StaffModel>, String>((
   ref,
+  salonId,
 ) {
   ref.keepAlive();
-  return ref.watch(ownerServiceProvider).getServiceCategories();
+  return ref.watch(ownerServiceProvider).getSalonStaff(salonId);
 });
 
 final ownerAllBookingsProvider =
@@ -515,8 +515,9 @@ class OwnerShellTabIndex extends Notifier<int> {
   void select(int index) => state = index;
 }
 
-final ownerShellTabIndexProvider =
-    NotifierProvider<OwnerShellTabIndex, int>(OwnerShellTabIndex.new);
+final ownerShellTabIndexProvider = NotifierProvider<OwnerShellTabIndex, int>(
+  OwnerShellTabIndex.new,
+);
 
 final ownerBookingsProvider = FutureProvider.autoDispose
     .family<List<OwnerBookingModel>, String?>((ref, status) {
@@ -540,21 +541,23 @@ final ownerSlotsProvider = FutureProvider.autoDispose
 
 final ownerEarningsSummaryProvider =
     FutureProvider.autoDispose<OwnerEarningsSummaryModel>((ref) {
-  return ref.watch(ownerServiceProvider).getEarningsSummary();
-});
+      return ref.watch(ownerServiceProvider).getEarningsSummary();
+    });
 
 final ownerEarningsTransactionsProvider = FutureProvider.autoDispose
     .family<({List<OwnerEarningsTransactionModel> items, int total}), int>((
-  ref,
-  page,
-) {
-  return ref.watch(ownerServiceProvider).getEarningsTransactions(page: page);
-});
+      ref,
+      page,
+    ) {
+      return ref
+          .watch(ownerServiceProvider)
+          .getEarningsTransactions(page: page);
+    });
 
 final ownerPayoutAccountProvider =
     FutureProvider.autoDispose<OwnerPayoutAccountModel?>((ref) {
-  return ref.watch(ownerServiceProvider).getPayoutAccount();
-});
+      return ref.watch(ownerServiceProvider).getPayoutAccount();
+    });
 
 class OwnerSlotActions {
   OwnerSlotActions(this._ref);
@@ -619,11 +622,16 @@ class OwnerBookingActions {
     return booking;
   }
 
-  Future<void> confirmCashPayment(String groupId, {double? confirmedAmount}) async {
-    await _ref.read(ownerServiceProvider).confirmBookingGroupCash(
-      groupId: groupId,
-      confirmedAmount: confirmedAmount,
-    );
+  Future<void> confirmCashPayment(
+    String groupId, {
+    double? confirmedAmount,
+  }) async {
+    await _ref
+        .read(ownerServiceProvider)
+        .confirmBookingGroupCash(
+          groupId: groupId,
+          confirmedAmount: confirmedAmount,
+        );
     _ref.invalidate(ownerBookingsProvider);
     _ref.invalidate(ownerAllBookingsProvider);
     _ref.invalidate(ownerDashboardProvider);

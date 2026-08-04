@@ -20,6 +20,4 @@ class CarouselAutoplayLease extends Notifier<String?> {
 }
 
 final carouselAutoplayLeaseProvider =
-    NotifierProvider<CarouselAutoplayLease, String?>(
-  CarouselAutoplayLease.new,
-);
+    NotifierProvider<CarouselAutoplayLease, String?>(CarouselAutoplayLease.new);

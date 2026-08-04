@@ -99,31 +99,31 @@ class _CustomerShellState extends ConsumerState<CustomerShell> {
 
     return SystemUiScope(
       child: PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, result) {
-        if (didPop) return;
-        _handleBack(context);
-      },
-      child: Scaffold(
-        drawer: AppDrawer(
-          items: _drawerItems,
-          selectedIndex: currentIndex,
-          onSelect: _onSelect,
-          headerSubtitle: 'Customer',
-          badgeCounts: unreadCount > 0
-              ? {_notificationsIndex: unreadCount}
-              : const {},
-        ),
-        body: GradientBackground(
-          child: Builder(
-            builder: (context) => ShellNavigationScope(
-              openDrawer: () => Scaffold.of(context).openDrawer(),
-              child: widget.navigationShell,
+        canPop: false,
+        onPopInvokedWithResult: (didPop, result) {
+          if (didPop) return;
+          _handleBack(context);
+        },
+        child: Scaffold(
+          drawer: AppDrawer(
+            items: _drawerItems,
+            selectedIndex: currentIndex,
+            onSelect: _onSelect,
+            headerSubtitle: 'Customer',
+            badgeCounts: unreadCount > 0
+                ? {_notificationsIndex: unreadCount}
+                : const {},
+          ),
+          body: GradientBackground(
+            child: Builder(
+              builder: (context) => ShellNavigationScope(
+                openDrawer: () => Scaffold.of(context).openDrawer(),
+                child: widget.navigationShell,
+              ),
             ),
           ),
         ),
       ),
-    ),
     );
   }
 }

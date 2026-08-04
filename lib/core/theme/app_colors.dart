@@ -29,12 +29,12 @@ class AppColors {
   static const primarySoftLight = Color(0xFFF0EEFA);
   static const primarySoftDark = Color(0xFF242038);
 
-  // --- Champagne gold accent (ratings / premium only) ---
-  static const accent = Color(0xFFC9A87C);
-  static const accentLight = Color(0xFFD4B896);
-  static const accentDark = Color(0xFFA8895C);
-  static const accentSoftLight = Color(0xFFF7F1E8);
-  static const accentSoftDark = Color(0xFF2C261C);
+  // --- Rose accent (default; overridable via AccentPalette) ---
+  static const accent = Color(0xFFC96F7D);
+  static const accentLight = Color(0xFFE0909D);
+  static const accentDark = Color(0xFFA95361);
+  static const accentSoftLight = Color(0xFFFBECEF);
+  static const accentSoftDark = Color(0xFF321D22);
 
   // --- Dark text (legacy static; prefer context.appColors) ---
   static const textPrimary = Color(0xFFF5F2EC);
@@ -80,38 +80,35 @@ class AppColors {
 
   /// Flat app background (v2: no multi-stop wash).
   static LinearGradient get backgroundGradient => const LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [backgroundDark, backgroundDark],
-      );
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [backgroundDark, backgroundDark],
+  );
 
   static LinearGradient get authGradient => const LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [backgroundMid, backgroundDark],
-      );
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [backgroundMid, backgroundDark],
+  );
 
   /// Solid primary (gradients retired in v2).
-  static LinearGradient get primaryGradient => const LinearGradient(
-        colors: [primary, primary],
-      );
+  static LinearGradient get primaryGradient =>
+      const LinearGradient(colors: [primary, primary]);
 
   /// Solid accent (gradients retired in v2).
-  static LinearGradient get accentGradient => const LinearGradient(
-        colors: [accent, accent],
-      );
+  static LinearGradient get accentGradient =>
+      const LinearGradient(colors: [accent, accent]);
 
   /// No-op shine (glassmorphism retired).
-  static LinearGradient get glassShine => const LinearGradient(
-        colors: [Colors.transparent, Colors.transparent],
-      );
+  static LinearGradient get glassShine =>
+      const LinearGradient(colors: [Colors.transparent, Colors.transparent]);
 
   /// Hairline-first ambient shadow (no gold glow).
   static List<BoxShadow> cardShadow({Color? color}) => [
-        BoxShadow(
-          color: (color ?? Colors.black).withValues(alpha: 0.25),
-          blurRadius: 16,
-          offset: const Offset(0, 4),
-        ),
-      ];
+    BoxShadow(
+      color: (color ?? Colors.black).withValues(alpha: 0.25),
+      blurRadius: 16,
+      offset: const Offset(0, 4),
+    ),
+  ];
 }

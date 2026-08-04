@@ -29,10 +29,10 @@ class SplashScreen extends ConsumerWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 AppLogo(
-                  size: 140,
-                  maxWidth: logoWidth.clamp(200.0, 280.0),
-                  showGlow: false,
-                )
+                      size: 140,
+                      maxWidth: logoWidth.clamp(200.0, 280.0),
+                      showGlow: false,
+                    )
                     .animate()
                     .scale(
                       begin: const Offset(0.7, 0.7),
@@ -46,7 +46,7 @@ class SplashScreen extends ConsumerWidget {
                   height: 32,
                   child: CircularProgressIndicator(
                     strokeWidth: 2.5,
-                    color: colors.primary,
+                    color: colors.accent,
                   ),
                 ).animate().fadeIn(delay: 400.ms),
               ],

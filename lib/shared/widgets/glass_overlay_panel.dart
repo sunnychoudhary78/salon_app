@@ -29,9 +29,7 @@ class GlassOverlayPanel extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: colors.surface,
-          border: Border(
-            top: BorderSide(color: colors.glassBorder),
-          ),
+          border: Border(top: BorderSide(color: colors.glassBorder)),
         ),
         child: Padding(padding: padding, child: child),
       ),

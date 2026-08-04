@@ -36,9 +36,21 @@ class SalonRatingBadge extends StatelessWidget {
     final accentColor = _accentColor(context);
     final isCompact = size == SalonRatingBadgeSize.compact;
     final isLarge = size == SalonRatingBadgeSize.large;
-    final horizontal = isCompact ? 8.0 : isLarge ? 12.0 : 10.0;
-    final vertical = isCompact ? 4.0 : isLarge ? 8.0 : 6.0;
-    final starSize = isCompact ? 12.0 : isLarge ? 18.0 : 14.0;
+    final horizontal = isCompact
+        ? 8.0
+        : isLarge
+        ? 12.0
+        : 10.0;
+    final vertical = isCompact
+        ? 4.0
+        : isLarge
+        ? 8.0
+        : 6.0;
+    final starSize = isCompact
+        ? 12.0
+        : isLarge
+        ? 18.0
+        : 14.0;
     final textStyle = isLarge
         ? Theme.of(context).textTheme.titleMedium
         : isCompact
@@ -68,10 +80,11 @@ class SalonRatingBadge extends StatelessWidget {
             SizedBox(width: isCompact ? 4 : 6),
             Text(
               isCompact ? '($reviewCount)' : '$reviewCount reviews',
-              style: (isCompact
-                      ? Theme.of(context).textTheme.labelSmall
-                      : Theme.of(context).textTheme.bodySmall)
-                  ?.copyWith(color: colors.textSecondary),
+              style:
+                  (isCompact
+                          ? Theme.of(context).textTheme.labelSmall
+                          : Theme.of(context).textTheme.bodySmall)
+                      ?.copyWith(color: colors.textSecondary),
             ),
           ],
         ],
@@ -85,12 +98,12 @@ class ReviewStarsRow extends StatelessWidget {
     super.key,
     required this.rating,
     this.size = 18,
-    this.activeColor = AppColors.accent,
+    this.activeColor,
   });
 
   final int rating;
   final double size;
-  final Color activeColor;
+  final Color? activeColor;
 
   @override
   Widget build(BuildContext context) {
@@ -102,7 +115,9 @@ class ReviewStarsRow extends StatelessWidget {
         return Icon(
           index < rating ? Icons.star_rounded : Icons.star_border_rounded,
           size: size,
-          color: index < rating ? activeColor : mutedColor,
+          color: index < rating
+              ? activeColor ?? context.appColors.accent
+              : mutedColor,
         );
       }),
     );

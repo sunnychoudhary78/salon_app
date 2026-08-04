@@ -1,13 +1,13 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:saloon_booking/core/network/dio_client.dart';
+import 'package:saloon_booking/core/network/user_facing_error.dart';
 import 'package:saloon_booking/core/routing/route_paths.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/core/theme/app_decorations.dart';
+import 'package:saloon_booking/core/utils/form_validators.dart';
 import 'package:saloon_booking/features/auth/presentation/providers/auth_provider.dart';
 import 'package:saloon_booking/features/customer/data/models/salon_model.dart';
 import 'package:saloon_booking/features/owner/data/models/owner_model.dart';
@@ -16,6 +16,7 @@ import 'package:saloon_booking/shared/widgets/animated_entrance.dart';
 import 'package:saloon_booking/shared/widgets/async_value_widget.dart';
 import 'package:saloon_booking/shared/widgets/empty_state.dart';
 import 'package:saloon_booking/shared/widgets/glass_card.dart';
+import 'package:saloon_booking/shared/widgets/gradient_background.dart';
 import 'package:saloon_booking/shared/widgets/premium_app_bar.dart';
 import 'package:saloon_booking/shared/widgets/premium_button.dart';
 import 'package:saloon_booking/shared/widgets/premium_dialog.dart';
@@ -80,15 +81,13 @@ class OwnerSalonsScreen extends ConsumerWidget {
 
     try {
       if (activate) {
-        await ref.read(ownerOnboardingActionsProvider).submitActivateRequest(
-              salonId: salon.id,
-              reason: reason,
-            );
+        await ref
+            .read(ownerOnboardingActionsProvider)
+            .submitActivateRequest(salonId: salon.id, reason: reason);
       } else {
-        await ref.read(ownerOnboardingActionsProvider).submitDeactivateRequest(
-              salonId: salon.id,
-              reason: reason,
-            );
+        await ref
+            .read(ownerOnboardingActionsProvider)
+            .submitDeactivateRequest(salonId: salon.id, reason: reason);
       }
 
       if (!context.mounted) return;
@@ -102,15 +101,10 @@ class OwnerSalonsScreen extends ConsumerWidget {
         ),
       );
       await ref.read(authProvider.notifier).refreshProfile();
-    } on DioException catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.apiException.message)),
-      );
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
+        SnackBar(content: Text(userFacingErrorMessage(e))),
       );
     }
   }
@@ -144,7 +138,8 @@ class OwnerSalonsScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: RefreshIndicator(
+      body: GradientBackground(
+        child: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(ownerSalonsProvider);
           ref.invalidate(ownerSalonApplicationsProvider);
@@ -180,8 +175,10 @@ class OwnerSalonsScreen extends ConsumerWidget {
               itemCount: items.length,
               itemBuilder: (_, i) {
                 final salon = items[i];
-                final pending =
-                    pendingApplicationForSalon(pendingApps, salon.id);
+                final pending = pendingApplicationForSalon(
+                  pendingApps,
+                  salon.id,
+                );
                 final pendingLabel = _pendingLabel(pending);
                 final hasPending = pending != null;
                 final isActive = salon.isActiveForCustomers;
@@ -202,17 +199,18 @@ class OwnerSalonsScreen extends ConsumerWidget {
                       onToggleStatus: hasPending
                           ? null
                           : () => _submitStatusRequest(
-                                context: context,
-                                ref: ref,
-                                salon: salon,
-                                activate: !isActive,
-                              ),
+                              context: context,
+                              ref: ref,
+                              salon: salon,
+                              activate: !isActive,
+                            ),
                     ),
                   ),
                 );
               },
             );
           },
+        ),
         ),
       ),
     );
@@ -248,26 +246,28 @@ class _OwnerSalonCard extends StatelessWidget {
 
     return GlassCard(
       padding: EdgeInsets.zero,
+      radius: 20,
+      elevated: true,
       onTap: onEdit,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
             child: Stack(
               children: [
                 if (imageUrl != null)
                   CachedNetworkImage(
                     imageUrl: imageUrl,
-                    height: 140,
+                    height: 168,
                     width: double.infinity,
                     fit: BoxFit.cover,
-                    placeholder: (_, __) => Container(
-                      height: 140,
+                    placeholder: (_, _) => Container(
+                      height: 168,
                       color: context.appColors.glassFill,
                     ),
-                    errorWidget: (_, __, ___) => Container(
-                      height: 140,
+                    errorWidget: (_, _, _) => Container(
+                      height: 168,
                       color: AppColors.primary.withValues(alpha: 0.15),
                       child: const Center(
                         child: Icon(Icons.store_rounded, size: 40),
@@ -276,12 +276,12 @@ class _OwnerSalonCard extends StatelessWidget {
                   )
                 else
                   Container(
-                    height: 140,
+                    height: 168,
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
                           AppColors.primary.withValues(alpha: 0.3),
-                          AppColors.accent.withValues(alpha: 0.15),
+                          context.appColors.accent.withValues(alpha: 0.15),
                         ],
                       ),
                     ),
@@ -290,14 +290,31 @@ class _OwnerSalonCard extends StatelessWidget {
                     ),
                   ),
                 Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    height: 56,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                        colors: [
+                          Colors.black.withValues(alpha: 0.55),
+                          Colors.transparent,
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
                   top: 12,
                   right: 12,
                   child: _StatusChip(
-                    label: pendingLabel ??
-                        (isActive ? 'Active' : 'Inactive'),
+                    label: pendingLabel ?? salon.statusLabel,
                     color: pendingLabel != null
                         ? AppColors.warning
-                        : (isActive ? AppColors.success : AppColors.error),
+                        : _salonStatusColor(salon),
                   ),
                 ),
               ],
@@ -310,17 +327,17 @@ class _OwnerSalonCard extends StatelessWidget {
               children: [
                 Text(
                   salon.salonName,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
                 if (salon.city != null) ...[
                   const SizedBox(height: 4),
                   Text(
                     [salon.city, salon.state].whereType<String>().join(', '),
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: context.appColors.textMuted,
-                        ),
+                      color: context.appColors.textMuted,
+                    ),
                   ),
                 ],
                 const SizedBox(height: 14),
@@ -331,6 +348,9 @@ class _OwnerSalonCard extends StatelessWidget {
                         icon: Icons.edit_outlined,
                         label: 'Edit',
                         enabled: !hasPending,
+                        disabledMessage: hasPending
+                            ? 'Salon update is pending approval'
+                            : null,
                         onTap: onEdit,
                       ),
                     ),
@@ -372,6 +392,9 @@ class _OwnerSalonCard extends StatelessWidget {
                       : Icons.visibility_outlined,
                   variant: PremiumButtonVariant.ghost,
                   onPressed: onToggleStatus,
+                  disabledMessage: hasPending
+                      ? 'Salon update is pending approval'
+                      : null,
                 ),
               ],
             ),
@@ -396,20 +419,30 @@ class _StatusChip extends StatelessWidget {
         color: color.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.2),
-            blurRadius: 8,
-          ),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 8),
         ],
       ),
       child: Text(
         label,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-            ),
+          color: Colors.white,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
+  }
+}
+
+Color _salonStatusColor(SalonModel salon) {
+  switch (salon.status?.toUpperCase()) {
+    case 'ACTIVE':
+      return AppColors.success;
+    case 'SUSPENDED':
+      return AppColors.warning;
+    case 'CLOSED':
+      return AppColors.error;
+    default:
+      return salon.isActive ? AppColors.success : AppColors.error;
   }
 }
 
@@ -419,29 +452,37 @@ class _SalonActionButton extends StatelessWidget {
     required this.label,
     required this.onTap,
     this.enabled = true,
+    this.disabledMessage,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback onTap;
   final bool enabled;
+  final String? disabledMessage;
 
   @override
   Widget build(BuildContext context) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: enabled ? onTap : null,
-        borderRadius: BorderRadius.circular(12),
+        onTap: enabled
+            ? onTap
+            : (disabledMessage != null
+                  ? () => showFormDisabledMessage(context, disabledMessage!)
+                  : null),
+        borderRadius: BorderRadius.circular(14),
         child: Ink(
-          padding: const EdgeInsets.symmetric(vertical: 10),
+          padding: const EdgeInsets.symmetric(vertical: 11),
           decoration: BoxDecoration(
             color: enabled
-                ? AppColors.primary.withValues(alpha: 0.1)
+                ? context.appColors.accent.withValues(alpha: 0.1)
                 : context.appColors.glassFill.withValues(alpha: 0.3),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: context.appColors.glassBorder.withValues(alpha: 0.5),
+              color: enabled
+                  ? context.appColors.accent.withValues(alpha: 0.28)
+                  : context.appColors.glassBorder.withValues(alpha: 0.5),
             ),
           ),
           child: Column(
@@ -449,16 +490,19 @@ class _SalonActionButton extends StatelessWidget {
               Icon(
                 icon,
                 size: 20,
-                color: enabled ? AppColors.accent : context.appColors.textMuted,
+                color: enabled
+                    ? context.appColors.accent
+                    : context.appColors.textMuted,
               ),
               const SizedBox(height: 4),
               Text(
                 label,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: enabled
-                          ? context.appColors.textPrimary
-                          : context.appColors.textMuted,
-                    ),
+                  fontWeight: FontWeight.w700,
+                  color: enabled
+                      ? context.appColors.textPrimary
+                      : context.appColors.textMuted,
+                ),
               ),
             ],
           ),

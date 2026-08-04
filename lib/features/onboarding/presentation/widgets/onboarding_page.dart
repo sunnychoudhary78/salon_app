@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/features/onboarding/data/onboarding_constants.dart';
 import 'package:saloon_booking/features/onboarding/presentation/widgets/ken_burns_background.dart';
 
@@ -18,18 +19,24 @@ class OnboardingPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final accent = context.appColors.accent;
     final screenWidth = MediaQuery.sizeOf(context).width;
     final isCompact = screenWidth < 360;
     final horizontalPadding = screenWidth * 0.1;
-    final gradientHeight = MediaQuery.sizeOf(context).height * 0.48;
+    final gradientHeight = MediaQuery.sizeOf(context).height * 0.39;
 
-    final headlineStyle = (isCompact
-            ? theme.textTheme.displaySmall
-            : theme.textTheme.displayMedium)
-        ?.copyWith(
-      fontWeight: FontWeight.w600,
-      height: 1.05,
-      letterSpacing: -0.5,
+    final headlineStyle =
+        (isCompact
+                ? theme.textTheme.displaySmall
+                : theme.textTheme.displayMedium)
+            ?.copyWith(
+              fontWeight: FontWeight.w600,
+              height: 1.05,
+              letterSpacing: -0.5,
+            );
+    final accentHeadlineStyle = headlineStyle?.copyWith(
+      color: accent,
+      letterSpacing: -0.8,
     );
 
     return Stack(
@@ -65,7 +72,7 @@ class OnboardingPage extends StatelessWidget {
         Positioned(
           left: horizontalPadding.clamp(24, 56),
           right: horizontalPadding.clamp(24, 56),
-          bottom: 160,
+          bottom: 158,
           child: SafeArea(
             top: false,
             child: Align(
@@ -85,15 +92,11 @@ class OnboardingPage extends StatelessWidget {
                         children: [
                           Text(
                             slide.headingPrimary,
-                            style: headlineStyle?.copyWith(
-                              color: Colors.white,
-                            ),
+                            style: headlineStyle?.copyWith(color: Colors.white),
                           ),
                           Text(
                             slide.headingAccent,
-                            style: headlineStyle?.copyWith(
-                              color: OnboardingConstants.accentColor,
-                            ),
+                            style: accentHeadlineStyle,
                           ),
                         ],
                       ),
@@ -108,11 +111,7 @@ class OnboardingPage extends StatelessWidget {
                         height: 1.5,
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
-                            colors: [
-                              OnboardingConstants.accentColor,
-                              OnboardingConstants.accentColor
-                                  .withValues(alpha: 0.35),
-                            ],
+                            colors: [accent, accent.withValues(alpha: 0.35)],
                           ),
                           borderRadius: BorderRadius.circular(1),
                         ),
@@ -166,10 +165,7 @@ class _AnimatedText extends StatelessWidget {
 
     return child
         .animate(key: key, delay: delay)
-        .fadeIn(
-          duration: 600.ms,
-          curve: Curves.easeOutCubic,
-        )
+        .fadeIn(duration: 600.ms, curve: Curves.easeOutCubic)
         .slideY(
           begin: 0.1,
           end: 0,

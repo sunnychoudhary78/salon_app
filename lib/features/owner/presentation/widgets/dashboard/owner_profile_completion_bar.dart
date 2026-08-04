@@ -33,16 +33,16 @@ class OwnerProfileCompletionBar extends StatelessWidget {
               Expanded(
                 child: Text(
                   'Profile Completion',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
                 ),
               ),
               Text(
                 '$percent%',
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
               ),
             ],
           ),
@@ -50,9 +50,9 @@ class OwnerProfileCompletionBar extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               '${profileCompleteness.incompleteCount} salons need attention',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colors.textMuted,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: colors.textMuted),
             ),
           ],
           const SizedBox(height: 8),
@@ -72,7 +72,10 @@ class OwnerProfileCompletionBar extends StatelessWidget {
                 onPressed: () => _onCompleteProfile(context),
                 style: FilledButton.styleFrom(
                   visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                 ),
                 child: const Text('Complete Profile'),
               ),

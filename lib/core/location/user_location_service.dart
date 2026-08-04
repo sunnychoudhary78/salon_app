@@ -19,10 +19,7 @@ enum LocationFetchFailure {
 }
 
 class LocationEnsureResult {
-  const LocationEnsureResult({
-    required this.ready,
-    this.failure,
-  });
+  const LocationEnsureResult({required this.ready, this.failure});
 
   final bool ready;
   final LocationFetchFailure? failure;
@@ -117,15 +114,16 @@ class UserLocationService {
         return null;
       }
 
-      final position = await Geolocator.getCurrentPosition(
-        locationSettings: LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: timeout,
-        ),
-      ).timeout(
-        timeout,
-        onTimeout: () => throw TimeoutException('Location timeout'),
-      );
+      final position =
+          await Geolocator.getCurrentPosition(
+            locationSettings: LocationSettings(
+              accuracy: LocationAccuracy.high,
+              timeLimit: timeout,
+            ),
+          ).timeout(
+            timeout,
+            onTimeout: () => throw TimeoutException('Location timeout'),
+          );
 
       return UserLocation(
         latitude: position.latitude,
@@ -151,9 +149,7 @@ class UserLocationService {
       final city = place.administrativeArea?.trim();
       final parts = <String>[
         if (locality != null && locality.isNotEmpty) locality,
-        if (subAdmin != null &&
-            subAdmin.isNotEmpty &&
-            subAdmin != locality)
+        if (subAdmin != null && subAdmin.isNotEmpty && subAdmin != locality)
           subAdmin,
         if (city != null &&
             city.isNotEmpty &&

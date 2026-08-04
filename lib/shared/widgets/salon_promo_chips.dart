@@ -16,7 +16,7 @@ class SalonPromoChips extends StatelessWidget {
         _PromoChip(
           label: 'FEATURED',
           icon: Icons.workspace_premium_rounded,
-          gradient: AppColors.accentGradient,
+          gradient: context.appColors.accentGradient,
         ),
       );
     }
@@ -46,11 +46,7 @@ class SalonPromoChips extends StatelessWidget {
     }
     if (chips.isEmpty) return const SizedBox.shrink();
 
-    return Wrap(
-      spacing: 6,
-      runSpacing: 6,
-      children: chips,
-    );
+    return Wrap(spacing: 6, runSpacing: 6, children: chips);
   }
 }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:saloon_booking/core/theme/accent_palette.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/core/theme/app_typography.dart';
@@ -7,9 +8,18 @@ import 'package:saloon_booking/core/theme/app_typography.dart';
 class AppTheme {
   AppTheme._();
 
-  static ThemeData get light => _build(AppThemeExtension.light, Brightness.light);
+  static final ThemeData light = _build(
+    AppThemeExtension.light,
+    Brightness.light,
+  );
 
-  static ThemeData get dark => _build(AppThemeExtension.dark, Brightness.dark);
+  static final ThemeData dark = _build(AppThemeExtension.dark, Brightness.dark);
+
+  static ThemeData lightFor(AccentPalette palette) =>
+      _build(AppThemeExtension.lightFor(palette), Brightness.light);
+
+  static ThemeData darkFor(AccentPalette palette) =>
+      _build(AppThemeExtension.darkFor(palette), Brightness.dark);
 
   static ThemeData _build(AppThemeExtension ext, Brightness brightness) {
     final isDark = brightness == Brightness.dark;
@@ -70,8 +80,10 @@ class AppTheme {
         fillColor: ext.surfaceSunken,
         labelStyle: TextStyle(color: ext.textMuted),
         hintStyle: TextStyle(color: ext.textMuted),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppColors.radiusControl),
           borderSide: BorderSide(color: ext.glassBorder),
@@ -98,10 +110,7 @@ class AppTheme {
           side: BorderSide(color: ext.glassBorder),
         ),
       ),
-      dividerTheme: DividerThemeData(
-        color: ext.glassBorder,
-        thickness: 1,
-      ),
+      dividerTheme: DividerThemeData(color: ext.glassBorder, thickness: 1),
       snackBarTheme: SnackBarThemeData(
         backgroundColor: ext.surfaceElevated,
         contentTextStyle: textTheme.bodyMedium,
@@ -212,7 +221,9 @@ class AppTheme {
         iconColor: ext.textSecondary,
         textColor: ext.textSecondary,
         shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(AppColors.radiusControl)),
+          borderRadius: BorderRadius.all(
+            Radius.circular(AppColors.radiusControl),
+          ),
         ),
       ),
     );

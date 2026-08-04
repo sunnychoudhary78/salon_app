@@ -13,6 +13,8 @@ class RoutePaths {
   static const customerBookings = '/customer/bookings';
   static const customerProfile = '/customer/profile';
   static const customerEditProfile = '/customer/profile/edit';
+  static const customerChangePhone = '/customer/profile/change-phone';
+  static const customerChangePhoneOtp = '/customer/profile/change-phone/otp';
   static const salonDetail = '/customer/salons/:id';
   static const bookAppointment = '/customer/salons/:id/book';
   static const writeReview = '/customer/bookings/:id/review';
@@ -27,6 +29,8 @@ class RoutePaths {
   static const ownerNotifications = '/owner/notifications';
   static const ownerProfile = '/owner/profile';
   static const ownerEditProfile = '/owner/profile/edit';
+  static const ownerChangePhone = '/owner/profile/change-phone';
+  static const ownerChangePhoneOtp = '/owner/profile/change-phone/otp';
   static const ownerSettings = '/owner/settings';
   static const ownerEarnings = '/owner/earnings';
   static const ownerEarningsTransactions = '/owner/earnings/transactions';

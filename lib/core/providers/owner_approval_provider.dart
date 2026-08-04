@@ -31,5 +31,6 @@ class HasApprovedSalons extends Notifier<bool> {
   void reset() => state = false;
 }
 
-final hasApprovedSalonsProvider =
-    NotifierProvider<HasApprovedSalons, bool>(HasApprovedSalons.new);
+final hasApprovedSalonsProvider = NotifierProvider<HasApprovedSalons, bool>(
+  HasApprovedSalons.new,
+);

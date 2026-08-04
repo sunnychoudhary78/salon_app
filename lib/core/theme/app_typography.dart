@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 
 /// Option B v2 typography — Outfit display, Plus Jakarta Sans UI.
@@ -7,12 +6,14 @@ class AppTypography {
   AppTypography._();
 
   static TextTheme forExtension(AppThemeExtension ext) {
-    final display = GoogleFonts.outfit(
+    final display = TextStyle(
+      fontFamily: 'Outfit',
       color: ext.textPrimary,
       fontWeight: FontWeight.w600,
       height: 1.2,
     );
-    final body = GoogleFonts.plusJakartaSans(
+    final body = TextStyle(
+      fontFamily: 'Plus Jakarta Sans',
       color: ext.textPrimary,
       height: 1.45,
     );

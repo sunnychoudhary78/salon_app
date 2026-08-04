@@ -1,14 +1,20 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:saloon_booking/core/network/user_facing_error.dart';
+import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_decorations.dart';
+import 'package:saloon_booking/core/theme/app_theme_extension.dart';
+import 'package:saloon_booking/core/utils/form_validators.dart';
 import 'package:saloon_booking/features/owner/data/models/owner_model.dart';
 import 'package:saloon_booking/features/owner/data/services/owner_service.dart';
+import 'package:saloon_booking/shared/widgets/animated_entrance.dart';
 import 'package:saloon_booking/shared/widgets/async_value_widget.dart';
 import 'package:saloon_booking/shared/widgets/glass_card.dart';
+import 'package:saloon_booking/shared/widgets/gradient_background.dart';
 import 'package:saloon_booking/shared/widgets/premium_app_bar.dart';
-import 'package:saloon_booking/shared/widgets/premium_button.dart';
 import 'package:saloon_booking/shared/widgets/premium_text_field.dart';
+import 'package:saloon_booking/shared/widgets/screen_action_bar.dart';
 import 'package:saloon_booking/shared/widgets/section_header.dart';
 
 class OwnerPayoutAccountScreen extends ConsumerStatefulWidget {
@@ -19,7 +25,9 @@ class OwnerPayoutAccountScreen extends ConsumerStatefulWidget {
       _OwnerPayoutAccountScreenState();
 }
 
-class _OwnerPayoutAccountScreenState extends ConsumerState<OwnerPayoutAccountScreen> {
+class _OwnerPayoutAccountScreenState
+    extends ConsumerState<OwnerPayoutAccountScreen> {
+  final _formKey = GlobalKey<FormState>();
   final _holderController = TextEditingController();
   final _accountController = TextEditingController();
   final _ifscController = TextEditingController();
@@ -46,49 +54,38 @@ class _OwnerPayoutAccountScreenState extends ConsumerState<OwnerPayoutAccountScr
     _initialized = true;
   }
 
-  String _errorMessage(Object error) {
-    if (error is DioException) {
-      final data = error.response?.data;
-      if (data is Map && data['message'] != null) {
-        return data['message'].toString();
-      }
-    }
-    return error.toString();
-  }
+  String _errorMessage(Object error) => userFacingErrorMessage(error);
 
   Future<void> _save() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+
     final holder = _holderController.text.trim();
     final accountNumber = _accountController.text.trim();
-    final ifsc = _ifscController.text.trim();
+    final ifsc = _ifscController.text.trim().toUpperCase();
     final upi = _upiController.text.trim();
-
-    if (holder.isEmpty || accountNumber.isEmpty || ifsc.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Account holder, number, and IFSC are required')),
-      );
-      return;
-    }
 
     setState(() => _saving = true);
     try {
-      await ref.read(ownerServiceProvider).upsertPayoutAccount(
-        accountHolderName: holder,
-        accountNumber: accountNumber,
-        ifscCode: ifsc,
-        upiId: upi.isEmpty ? null : upi,
-      );
+      await ref
+          .read(ownerServiceProvider)
+          .upsertPayoutAccount(
+            accountHolderName: holder,
+            accountNumber: accountNumber,
+            ifscCode: ifsc,
+            upiId: upi.isEmpty ? null : upi,
+          );
       ref.invalidate(ownerPayoutAccountProvider);
       _accountController.clear();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Payout account saved')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Payout account saved')));
       }
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_errorMessage(error))),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(_errorMessage(error))));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -98,80 +95,252 @@ class _OwnerPayoutAccountScreenState extends ConsumerState<OwnerPayoutAccountScr
   @override
   Widget build(BuildContext context) {
     final account = ref.watch(ownerPayoutAccountProvider);
+    final colors = context.appColors;
 
     return Scaffold(
       appBar: const PremiumAppBar(
         title: 'Payout account',
         subtitle: 'Bank details for settlements',
       ),
-      body: AsyncValueWidget(
-        value: account,
-        data: (existing) {
-          _populateForm(existing);
-          return ListView(
-            padding: EdgeInsets.fromLTRB(
-              16,
-              8,
-              16,
-              AppDecorations.scrollBottomPadding(context),
-            ),
-            children: [
-              if (existing != null) ...[
-                GlassCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SectionHeader(
-                        title: 'Current account',
-                        subtitle: 'On file for payouts',
-                      ),
-                      const SizedBox(height: 8),
-                      Text('${existing.accountHolderName} · ${existing.ifscCode}'),
-                      if (existing.accountNumberMasked != null)
-                        Text('Account ${existing.accountNumberMasked}'),
-                      if (existing.verificationStatus != null)
-                        Text('Status: ${existing.verificationStatus}'),
-                    ],
-                  ),
+      body: GradientBackground(
+        child: AsyncValueWidget(
+          value: account,
+          data: (existing) {
+            _populateForm(existing);
+            return Form(
+              key: _formKey,
+              child: ListView(
+                padding: EdgeInsets.fromLTRB(
+                  16,
+                  12,
+                  16,
+                  AppDecorations.scrollBottomPadding(context) + 88,
                 ),
-                const SizedBox(height: 20),
-              ],
-              SectionHeader(
-                title: existing == null ? 'Add account' : 'Update account',
-                subtitle: 'Enter bank details securely',
+                children: [
+                  AnimatedEntrance(
+                    child: Container(
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [colors.surfaceElevated, colors.accentSoft],
+                        ),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: colors.accent.withValues(alpha: 0.28),
+                        ),
+                        boxShadow: colors.cardShadow(),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: colors.accent.withValues(alpha: 0.14),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Icon(
+                              Icons.account_balance_rounded,
+                              color: colors.accent,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Secure payouts',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleMedium
+                                      ?.copyWith(fontWeight: FontWeight.w800),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'We use these details only for settling your online earnings.',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodySmall
+                                      ?.copyWith(color: colors.textMuted),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (existing != null) ...[
+                    const SizedBox(height: 16),
+                    AnimatedEntrance(
+                      index: 1,
+                      child: GlassCard(
+                        elevated: true,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SectionHeader(
+                              title: 'Current account',
+                              subtitle: 'On file for payouts',
+                            ),
+                            const SizedBox(height: 12),
+                            _InfoRow(
+                              icon: Icons.person_outline_rounded,
+                              label: existing.accountHolderName,
+                            ),
+                            const SizedBox(height: 8),
+                            _InfoRow(
+                              icon: Icons.tag_rounded,
+                              label: existing.ifscCode,
+                            ),
+                            if (existing.accountNumberMasked != null) ...[
+                              const SizedBox(height: 8),
+                              _InfoRow(
+                                icon: Icons.credit_card_rounded,
+                                label: 'Account ${existing.accountNumberMasked}',
+                              ),
+                            ],
+                            if (existing.verificationStatus != null) ...[
+                              const SizedBox(height: 12),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.success.withValues(
+                                    alpha: 0.12,
+                                  ),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: AppColors.success.withValues(
+                                      alpha: 0.35,
+                                    ),
+                                  ),
+                                ),
+                                child: Text(
+                                  existing.verificationStatus!,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .labelSmall
+                                      ?.copyWith(
+                                        color: AppColors.success,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 20),
+                  AnimatedEntrance(
+                    index: 2,
+                    child: SectionHeader(
+                      title: existing == null ? 'Add account' : 'Update account',
+                      subtitle: 'Enter bank details securely',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  AnimatedEntrance(
+                    index: 3,
+                    child: GlassCard(
+                      elevated: false,
+                      child: Column(
+                        children: [
+                          PremiumTextField(
+                            controller: _holderController,
+                            label: 'Account holder name',
+                            validator: validateAccountHolderName,
+                          ),
+                          const SizedBox(height: 12),
+                          PremiumTextField(
+                            controller: _accountController,
+                            label: existing == null
+                                ? 'Account number'
+                                : 'New account number',
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                              LengthLimitingTextInputFormatter(18),
+                            ],
+                            validator: validateAccountNumber,
+                          ),
+                          const SizedBox(height: 12),
+                          PremiumTextField(
+                            controller: _ifscController,
+                            label: 'IFSC code',
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(
+                                RegExp(r'[A-Za-z0-9]'),
+                              ),
+                              LengthLimitingTextInputFormatter(11),
+                              TextInputFormatter.withFunction((
+                                oldValue,
+                                newValue,
+                              ) {
+                                return newValue.copyWith(
+                                  text: newValue.text.toUpperCase(),
+                                  selection: newValue.selection,
+                                );
+                              }),
+                            ],
+                            validator: validateIfsc,
+                          ),
+                          const SizedBox(height: 12),
+                          PremiumTextField(
+                            controller: _upiController,
+                            label: 'UPI ID (optional)',
+                            validator: validateOptionalUpi,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 12),
-              PremiumTextField(
-                controller: _holderController,
-                label: 'Account holder name',
-              ),
-              const SizedBox(height: 12),
-              PremiumTextField(
-                controller: _accountController,
-                label: existing == null ? 'Account number' : 'New account number',
-                keyboardType: TextInputType.number,
-              ),
-              const SizedBox(height: 12),
-              PremiumTextField(
-                controller: _ifscController,
-                label: 'IFSC code',
-              ),
-              const SizedBox(height: 12),
-              PremiumTextField(
-                controller: _upiController,
-                label: 'UPI ID (optional)',
-              ),
-              const SizedBox(height: 24),
-              PremiumButton(
-                label: 'Save payout account',
-                loading: _saving,
-                loadingLabel: 'Saving',
-                onPressed: _saving ? null : _save,
-              ),
-            ],
-          );
-        },
+            );
+          },
+        ),
       ),
+      bottomNavigationBar: ScreenActionBar(
+        label: 'Save payout account',
+        icon: Icons.save_rounded,
+        loading: _saving,
+        onPressed: _saving ? null : _save,
+      ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: colors.accent),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: colors.textPrimary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

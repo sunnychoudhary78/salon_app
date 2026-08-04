@@ -29,9 +29,7 @@ bool isBookingSlotEnded({
 }) {
   final start = parseBookingDateTime(date, time);
   if (start == null) return false;
-  return DateTime.now().isAfter(
-    start.add(Duration(minutes: durationMinutes)),
-  );
+  return DateTime.now().isAfter(start.add(Duration(minutes: durationMinutes)));
 }
 
 BookingWhenLabel? bookingWhenLabel({
@@ -77,6 +75,30 @@ BookingTimelineGroup customerBookingTimeline(BookingModel booking) {
   return BookingTimelineGroup.past;
 }
 
+/// Whether the customer can submit a salon review for this booking.
+///
+/// Prefers API `canReview` when true; otherwise applies local rules so missing
+/// or incorrect `can_review` / `slot_ended` flags still show the Rate CTA.
+bool customerCanReview(BookingModel booking) {
+  if (booking.hasReview) return false;
+  if (booking.canReview) return true;
+
+  final status = booking.bookingStatus.toUpperCase();
+  if (status != 'ACCEPTED' && status != 'COMPLETED') return false;
+
+  // COMPLETED visits are always reviewable (service is done).
+  if (status == 'COMPLETED') return true;
+
+  if (booking.slotEnded) return true;
+
+  final duration = booking.service?.durationMinutes ?? 60;
+  return isBookingSlotEnded(
+    date: booking.bookingDate,
+    time: booking.bookingTime,
+    durationMinutes: duration,
+  );
+}
+
 BookingTimelineGroup ownerBookingTimeline(OwnerBookingModel booking) {
   if (isPastBookingStatus(booking.bookingStatus)) {
     return BookingTimelineGroup.past;
@@ -104,7 +126,6 @@ List<T> sortBookingsByDateTime<T>({
   });
   return sorted;
 }
-
 
 List<BookingModel> customerActiveBookings(List<BookingModel> items) {
   return sortBookingsByDateTime(
@@ -149,7 +170,9 @@ List<OwnerBookingModel> ownerPastBookings(List<OwnerBookingModel> items) {
 }
 
 List<OwnerBookingModel> ownerPendingBookings(List<OwnerBookingModel> items) {
-  return items.where((b) => b.bookingStatus.toUpperCase() == 'PENDING').toList();
+  return items
+      .where((b) => b.bookingStatus.toUpperCase() == 'PENDING')
+      .toList();
 }
 
 List<OwnerBookingModel> ownerUpcomingAcceptedBookings(
