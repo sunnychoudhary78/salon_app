@@ -49,10 +49,27 @@ class OwnerDashboardV2Model {
   }
 }
 
+class OwnerDashboardAvailableSalon {
+  const OwnerDashboardAvailableSalon({
+    required this.salonId,
+    required this.salonName,
+  });
+
+  final String salonId;
+  final String salonName;
+
+  factory OwnerDashboardAvailableSalon.fromJson(Map<String, dynamic> json) =>
+      OwnerDashboardAvailableSalon(
+        salonId: json['salon_id']?.toString() ?? '',
+        salonName: json['salon_name'] as String? ?? '',
+      );
+}
+
 class OwnerDashboardMeta {
   const OwnerDashboardMeta({
     required this.salonIds,
     required this.salonCount,
+    this.availableSalons = const [],
     this.scopedSalonId,
     required this.date,
     required this.timezone,
@@ -63,12 +80,26 @@ class OwnerDashboardMeta {
 
   final List<String> salonIds;
   final int salonCount;
+  final List<OwnerDashboardAvailableSalon> availableSalons;
   final String? scopedSalonId;
   final String date;
   final String timezone;
   final String currency;
   final String? generatedAt;
   final OwnerDashboardPeriodInfo? period;
+
+  /// Picker uses the full owner catalog, not the scoped [salonCount].
+  bool get canSwitchSalons =>
+      availableSalons.length > 1 ||
+      (availableSalons.isEmpty && salonCount > 1);
+
+  List<OwnerDashboardAvailableSalon> get pickerSalons {
+    if (availableSalons.isNotEmpty) return availableSalons;
+    return [
+      for (final id in salonIds)
+        OwnerDashboardAvailableSalon(salonId: id, salonName: ''),
+    ];
+  }
 
   factory OwnerDashboardMeta.fromJson(Map<String, dynamic> json) =>
       OwnerDashboardMeta(
@@ -78,6 +109,15 @@ class OwnerDashboardMeta {
                 .toList() ??
             const [],
         salonCount: json['salon_count'] as int? ?? 0,
+        availableSalons:
+            (json['available_salons'] as List<dynamic>?)
+                ?.map(
+                  (e) => OwnerDashboardAvailableSalon.fromJson(
+                    e as Map<String, dynamic>,
+                  ),
+                )
+                .toList() ??
+            const [],
         scopedSalonId: json['scoped_salon_id']?.toString(),
         date: json['date']?.toString() ?? '',
         timezone: json['timezone'] as String? ?? 'UTC',
@@ -451,6 +491,7 @@ class OwnerDashboardAttentionItem {
     this.amount,
     this.premiumAmount,
     this.premiumPaymentStatus,
+    this.premiumPaymentDueAt,
     this.issue,
     this.message,
     this.salonId,
@@ -471,6 +512,7 @@ class OwnerDashboardAttentionItem {
   final double? amount;
   final double? premiumAmount;
   final String? premiumPaymentStatus;
+  final DateTime? premiumPaymentDueAt;
   final String? issue;
   final String? message;
   final String? salonId;
@@ -494,6 +536,11 @@ class OwnerDashboardAttentionItem {
             ? null
             : _toDouble(json['premium_amount']),
         premiumPaymentStatus: json['premium_payment_status'] as String?,
+        premiumPaymentDueAt: json['premium_payment_due_at'] == null
+            ? null
+            : DateTime.tryParse(
+                json['premium_payment_due_at'].toString(),
+              )?.toLocal(),
         issue: json['issue'] as String?,
         message: json['message'] as String?,
         salonId: json['salon_id']?.toString(),

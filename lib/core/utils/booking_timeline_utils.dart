@@ -99,6 +99,29 @@ bool customerCanReview(BookingModel booking) {
   );
 }
 
+/// True when any sibling in a multi-service visit already has a review.
+bool customerVisitHasReview(List<BookingModel> group) {
+  return group.any((booking) => booking.hasReview);
+}
+
+/// Whether the visit card should show Rate salon.
+///
+/// One review covers the whole group: if any sibling is already reviewed,
+/// remaining unreviewed rows must not show another Rate CTA.
+bool customerVisitCanReview(List<BookingModel> group) {
+  if (customerVisitHasReview(group)) return false;
+  return group.any(customerCanReview);
+}
+
+/// Booking id to open for the visit-level Rate CTA, or null if none.
+BookingModel? customerVisitReviewBooking(List<BookingModel> group) {
+  if (!customerVisitCanReview(group)) return null;
+  for (final booking in group) {
+    if (customerCanReview(booking)) return booking;
+  }
+  return null;
+}
+
 BookingTimelineGroup ownerBookingTimeline(OwnerBookingModel booking) {
   if (isPastBookingStatus(booking.bookingStatus)) {
     return BookingTimelineGroup.past;

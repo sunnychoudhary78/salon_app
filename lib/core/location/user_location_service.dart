@@ -19,15 +19,29 @@ enum LocationFetchFailure {
 }
 
 class LocationEnsureResult {
-  const LocationEnsureResult({required this.ready, this.failure});
+  const LocationEnsureResult({
+    required this.ready,
+    this.failure,
+    this.warmupLocation,
+  });
 
   final bool ready;
   final LocationFetchFailure? failure;
+  final UserLocation? warmupLocation;
 }
 
 class UserLocationService {
   static const Duration _permissionTimeout = Duration(seconds: 5);
   static const Duration _locationTimeout = Duration(seconds: 10);
+  static const Duration lastKnownMaxAge = Duration(minutes: 5);
+
+  static bool isFreshLastKnown(
+    DateTime timestamp, {
+    Duration maxAge = lastKnownMaxAge,
+    DateTime? now,
+  }) {
+    return (now ?? DateTime.now()).difference(timestamp) <= maxAge;
+  }
 
   Future<LocationEnsureResult> ensureServiceAndPermission() async {
     try {
@@ -45,23 +59,29 @@ class UserLocationService {
       }
 
       if (permission == LocationPermission.deniedForever) {
-        await Geolocator.openAppSettings();
         return const LocationEnsureResult(
           ready: false,
           failure: LocationFetchFailure.permissionDeniedForever,
         );
       }
 
+      UserLocation? warmup;
+
       // Re-check after permission — user may have just granted access.
       var serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         try {
           // May prompt the user to enable location services.
-          await Geolocator.getCurrentPosition(
+          final position = await Geolocator.getCurrentPosition(
             locationSettings: const LocationSettings(
               accuracy: LocationAccuracy.low,
             ),
+          ).timeout(_locationTimeout);
+          warmup = UserLocation(
+            latitude: position.latitude,
+            longitude: position.longitude,
           );
+          serviceEnabled = true;
         } catch (_) {
           // Re-check: user may have enabled location during the prompt.
           serviceEnabled = await Geolocator.isLocationServiceEnabled();
@@ -74,25 +94,32 @@ class UserLocationService {
         }
       }
 
-      try {
-        await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.low,
-          ),
-        ).timeout(_permissionTimeout);
-      } catch (_) {
-        // Warmup failure is non-fatal; caller retries getCurrentLocation.
+      if (warmup == null) {
+        try {
+          final position = await Geolocator.getCurrentPosition(
+            locationSettings: const LocationSettings(
+              accuracy: LocationAccuracy.low,
+            ),
+          ).timeout(_permissionTimeout);
+          warmup = UserLocation(
+            latitude: position.latitude,
+            longitude: position.longitude,
+          );
+        } catch (_) {
+          // Warmup failure is non-fatal; caller retries getCurrentLocation.
+        }
       }
 
       // Final service check before reporting ready.
       if (!await Geolocator.isLocationServiceEnabled()) {
-        return const LocationEnsureResult(
+        return LocationEnsureResult(
           ready: false,
           failure: LocationFetchFailure.serviceDisabled,
+          warmupLocation: warmup,
         );
       }
 
-      return const LocationEnsureResult(ready: true);
+      return LocationEnsureResult(ready: true, warmupLocation: warmup);
     } catch (_) {
       return const LocationEnsureResult(
         ready: false,
@@ -114,17 +141,57 @@ class UserLocationService {
         return null;
       }
 
-      final position =
-          await Geolocator.getCurrentPosition(
-            locationSettings: LocationSettings(
-              accuracy: LocationAccuracy.high,
-              timeLimit: timeout,
-            ),
-          ).timeout(
-            timeout,
-            onTimeout: () => throw TimeoutException('Location timeout'),
-          );
+      final lastKnown = await _lastKnownLocation();
+      if (lastKnown != null && isFreshLastKnown(lastKnown.timestamp)) {
+        return lastKnown.location;
+      }
 
+      final medium = await _positionWithAccuracy(
+        LocationAccuracy.medium,
+        timeout,
+      );
+      if (medium != null) return medium;
+
+      final low = await _positionWithAccuracy(LocationAccuracy.low, timeout);
+      if (low != null) return low;
+
+      return lastKnown?.location;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<({UserLocation location, DateTime timestamp})?>
+  _lastKnownLocation() async {
+    try {
+      final position = await Geolocator.getLastKnownPosition();
+      if (position == null) return null;
+      return (
+        location: UserLocation(
+          latitude: position.latitude,
+          longitude: position.longitude,
+        ),
+        timestamp: position.timestamp,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<UserLocation?> _positionWithAccuracy(
+    LocationAccuracy accuracy,
+    Duration timeout,
+  ) async {
+    try {
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: LocationSettings(
+          accuracy: accuracy,
+          timeLimit: timeout,
+        ),
+      ).timeout(
+        timeout,
+        onTimeout: () => throw TimeoutException('Location timeout'),
+      );
       return UserLocation(
         latitude: position.latitude,
         longitude: position.longitude,

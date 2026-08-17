@@ -20,9 +20,7 @@ class SalonRatingBadge extends StatelessWidget {
     if (reviewCount == 0 || averageRating == null) {
       return context.appColors.textMuted;
     }
-    if (averageRating! >= 4) return AppColors.success;
-    if (averageRating! >= 3) return AppColors.warning;
-    return AppColors.error;
+    return AppColors.starGold;
   }
 
   String get _ratingLabel {
@@ -116,7 +114,7 @@ class ReviewStarsRow extends StatelessWidget {
           index < rating ? Icons.star_rounded : Icons.star_border_rounded,
           size: size,
           color: index < rating
-              ? activeColor ?? context.appColors.accent
+              ? activeColor ?? AppColors.starGold
               : mutedColor,
         );
       }),

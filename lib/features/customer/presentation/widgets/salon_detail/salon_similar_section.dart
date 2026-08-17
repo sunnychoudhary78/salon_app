@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:saloon_booking/core/routing/route_paths.dart';
 import 'package:saloon_booking/features/customer/data/services/customer_service.dart';
-import 'package:saloon_booking/features/customer/presentation/widgets/salon_detail/salon_detail_helpers.dart';
 import 'package:saloon_booking/features/customer/presentation/widgets/salon_detail/salon_detail_section.dart';
 import 'package:saloon_booking/shared/widgets/salon_card.dart';
 
@@ -14,10 +13,9 @@ class SalonSimilarSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final salonsAsync = ref.watch(paginatedSalonsProvider);
+    final salonsAsync = ref.watch(similarSalonsProvider(salonId));
     return salonsAsync.when(
-      data: (state) {
-        final similar = similarSalons(state.items, salonId);
+      data: (similar) {
         if (similar.length < 2) return const SizedBox.shrink();
 
         return SalonDetailSection(

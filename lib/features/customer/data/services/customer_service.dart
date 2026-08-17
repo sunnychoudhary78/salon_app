@@ -79,6 +79,33 @@ class CustomerService {
     return SalonModel.fromJson(data as Map<String, dynamic>);
   }
 
+  Future<void> addFavorite(String salonId) async {
+    await _dio.post(
+      '${AppConfig.appPrefix}/favorites',
+      data: {'salon_id': salonId},
+    );
+  }
+
+  Future<void> removeFavorite(String salonId) async {
+    await _dio.delete('${AppConfig.appPrefix}/favorites/$salonId');
+  }
+
+  Future<List<SalonModel>> getFavoriteSalons({
+    double? userLat,
+    double? userLng,
+  }) async {
+    final response = await _dio.get(
+      '${AppConfig.appPrefix}/favorites',
+      queryParameters: {
+        if (userLat != null && userLng != null) ...{
+          'user_lat': userLat,
+          'user_lng': userLng,
+        },
+      },
+    );
+    return parseDataList(response.data, SalonModel.fromJson);
+  }
+
   Future<SalonSlotsResponse> fetchSalonSlots(
     String salonId,
     String date,
@@ -107,6 +134,7 @@ class CustomerService {
     String? notes,
     String? staffId,
     bool isPremium = false,
+    String? mergeIntoGroupId,
   }) async {
     final response = await _dio.post(
       '${AppConfig.appPrefix}/bookings',
@@ -118,6 +146,8 @@ class CustomerService {
         if (notes != null && notes.isNotEmpty) 'notes': notes,
         if (staffId != null && staffId.isNotEmpty) 'staff_id': staffId,
         if (isPremium) 'is_premium': true,
+        if (mergeIntoGroupId != null && mergeIntoGroupId.isNotEmpty)
+          'merge_into_group_id': mergeIntoGroupId,
       },
     );
     final data = (response.data as Map<String, dynamic>)['data'];
@@ -148,6 +178,7 @@ class CustomerService {
   Future<ReviewModel> createReview({
     required String bookingId,
     required int rating,
+    int? staffRating,
     String? review,
   }) async {
     final response = await _dio.post(
@@ -155,6 +186,7 @@ class CustomerService {
       data: {
         'booking_id': bookingId,
         'rating': rating,
+        if (staffRating != null) 'staff_rating': staffRating,
         if (review != null && review.isNotEmpty) 'review': review,
       },
     );
@@ -301,6 +333,7 @@ SalonModel _mergeSalonEntry(SalonModel primary, SalonModel secondary) {
     latitude: primary.latitude ?? secondary.latitude,
     longitude: primary.longitude ?? secondary.longitude,
     distanceKm: primary.distanceKm ?? secondary.distanceKm,
+    isFavorite: primary.isFavorite || secondary.isFavorite,
   );
 }
 
@@ -335,6 +368,18 @@ List<SalonModel> _mergeForYouSalons(
   return merged;
 }
 
+final favoriteSalonsProvider = FutureProvider.autoDispose<List<SalonModel>>((
+  ref,
+) async {
+  final locationKey = ref.watch(settledSalonLocationKeyProvider);
+  if (locationKey.isEmpty) return [];
+
+  final ctx = _readSalonLocationContext(ref);
+  return ref
+      .read(customerServiceProvider)
+      .getFavoriteSalons(userLat: ctx.userLat, userLng: ctx.userLng);
+});
+
 final forYouSalonsProvider = FutureProvider.autoDispose<List<SalonModel>>((
   ref,
 ) async {
@@ -344,25 +389,23 @@ final forYouSalonsProvider = FutureProvider.autoDispose<List<SalonModel>>((
   if (locationKey.isEmpty) return [];
 
   final audience = ref.watch(audienceModeValueProvider).apiValue;
+  final filters = ref.watch(salonBrowseFiltersProvider);
   final ctx = _readSalonLocationContext(ref);
   final service = ref.read(customerServiceProvider);
   final results = await Future.wait([
-    service.browseSalons(
-      featured: true,
-      audience: audience,
-      limit: 8,
-      city: ctx.city,
-      userLat: ctx.userLat,
-      userLng: ctx.userLng,
-    ),
-    service.browseSalons(
-      hasDiscount: true,
-      audience: audience,
-      limit: 8,
-      city: ctx.city,
-      userLat: ctx.userLat,
-      userLng: ctx.userLng,
-    ),
+    for (final request in forYouBrowseRequests(filters))
+      service.browseSalons(
+        featured: request.featured,
+        hasDiscount: request.hasDiscount,
+        audience: audience,
+        limit: 8,
+        city: ctx.city,
+        userLat: ctx.userLat,
+        userLng: ctx.userLng,
+        minRating: request.minRating,
+        maxDistanceKm: request.maxDistanceKm,
+        hasAvailableSlots: request.hasAvailableSlots,
+      ),
   ]);
   return _mergeForYouSalons(results[0].salons, results[1].salons);
 });
@@ -398,6 +441,7 @@ class PaginatedSalonsNotifier extends AsyncNotifier<PaginatedSalonsState> {
     final ctx = _readSalonLocationContext(ref);
     final filters = ref.read(salonBrowseFiltersProvider);
     final audience = ref.read(audienceModeValueProvider).apiValue;
+    final sheet = filters.sheetQuery;
     return ref
         .read(customerServiceProvider)
         .browseSalons(
@@ -408,9 +452,9 @@ class PaginatedSalonsNotifier extends AsyncNotifier<PaginatedSalonsState> {
           audience: audience,
           userLat: ctx.userLat,
           userLng: ctx.userLng,
-          minRating: filters.minRating,
-          maxDistanceKm: filters.maxDistanceKm,
-          hasAvailableSlots: filters.hasAvailableSlots,
+          minRating: sheet.minRating,
+          maxDistanceKm: sheet.maxDistanceKm,
+          hasAvailableSlots: sheet.hasAvailableSlots,
         );
   }
 
@@ -518,6 +562,70 @@ final salonDetailProvider = FutureProvider.autoDispose
           .getSalon(salonId, userLat: ctx.userLat, userLng: ctx.userLng);
     });
 
+const _similarSalonRadiusKm = 25.0;
+const _similarSalonLimit = 8;
+
+final similarSalonsProvider = FutureProvider.autoDispose
+    .family<List<SalonModel>, String>((ref, salonId) async {
+      final salon = await ref.watch(salonDetailProvider(salonId).future);
+      final lat = salon.latitude;
+      final lng = salon.longitude;
+      if (lat == null || lng == null) return const [];
+
+      final audience = ref.watch(audienceModeValueProvider).apiValue;
+      final result = await ref
+          .read(customerServiceProvider)
+          .browseSalons(
+            audience: audience,
+            userLat: lat,
+            userLng: lng,
+            maxDistanceKm: _similarSalonRadiusKm,
+            limit: _similarSalonLimit + 1,
+          );
+
+      return result.salons
+          .where((item) => item.id != salonId)
+          .take(_similarSalonLimit)
+          .toList();
+    });
+
+class SalonFavoriteNotifier extends Notifier<bool> {
+  SalonFavoriteNotifier(this.salonId);
+
+  final String salonId;
+
+  @override
+  bool build() {
+    ref.listen(salonDetailProvider(salonId), (previous, next) {
+      final nextValue = next.value?.isFavorite;
+      if (nextValue != null) state = nextValue;
+    });
+    return ref.read(salonDetailProvider(salonId)).value?.isFavorite ?? false;
+  }
+
+  Future<void> toggle() async {
+    final current = state;
+    state = !current;
+    try {
+      final api = ref.read(customerServiceProvider);
+      if (current) {
+        await api.removeFavorite(salonId);
+      } else {
+        await api.addFavorite(salonId);
+      }
+      ref.invalidate(favoriteSalonsProvider);
+    } catch (_) {
+      state = current;
+      rethrow;
+    }
+  }
+}
+
+final salonFavoriteProvider =
+    NotifierProvider.autoDispose.family<SalonFavoriteNotifier, bool, String>(
+      SalonFavoriteNotifier.new,
+    );
+
 final salonReviewsProvider = FutureProvider.autoDispose
     .family<SalonReviewsResult, String>((ref, salonId) {
       return ref.watch(customerServiceProvider).getSalonReviews(salonId);
@@ -558,6 +666,7 @@ class BookingActions extends AsyncNotifier<void> {
     String? notes,
     String? staffId,
     bool isPremium = false,
+    String? mergeIntoGroupId,
   }) async {
     state = const AsyncLoading();
     late List<BookingModel> bookings;
@@ -572,6 +681,7 @@ class BookingActions extends AsyncNotifier<void> {
             notes: notes,
             staffId: staffId,
             isPremium: isPremium,
+            mergeIntoGroupId: mergeIntoGroupId,
           );
     });
     state = result;
@@ -609,6 +719,7 @@ class ReviewActions extends AsyncNotifier<void> {
   Future<String?> submit({
     required String bookingId,
     required int rating,
+    int? staffRating,
     String? review,
     String? salonId,
   }) async {
@@ -617,7 +728,12 @@ class ReviewActions extends AsyncNotifier<void> {
     state = await AsyncValue.guard(() async {
       await ref
           .read(customerServiceProvider)
-          .createReview(bookingId: bookingId, rating: rating, review: review);
+          .createReview(
+            bookingId: bookingId,
+            rating: rating,
+            staffRating: staffRating,
+            review: review,
+          );
       if (resolvedSalonId == null) {
         final bookings = await ref
             .read(customerServiceProvider)
@@ -638,6 +754,7 @@ class ReviewActions extends AsyncNotifier<void> {
       ref.invalidate(forYouSalonsProvider);
     }
     if (state.hasError) throw state.error!;
+    await ref.read(myBookingsProvider.future);
     return resolvedSalonId;
   }
 }

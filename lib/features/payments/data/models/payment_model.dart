@@ -52,6 +52,8 @@ class PaymentModel {
     this.failureReason,
     this.paidAt,
     this.expiresAt,
+    this.cashConfirmedAmount,
+    this.cashExtraAmount = 0,
   });
 
   final String id;
@@ -72,6 +74,8 @@ class PaymentModel {
   final String? failureReason;
   final DateTime? paidAt;
   final DateTime? expiresAt;
+  final double? cashConfirmedAmount;
+  final double cashExtraAmount;
 
   bool get isPending => status == 'PENDING';
   bool get isPaid => status == 'PAID';
@@ -103,6 +107,10 @@ class PaymentModel {
     failureReason: json['failure_reason'] as String?,
     paidAt: _parseDate(json['paid_at']),
     expiresAt: _parseDate(json['expires_at']),
+    cashConfirmedAmount: json['cash_confirmed_amount'] == null
+        ? null
+        : _parseDouble(json['cash_confirmed_amount']),
+    cashExtraAmount: _parseDouble(json['cash_extra_amount']),
   );
 }
 

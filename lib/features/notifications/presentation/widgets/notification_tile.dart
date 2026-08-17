@@ -37,7 +37,8 @@ class NotificationTile extends StatelessWidget {
         AppColors.primary,
       ),
       'payment_successful' ||
-      'payment_received' => (Icons.payments_rounded, AppColors.success),
+      'payment_received' ||
+      'pay_at_shop_selected' => (Icons.payments_rounded, AppColors.success),
       'promotional_offer' => (
         Icons.local_offer_rounded,
         context.appColors.accent,

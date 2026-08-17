@@ -14,6 +14,7 @@ class ScreenActionBar extends StatelessWidget {
     this.loading = false,
     this.variant = PremiumButtonVariant.accent,
     this.disabledMessage,
+    this.footer,
   });
 
   final String label;
@@ -23,10 +24,12 @@ class ScreenActionBar extends StatelessWidget {
   final bool loading;
   final PremiumButtonVariant variant;
   final String? disabledMessage;
+  final Widget? footer;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
 
     return ClipRRect(
       child: BackdropFilter(
@@ -48,15 +51,25 @@ class ScreenActionBar extends StatelessWidget {
           child: SafeArea(
             top: false,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-              child: PremiumButton(
-                label: label,
-                subtitle: subtitle,
-                icon: icon,
-                loading: loading,
-                variant: variant,
-                onPressed: onPressed,
-                disabledMessage: disabledMessage,
+              padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + keyboardInset),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (footer != null) ...[
+                    footer!,
+                    const SizedBox(height: 10),
+                  ],
+                  PremiumButton(
+                    label: label,
+                    subtitle: subtitle,
+                    icon: icon,
+                    loading: loading,
+                    variant: variant,
+                    onPressed: onPressed,
+                    disabledMessage: disabledMessage,
+                  ),
+                ],
               ),
             ),
           ),

@@ -22,4 +22,26 @@ void main() {
 
     expect(isSignificantGpsChange(current, moved), isTrue);
   });
+
+  test('treats a recent last-known fix as fresh', () {
+    final now = DateTime(2026, 8, 11, 18);
+    expect(
+      UserLocationService.isFreshLastKnown(
+        now.subtract(const Duration(minutes: 4)),
+        now: now,
+      ),
+      isTrue,
+    );
+  });
+
+  test('treats an old last-known fix as stale', () {
+    final now = DateTime(2026, 8, 11, 18);
+    expect(
+      UserLocationService.isFreshLastKnown(
+        now.subtract(const Duration(minutes: 6)),
+        now: now,
+      ),
+      isFalse,
+    );
+  });
 }

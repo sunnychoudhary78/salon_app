@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_decorations.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
+import 'package:saloon_booking/core/utils/currency_utils.dart';
 import 'package:saloon_booking/features/owner/data/models/owner_model.dart';
 import 'package:saloon_booking/features/owner/data/services/owner_service.dart';
 import 'package:saloon_booking/shared/widgets/animated_entrance.dart';
@@ -35,6 +36,8 @@ class _OwnerEarningsTransactionsScreenState
         return 'Platform fee';
       case 'PREMIUM_PLATFORM':
         return 'Platform premium fee';
+      case 'ADJUSTMENT':
+        return 'Extra cash at shop';
       default:
         return type.replaceAll('_', ' ').toLowerCase();
     }
@@ -174,7 +177,7 @@ class _TransactionTile extends StatelessWidget {
       case 'COLLECTED':
         return context.appColors.accent;
       case 'SETTLED':
-        return AppColors.success;
+        return context.appColors.primary;
       default:
         return AppColors.warning;
     }
@@ -218,9 +221,9 @@ class _TransactionTile extends StatelessWidget {
                   const SizedBox(height: 3),
                   Text(
                     dateLabel,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colors.textMuted,
-                    ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: colors.textMuted),
                   ),
                 ],
               ),
@@ -229,7 +232,7 @@ class _TransactionTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  '₹${item.amount.toStringAsFixed(0)}',
+                  formatMoney(item.amount),
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w800,
                     color: colors.textPrimary,

@@ -80,6 +80,17 @@ enum SalonType {
   const SalonType(this.apiValue);
   final String apiValue;
 
+  String get serviceAudienceLabel {
+    switch (this) {
+      case SalonType.men:
+        return 'Men';
+      case SalonType.women:
+        return 'Women';
+      case SalonType.unisex:
+        return 'Everyone';
+    }
+  }
+
   static SalonType? tryParse(String? value) {
     final normalized = value?.trim().toUpperCase();
     for (final type in SalonType.values) {
@@ -160,7 +171,23 @@ bool isWomenOnlyServiceName(String? name) {
 }
 
 /// Gender-unique services for the opposite audience are hidden; custom names stay visible.
-bool isServiceVisibleForAudience(String? serviceName, AudienceMode audience) {
+/// Prefer [serviceFor] when present; fall back to catalog-name heuristics for legacy rows.
+bool isServiceVisibleForAudience(
+  String? serviceName,
+  AudienceMode audience, {
+  SalonType? serviceFor,
+}) {
+  if (serviceFor != null) {
+    switch (serviceFor) {
+      case SalonType.unisex:
+        return true;
+      case SalonType.men:
+        return audience == AudienceMode.men;
+      case SalonType.women:
+        return audience == AudienceMode.women;
+    }
+  }
+
   final trimmed = serviceName?.trim() ?? '';
   if (trimmed.isEmpty) return false;
   if (matchingSalonServiceName(trimmed) == null) return true;

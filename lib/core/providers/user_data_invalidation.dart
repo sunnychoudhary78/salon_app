@@ -19,6 +19,7 @@ void invalidateAllUserScopedDataFromWidget(WidgetRef ref) {
 
 void _invalidateAllUserScopedData(dynamic ref) {
   ref.invalidate(bannersProvider);
+  ref.invalidate(favoriteSalonsProvider);
   ref.invalidate(forYouSalonsProvider);
   ref.invalidate(paginatedSalonsProvider);
   ref.invalidate(myBookingsProvider);

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:saloon_booking/core/notifications/notification_service.dart';
 import 'package:saloon_booking/core/routing/route_paths.dart';
 import 'package:saloon_booking/features/onboarding/data/onboarding_constants.dart';
+import 'package:saloon_booking/features/onboarding/data/onboarding_repository.dart';
 import 'package:saloon_booking/features/onboarding/presentation/providers/onboarding_provider.dart';
 import 'package:saloon_booking/features/onboarding/presentation/widgets/onboarding_bottom_bar.dart';
 import 'package:saloon_booking/features/onboarding/presentation/widgets/onboarding_page.dart';
@@ -32,6 +34,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     setState(() => _completing = true);
     try {
       await ref.read(onboardingCompletedProvider.notifier).complete();
+      if (!mounted) return;
+      await _primeNotificationPermission();
       if (mounted) {
         context.go(RoutePaths.login);
       }
@@ -39,6 +43,44 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       if (mounted) {
         setState(() => _completing = false);
       }
+    }
+  }
+
+  Future<void> _primeNotificationPermission() async {
+    final prefs = await ref.read(sharedPreferencesProvider.future);
+    if (prefs.getBool(notificationPermissionPrimedKey) ?? false) {
+      return;
+    }
+
+    if (!mounted) return;
+    final shouldRequest = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Stay updated'),
+          content: const Text(
+            'CATCHY uses notifications for booking requests, confirmations, '
+            'and reminders. Allow notifications so you never miss an update.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Not now'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Continue'),
+            ),
+          ],
+        );
+      },
+    );
+
+    await prefs.setBool(notificationPermissionPrimedKey, true);
+
+    if (shouldRequest == true && mounted) {
+      await ref.read(notificationServiceProvider).ensureOsPermission();
     }
   }
 

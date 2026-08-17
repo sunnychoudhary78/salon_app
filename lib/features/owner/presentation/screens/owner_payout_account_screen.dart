@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:saloon_booking/core/network/user_facing_error.dart';
-import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_decorations.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/core/utils/form_validators.dart';
@@ -16,6 +15,7 @@ import 'package:saloon_booking/shared/widgets/premium_app_bar.dart';
 import 'package:saloon_booking/shared/widgets/premium_text_field.dart';
 import 'package:saloon_booking/shared/widgets/screen_action_bar.dart';
 import 'package:saloon_booking/shared/widgets/section_header.dart';
+import 'package:saloon_booking/shared/widgets/status_badge.dart';
 
 class OwnerPayoutAccountScreen extends ConsumerStatefulWidget {
   const OwnerPayoutAccountScreen({super.key});
@@ -205,32 +205,8 @@ class _OwnerPayoutAccountScreenState
                             ],
                             if (existing.verificationStatus != null) ...[
                               const SizedBox(height: 12),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 6,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppColors.success.withValues(
-                                    alpha: 0.12,
-                                  ),
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(
-                                    color: AppColors.success.withValues(
-                                      alpha: 0.35,
-                                    ),
-                                  ),
-                                ),
-                                child: Text(
-                                  existing.verificationStatus!,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .labelSmall
-                                      ?.copyWith(
-                                        color: AppColors.success,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                ),
+                              StatusBadge(
+                                status: existing.verificationStatus!,
                               ),
                             ],
                           ],

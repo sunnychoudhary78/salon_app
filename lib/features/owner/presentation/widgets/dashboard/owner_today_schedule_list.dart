@@ -45,7 +45,8 @@ class OwnerTodayScheduleList extends ConsumerWidget {
     final visible = source.take(maxItems).toList();
     final remainingAfterPreview =
         appointments.length - (skipFirst ? 1 : 0) - visible.length;
-    final hasMore = remainingAfterPreview > 0 || appointments.length > visible.length;
+    final hasMore =
+        remainingAfterPreview > 0 || appointments.length > visible.length;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

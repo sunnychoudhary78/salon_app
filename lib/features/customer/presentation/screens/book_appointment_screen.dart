@@ -12,6 +12,7 @@ import 'package:saloon_booking/core/network/user_facing_error.dart';
 import 'package:saloon_booking/core/routing/navigation_utils.dart';
 import 'package:saloon_booking/core/routing/route_paths.dart';
 import 'package:saloon_booking/core/utils/form_validators.dart';
+import 'package:saloon_booking/core/utils/currency_utils.dart';
 import 'package:saloon_booking/core/constants/salon_service_names.dart';
 import 'package:saloon_booking/features/customer/data/models/salon_model.dart';
 import 'package:saloon_booking/features/customer/data/providers/audience_mode_provider.dart';
@@ -22,6 +23,7 @@ import 'package:saloon_booking/core/theme/app_animations.dart';
 import 'package:saloon_booking/shared/widgets/animated_entrance.dart';
 import 'package:saloon_booking/shared/widgets/async_value_widget.dart';
 import 'package:saloon_booking/shared/widgets/glass_card.dart';
+import 'package:saloon_booking/features/settings/presentation/widgets/legal_acknowledgement.dart';
 import 'package:saloon_booking/shared/widgets/premium_app_bar.dart';
 import 'package:saloon_booking/shared/widgets/premium_button.dart';
 import 'package:saloon_booking/shared/widgets/premium_text_field.dart';
@@ -169,7 +171,13 @@ class _BookAppointmentScreenState extends ConsumerState<BookAppointmentScreen>
 
   List<ServiceModel> _visibleServices(SalonModel salon, AudienceMode audience) {
     return salon.services
-        .where((s) => isServiceVisibleForAudience(s.serviceName, audience))
+        .where(
+          (s) => isServiceVisibleForAudience(
+            s.serviceName,
+            audience,
+            serviceFor: s.serviceFor,
+          ),
+        )
         .toList();
   }
 
@@ -200,14 +208,53 @@ class _BookAppointmentScreenState extends ConsumerState<BookAppointmentScreen>
     };
   }
 
-  bool _isSlotConflictMessage(String message) {
+  String _premiumPayWindowCopy(PremiumConfigModel config, int serviceCount) {
+    final minutes = config.paymentWindowMinutes;
+    final minuteLabel = minutes == 1 ? '1 minute' : '$minutes minutes';
+    final serviceLabel =
+        'service${serviceCount > 1 ? 's' : ''}';
+    return 'If the salon accepts, you will have $minuteLabel to pay '
+        '${formatMoney(config.fee)} premium for $serviceCount $serviceLabel.';
+  }
+
+  bool _isCustomerDuplicateMessage(String message) {
     final lower = message.toLowerCase();
-    return lower.contains('already booked') ||
+    return lower.contains('already booked this service');
+  }
+
+  bool _isOwnSlotBookedMessage(String message) {
+    final lower = message.toLowerCase();
+    return lower.contains('already have a booking for this time');
+  }
+
+  bool _isPremiumAlreadyAcceptedMessage(String message) {
+    final lower = message.toLowerCase();
+    return lower.contains('premium booking is already accepted') ||
+        lower.contains('already has an urgent');
+  }
+
+  bool _isSlotConflictMessage(String message) {
+    if (_isCustomerDuplicateMessage(message)) return false;
+    if (_isOwnSlotBookedMessage(message)) return false;
+    if (_isPremiumAlreadyAcceptedMessage(message)) return false;
+    final lower = message.toLowerCase();
+    return lower.contains('this slot is already booked') ||
         lower.contains('blocked by the salon') ||
         lower.contains('this slot is not available');
   }
 
-  String _slotUnavailableMessage(SalonSlotModel? slot, String fallback) {
+  String _slotUnavailableMessage(
+    SalonSlotModel? slot,
+    String fallback, {
+    bool premiumEnabled = false,
+  }) {
+    if (_isPremiumAlreadyAcceptedMessage(fallback) ||
+        (premiumEnabled &&
+            slot != null &&
+            slot.status != 'available' &&
+            !slot.premiumEligible)) {
+      return 'This slot already has an urgent booking. Please choose another time.';
+    }
     if (slot?.status == 'blocked' ||
         fallback.toLowerCase().contains('blocked')) {
       return 'This slot is blocked by the salon. Please choose another time.';
@@ -317,12 +364,14 @@ class _BookAppointmentScreenState extends ConsumerState<BookAppointmentScreen>
         premiumConfig != null &&
         premiumConfig.enabled &&
         refreshed != null &&
-        (refreshed.premiumEligible ||
-            refreshed.status == 'booked' ||
-            refreshed.status == 'blocked');
+        refreshed.premiumEligible;
 
     if (!canOfferUrgent) {
-      final message = _slotUnavailableMessage(refreshed, apiMessage);
+      final message = _slotUnavailableMessage(
+        refreshed,
+        apiMessage,
+        premiumEnabled: premiumConfig?.enabled == true,
+      );
       setState(() {
         _selectedSlot = null;
         _error = message;
@@ -341,9 +390,7 @@ class _BookAppointmentScreenState extends ConsumerState<BookAppointmentScreen>
       title: 'Slot already taken',
       dismissLabel: 'Choose another time',
       body:
-          '${_premiumSlotMessage(refreshed)} If the salon accepts, you will get a timer to pay '
-          '₹${premiumConfig.fee.toStringAsFixed(0)} premium for $serviceCount '
-          'service${serviceCount > 1 ? 's' : ''}.',
+          '${_premiumSlotMessage(refreshed)} ${_premiumPayWindowCopy(premiumConfig, serviceCount)}',
     );
 
     if (!mounted) return;
@@ -366,7 +413,11 @@ class _BookAppointmentScreenState extends ConsumerState<BookAppointmentScreen>
     final premiumConfig = slotsData?.premiumConfig;
     if (premiumConfig == null || !premiumConfig.enabled) {
       setState(() {
-        _error = _slotUnavailableMessage(slot, '');
+        _error = _slotUnavailableMessage(
+          slot,
+          '',
+          premiumEnabled: premiumConfig?.enabled == true,
+        );
         _selectedSlot = null;
       });
       return;
@@ -383,9 +434,7 @@ class _BookAppointmentScreenState extends ConsumerState<BookAppointmentScreen>
     final result = await _showUrgentBookingSheet(
       title: 'Urgent booking',
       body:
-          '${_premiumSlotMessage(slot)} If the salon accepts, you will get a timer to pay '
-          '₹${premiumConfig.fee.toStringAsFixed(0)} premium for $serviceCount '
-          'service${serviceCount > 1 ? 's' : ''}.',
+          '${_premiumSlotMessage(slot)} ${_premiumPayWindowCopy(premiumConfig, serviceCount)}',
     );
 
     if (!mounted) return;
@@ -399,7 +448,10 @@ class _BookAppointmentScreenState extends ConsumerState<BookAppointmentScreen>
     }
   }
 
-  Future<void> _submit({required bool isPremium}) async {
+  Future<void> _submit({
+    required bool isPremium,
+    String? mergeIntoGroupId,
+  }) async {
     if (_selectedServiceIds.isEmpty ||
         _selectedDate == null ||
         _selectedSlot == null) {
@@ -427,13 +479,16 @@ class _BookAppointmentScreenState extends ConsumerState<BookAppointmentScreen>
                 : _notesController.text.trim(),
             staffId: _preferredStaffId,
             isPremium: isPremium,
+            mergeIntoGroupId: mergeIntoGroupId,
           );
       if (!mounted) return;
       context.go(RoutePaths.customerBookings);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            isPremium
+            mergeIntoGroupId != null
+                ? 'Request updated — extra service${count > 1 ? 's' : ''} added'
+                : isPremium
                 ? 'Urgent request sent — awaiting salon approval ($count service${count > 1 ? 's' : ''})'
                 : 'Request sent — awaiting salon approval ($count service${count > 1 ? 's' : ''})',
           ),
@@ -444,6 +499,31 @@ class _BookAppointmentScreenState extends ConsumerState<BookAppointmentScreen>
       // Refresh so the grid reflects the current server state.
       _refreshSlots();
       if (!mounted) return;
+      final upgrade = mergeIntoGroupId == null ? _upgradeOfferFrom(e) : null;
+      if (upgrade != null) {
+        setState(() => _loading = false);
+        await _handleUpgradeOffer(upgrade);
+        return;
+      }
+      if (isPremium && _isPremiumAlreadyAcceptedMessage(message)) {
+        final friendly =
+            'This slot already has an urgent booking. Please choose another time.';
+        setState(() {
+          _selectedSlot = null;
+          _error = friendly;
+        });
+        await _showSlotUnavailableSheet(friendly);
+        return;
+      }
+      final api = apiExceptionFrom(e);
+      final code = api?.code ?? api?.data?['code']?.toString();
+      if (code == 'OWN_SLOT_BOOKED' ||
+          code == 'DUPLICATE_SERVICE' ||
+          _isOwnSlotBookedMessage(message) ||
+          _isCustomerDuplicateMessage(message)) {
+        setState(() => _error = message);
+        return;
+      }
       if (!isPremium && _isSlotConflictMessage(message)) {
         setState(() => _loading = false);
         await _handleStandardSlotConflict(message);
@@ -452,6 +532,91 @@ class _BookAppointmentScreenState extends ConsumerState<BookAppointmentScreen>
       setState(() => _error = message);
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  _UpgradeOffer? _upgradeOfferFrom(Object error) {
+    final api = apiExceptionFrom(error);
+    if (api == null) return null;
+    final data = api.data;
+    final code = api.code ?? data?['code']?.toString();
+    if (code != 'UPGRADE_AVAILABLE' || data == null) return null;
+    final groupId = data['group_id']?.toString();
+    if (groupId == null || groupId.isEmpty) return null;
+    List<String> asNames(dynamic raw) {
+      if (raw is! List) return const [];
+      return raw
+          .map((e) => e.toString().trim())
+          .where((s) => s.isNotEmpty)
+          .toList();
+    }
+
+    return _UpgradeOffer(
+      groupId: groupId,
+      existingServiceNames: asNames(data['existing_service_names']),
+      newServiceIds: asNames(data['new_service_ids']),
+      newServiceNames: asNames(data['new_service_names']),
+    );
+  }
+
+  String _joinServiceNames(List<String> names) {
+    if (names.isEmpty) return 'your service';
+    if (names.length == 1) return names.first;
+    if (names.length == 2) return '${names[0]} and ${names[1]}';
+    return '${names.sublist(0, names.length - 1).join(', ')}, and ${names.last}';
+  }
+
+  Future<void> _handleUpgradeOffer(_UpgradeOffer offer) async {
+    final timeLabel = _selectedSlot?.startLabel ?? 'this time';
+    final existing = _joinServiceNames(offer.existingServiceNames);
+    final adding = _joinServiceNames(
+      offer.newServiceNames.isNotEmpty
+          ? offer.newServiceNames
+          : offer.newServiceIds,
+    );
+    final confirmed = await showGlassBottomSheet<bool>(
+      context: context,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.fromLTRB(
+          20,
+          8,
+          20,
+          28 + MediaQuery.paddingOf(ctx).bottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Add to existing request',
+              style: Theme.of(ctx).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'You already requested $existing at $timeLabel. Add $adding to that request?',
+              style: Theme.of(ctx).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 16),
+            PremiumButton(
+              label: 'Add to request',
+              onPressed: () => Navigator.pop(ctx, true),
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (!mounted) return;
+    if (confirmed == true) {
+      await _submit(
+        isPremium: false,
+        mergeIntoGroupId: offer.groupId,
+      );
     }
   }
 
@@ -469,7 +634,9 @@ class _BookAppointmentScreenState extends ConsumerState<BookAppointmentScreen>
 
     if (!slot.premiumEligible || !premiumConfig.enabled) {
       setState(() {
-        _error = slot.status == 'blocked'
+        _error = premiumConfig.enabled
+            ? 'This slot already has an urgent booking. Please choose another time.'
+            : slot.status == 'blocked'
             ? 'This slot is blocked by the salon. Pick an available time.'
             : 'This slot is already booked. Pick an available time.';
       });
@@ -487,9 +654,7 @@ class _BookAppointmentScreenState extends ConsumerState<BookAppointmentScreen>
     final result = await _showUrgentBookingSheet(
       title: 'Urgent booking',
       body:
-          '${_premiumSlotMessage(slot)} If the salon accepts, you will get a timer to pay '
-          '₹${premiumConfig.fee.toStringAsFixed(0)} premium for $serviceCount '
-          'service${serviceCount > 1 ? 's' : ''}.',
+          '${_premiumSlotMessage(slot)} ${_premiumPayWindowCopy(premiumConfig, serviceCount)}',
     );
 
     if (result == _UrgentSheetResult.sendUrgent && mounted) {
@@ -840,13 +1005,14 @@ class _BookAppointmentScreenState extends ConsumerState<BookAppointmentScreen>
               subtitle: count == 0
                   ? null
                   : '${_selectedDurationMinutes(salon)} min · '
-                        '₹${_selectedTotal(salon).toStringAsFixed(0)} estimated'
+                        '${formatMoney(_selectedTotal(salon))} estimated'
                         '${count > 1 ? ' · $count services' : ''}'
                         '${isUrgentSelection ? ' · urgent' : ''}',
               icon: isUrgentSelection
                   ? Icons.bolt_rounded
                   : Icons.send_rounded,
               loading: _loading,
+              footer: const LegalAcknowledgement.booking(),
               // Only require the basics here; the server (`assertSlotBookable`)
               // is the source of truth for slot availability, and any conflict
               // is surfaced via the conflict sheet / `_error`.
@@ -866,6 +1032,20 @@ class _BookAppointmentScreenState extends ConsumerState<BookAppointmentScreen>
 }
 
 enum _UrgentSheetResult { sendUrgent, chooseAnother }
+
+class _UpgradeOffer {
+  const _UpgradeOffer({
+    required this.groupId,
+    required this.existingServiceNames,
+    required this.newServiceIds,
+    required this.newServiceNames,
+  });
+
+  final String groupId;
+  final List<String> existingServiceNames;
+  final List<String> newServiceIds;
+  final List<String> newServiceNames;
+}
 
 class _BookingIntroCard extends StatelessWidget {
   const _BookingIntroCard({required this.salonName, required this.child});
@@ -1011,7 +1191,7 @@ class _BookingSummaryCard extends StatelessWidget {
               Expanded(
                 child: _SummaryMetric(
                   icon: Icons.payments_outlined,
-                  value: '₹${total.toStringAsFixed(0)}',
+                  value: formatMoney(total),
                   label: 'Estimated',
                 ),
               ),
@@ -1222,7 +1402,7 @@ class _UrgentCallout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final feeLabel = fee > 0 ? ' · ₹${fee.toStringAsFixed(0)}' : '';
+    final feeLabel = fee > 0 ? ' · ${formatMoney(fee)}' : '';
 
     return Container(
       width: double.infinity,

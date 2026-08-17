@@ -1,15 +1,37 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/core/utils/currency_utils.dart';
 import 'package:saloon_booking/features/owner/data/models/owner_dashboard_v2_model.dart';
 import 'package:saloon_booking/shared/widgets/glass_card.dart';
 import 'package:saloon_booking/shared/widgets/section_header.dart';
 
-class OwnerPerformanceCharts extends StatelessWidget {
-  const OwnerPerformanceCharts({
+const double _kChartHeight = 180;
+
+/// Bookings-per-day (or per-month) trend. Lives in the Growth segment.
+class OwnerBookingTrendChart extends StatelessWidget {
+  const OwnerBookingTrendChart({super.key, required this.performance});
+
+  final OwnerDashboardPerformance performance;
+
+  @override
+  Widget build(BuildContext context) {
+    return _ChartSection(
+      title: 'Bookings trend',
+      subtitle: performance.period.label,
+      isEmpty: performance.bookingTrend.isEmpty,
+      chart: _BookingBarChart(
+        trend: performance.bookingTrend,
+        isMonthly: performance.period.isMonthly,
+      ),
+    );
+  }
+}
+
+/// Revenue trend over the selected period. Lives in the Money segment.
+class OwnerRevenueTrendChart extends StatelessWidget {
+  const OwnerRevenueTrendChart({
     super.key,
     required this.performance,
     required this.currency,
@@ -20,58 +42,65 @@ class OwnerPerformanceCharts extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (performance.bookingTrend.isEmpty && performance.revenueTrend.isEmpty) {
-      return const SizedBox.shrink();
-    }
+    return _ChartSection(
+      title: 'Revenue trend',
+      subtitle: performance.period.label,
+      isEmpty: performance.revenueTrend.isEmpty,
+      chart: _RevenueLineChart(
+        trend: performance.revenueTrend,
+        currency: currency,
+        isMonthly: performance.period.isMonthly,
+      ),
+    );
+  }
+}
 
+class _ChartSection extends StatelessWidget {
+  const _ChartSection({
+    required this.title,
+    required this.subtitle,
+    required this.isEmpty,
+    required this.chart,
+  });
+
+  final String title;
+  final String subtitle;
+  final bool isEmpty;
+  final Widget chart;
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionHeader(title: 'Performance', subtitle: performance.period.label),
-        const SizedBox(height: 12),
-        if (performance.bookingTrend.isNotEmpty) ...[
-          Text(
-            'Bookings',
-            style: Theme.of(
-              context,
-            ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 8),
-          GlassCard(
-            padding: const EdgeInsets.fromLTRB(8, 16, 16, 8),
-            child: SizedBox(
-              height: 180,
-              child: _BookingBarChart(
-                trend: performance.bookingTrend,
-                isMonthly: performance.period.isMonthly,
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-        ],
-        if (performance.revenueTrend.isNotEmpty) ...[
-          Text(
-            'Revenue',
-            style: Theme.of(
-              context,
-            ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 8),
-          GlassCard(
-            padding: const EdgeInsets.fromLTRB(8, 16, 16, 8),
-            child: SizedBox(
-              height: 180,
-              child: _RevenueLineChart(
-                trend: performance.revenueTrend,
-                currency: currency,
-                isMonthly: performance.period.isMonthly,
-              ),
-            ),
-          ),
-        ],
+        SectionHeader(title: title, subtitle: subtitle),
+        const SizedBox(height: 10),
+        GlassCard(
+          padding: isEmpty
+              ? const EdgeInsets.all(20)
+              : const EdgeInsets.fromLTRB(8, 16, 16, 8),
+          child: isEmpty
+              ? Center(
+                  child: Text(
+                    'No data for this period yet',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: context.appColors.textMuted,
+                    ),
+                  ),
+                )
+              : SizedBox(height: _kChartHeight, child: chart),
+        ),
       ],
     );
   }
+}
+
+String _shortDate(String date, {bool isMonthly = false, bool verbose = false}) {
+  final parsed = DateTime.tryParse(date);
+  if (parsed == null) return date.length >= 5 ? date.substring(5) : date;
+  if (isMonthly) return DateFormat('MMM').format(parsed);
+  if (verbose) return DateFormat('E d').format(parsed);
+  return DateFormat('E').format(parsed).substring(0, 1);
 }
 
 class _BookingBarChart extends StatefulWidget {
@@ -193,11 +222,13 @@ class _BookingBarChartState extends State<_BookingBarChart> {
           for (var i = 0; i < trend.length; i++)
             BarChartGroupData(
               x: i,
-              showingTooltipIndicators: _touchedGroup == i ? const [0] : const [],
+              showingTooltipIndicators: _touchedGroup == i
+                  ? const [0]
+                  : const [],
               barRods: [
                 BarChartRodData(
                   toY: trend[i].count.toDouble(),
-                  color: AppColors.primary,
+                  color: colors.primary,
                   width: 14,
                   borderRadius: const BorderRadius.vertical(
                     top: Radius.circular(4),
@@ -208,18 +239,6 @@ class _BookingBarChartState extends State<_BookingBarChart> {
         ],
       ),
     );
-  }
-
-  String _shortDate(
-    String date, {
-    bool isMonthly = false,
-    bool verbose = false,
-  }) {
-    final parsed = DateTime.tryParse(date);
-    if (parsed == null) return date.length >= 5 ? date.substring(5) : date;
-    if (isMonthly) return DateFormat('MMM').format(parsed);
-    if (verbose) return DateFormat('E d').format(parsed);
-    return DateFormat('E').format(parsed).substring(0, 1);
   }
 }
 
@@ -258,20 +277,20 @@ class _RevenueLineChartState extends State<_RevenueLineChart> {
     final lineBar = LineChartBarData(
       spots: spots,
       isCurved: true,
-      color: context.appColors.accent,
+      color: colors.accent,
       barWidth: 3,
       dotData: FlDotData(
         show: true,
         getDotPainter: (_, __, ___, ____) => FlDotCirclePainter(
           radius: 3,
-          color: context.appColors.accent,
+          color: colors.accent,
           strokeWidth: 1,
           strokeColor: colors.surface,
         ),
       ),
       belowBarData: BarAreaData(
         show: true,
-        color: context.appColors.accent.withValues(alpha: 0.12),
+        color: colors.accent.withValues(alpha: 0.12),
       ),
     );
 
@@ -279,7 +298,8 @@ class _RevenueLineChartState extends State<_RevenueLineChart> {
       LineChartData(
         minY: 0,
         maxY: top,
-        showingTooltipIndicators: _touchedSpot == null ||
+        showingTooltipIndicators:
+            _touchedSpot == null ||
                 _touchedSpot! < 0 ||
                 _touchedSpot! >= spots.length
             ? const []
@@ -385,17 +405,5 @@ class _RevenueLineChartState extends State<_RevenueLineChart> {
         lineBarsData: [lineBar],
       ),
     );
-  }
-
-  String _shortDate(
-    String date, {
-    bool isMonthly = false,
-    bool verbose = false,
-  }) {
-    final parsed = DateTime.tryParse(date);
-    if (parsed == null) return date.length >= 5 ? date.substring(5) : date;
-    if (isMonthly) return DateFormat('MMM').format(parsed);
-    if (verbose) return DateFormat('E d').format(parsed);
-    return DateFormat('E').format(parsed).substring(0, 1);
   }
 }

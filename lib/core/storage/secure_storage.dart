@@ -39,7 +39,16 @@ class SecureStorageService {
     _tokenLoaded = true;
   }
 
+  /// Drops the in-memory JWT immediately without touching platform storage.
+  void clearCachedToken() {
+    _cachedToken = null;
+    _tokenLoaded = true;
+  }
+
   Future<void> deleteToken() async {
+    // Clear memory first so any concurrent reads / a new ProviderScope cannot
+    // keep serving a stale JWT even if platform delete is slow or fails.
+    clearCachedToken();
     try {
       await withStorageTimeout(
         _storage.delete(key: _tokenKey),
@@ -47,9 +56,12 @@ class SecureStorageService {
       );
     } catch (e, stack) {
       CrashReporting.recordError(e, stack, reason: 'deleteToken');
+      try {
+        await withStorageTimeout(_storage.deleteAll(), label: 'deleteTokenAll');
+      } catch (e2, stack2) {
+        CrashReporting.recordError(e2, stack2, reason: 'deleteTokenAll');
+      }
     }
-    _cachedToken = null;
-    _tokenLoaded = true;
   }
 
   Future<void> clearAll() async {

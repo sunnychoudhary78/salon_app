@@ -56,6 +56,9 @@ class AppColors {
   static const warning = Color(0xFFD4A017);
   static const error = Color(0xFFD94B4B);
 
+  /// Filled rating stars (badges, histograms, review pickers).
+  static const starGold = Color(0xFFE4B84A);
+
   // --- Glow aliases (hairline-first; minimal tint) ---
   static const glowPurple = primary;
   static const glowAccent = accent;

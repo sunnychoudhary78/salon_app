@@ -5,6 +5,7 @@ import 'package:saloon_booking/core/routing/route_paths.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_decorations.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
+import 'package:saloon_booking/core/utils/currency_utils.dart';
 import 'package:saloon_booking/features/owner/data/services/owner_service.dart';
 import 'package:saloon_booking/features/owner/presentation/utils/owner_payout_status.dart';
 import 'package:saloon_booking/features/owner/presentation/widgets/owner_account_alerts_card.dart';
@@ -84,7 +85,7 @@ class OwnerEarningsScreen extends ConsumerWidget {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          '₹${data.pendingTotal.toStringAsFixed(0)}',
+                          formatMoney(data.pendingTotal),
                           style: Theme.of(context).textTheme.displaySmall
                               ?.copyWith(
                                 color: colors.textPrimary,
@@ -111,7 +112,7 @@ class OwnerEarningsScreen extends ConsumerWidget {
                         child: _EarningsBucketCard(
                           label: 'Settled',
                           amount: data.settledTotal,
-                          color: AppColors.success,
+                          color: colors.primary,
                           subtitle: 'Paid out to you',
                           icon: Icons.verified_outlined,
                         ),
@@ -135,7 +136,7 @@ class OwnerEarningsScreen extends ConsumerWidget {
                   child: _EarningsBucketCard(
                     label: 'Platform fee owed',
                     amount: data.platformFeeOwed,
-                    color: AppColors.error,
+                    color: AppColors.warning,
                     subtitle: 'Deducted from settlement',
                     icon: Icons.percent_rounded,
                     wide: true,
@@ -214,7 +215,6 @@ class _EarningsBucketCard extends StatelessWidget {
 
     return GlassCard(
       elevated: true,
-      shadowColor: color,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -241,7 +241,7 @@ class _EarningsBucketCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '₹${amount.toStringAsFixed(0)}',
+                  formatMoney(amount),
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.w800,
                     color: color,
@@ -251,9 +251,9 @@ class _EarningsBucketCard extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: colors.textSecondary,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelSmall?.copyWith(color: colors.textSecondary),
                 ),
               ],
             ),
@@ -325,17 +325,14 @@ class _ManageLinkCard extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     subtitle,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colors.textMuted,
-                    ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: colors.textMuted),
                   ),
                 ],
               ),
             ),
-            Icon(
-              Icons.chevron_right_rounded,
-              color: colors.textMuted,
-            ),
+            Icon(Icons.chevron_right_rounded, color: colors.textMuted),
           ],
         ),
       ),

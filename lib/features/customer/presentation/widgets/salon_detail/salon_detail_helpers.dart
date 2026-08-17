@@ -114,16 +114,7 @@ List<SalonModel> similarSalons(
   String currentSalonId, {
   int limit = 8,
 }) {
-  final others = all.where((s) => s.id != currentSalonId).toList()
-    ..sort((a, b) {
-      final da = a.distanceKm;
-      final db = b.distanceKm;
-      if (da == null && db == null) return 0;
-      if (da == null) return 1;
-      if (db == null) return -1;
-      return da.compareTo(db);
-    });
-  return others.take(limit).toList();
+  return all.where((s) => s.id != currentSalonId).take(limit).toList();
 }
 
 String formatDistanceKm(double? km) {

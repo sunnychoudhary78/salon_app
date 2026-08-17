@@ -9,7 +9,6 @@ import 'package:saloon_booking/features/notifications/data/models/notification_m
 import 'package:saloon_booking/features/notifications/data/providers/notification_history_provider.dart';
 import 'package:saloon_booking/features/notifications/presentation/widgets/notification_tile.dart';
 import 'package:saloon_booking/features/owner/data/services/owner_service.dart';
-import 'package:saloon_booking/shared/widgets/animated_list_item.dart';
 import 'package:saloon_booking/shared/widgets/async_value_widget.dart';
 import 'package:saloon_booking/shared/widgets/premium_app_bar.dart';
 import 'package:saloon_booking/shared/widgets/section_header.dart';
@@ -175,13 +174,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                       '${state.items.length} notification${state.items.length == 1 ? '' : 's'}',
                 ),
                 const SizedBox(height: 14),
-                ...state.items.asMap().entries.map(
-                  (entry) => AnimatedListItem(
-                    index: entry.key,
-                    child: NotificationTile(
-                      notification: entry.value,
-                      onTap: () => _onTap(entry.value),
-                    ),
+                ...state.items.map(
+                  (notification) => NotificationTile(
+                    notification: notification,
+                    onTap: () => _onTap(notification),
                   ),
                 ),
                 if (state.isLoadingMore)

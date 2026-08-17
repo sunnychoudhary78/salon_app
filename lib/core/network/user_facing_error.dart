@@ -38,6 +38,18 @@ String userFacingErrorMessage(
   return fallback;
 }
 
+ApiException? apiExceptionFrom(Object error) {
+  if (error is ApiException) return error;
+  if (error is DioException) {
+    if (error.error is ApiException) return error.error as ApiException;
+    final data = error.response?.data;
+    if (data != null) {
+      return ApiException.fromResponse(data, error.response?.statusCode);
+    }
+  }
+  return null;
+}
+
 /// Short message used when Dio has no response body to parse.
 String dioTypeFallbackMessage(DioExceptionType type) {
   switch (type) {

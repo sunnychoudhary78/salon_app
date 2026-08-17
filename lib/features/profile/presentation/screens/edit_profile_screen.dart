@@ -11,11 +11,14 @@ import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/core/theme/app_decorations.dart';
 import 'package:saloon_booking/core/utils/form_validators.dart';
 import 'package:saloon_booking/core/utils/image_url_utils.dart';
+import 'package:saloon_booking/core/utils/image_decode_utils.dart';
 import 'package:saloon_booking/features/auth/presentation/providers/auth_provider.dart';
 import 'package:saloon_booking/features/profile/data/services/profile_service.dart';
+import 'package:saloon_booking/features/profile/presentation/widgets/profile_detail_row.dart';
 import 'package:saloon_booking/shared/widgets/animated_entrance.dart';
 import 'package:saloon_booking/shared/widgets/glass_card.dart';
 import 'package:saloon_booking/shared/widgets/premium_app_bar.dart';
+import 'package:saloon_booking/shared/widgets/image_crop_screen.dart';
 import 'package:saloon_booking/shared/widgets/premium_button.dart';
 import 'package:saloon_booking/shared/widgets/premium_text_field.dart';
 
@@ -30,7 +33,6 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
-  final _phoneController = TextEditingController();
   final _imagePicker = ImagePicker();
 
   String? _existingImageUrl;
@@ -50,7 +52,6 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     if (auth == null) return;
     _nameController.text = auth.user.name;
     _emailController.text = auth.user.email ?? '';
-    _phoneController.text = auth.user.phone ?? '';
     _existingImageUrl = auth.customer?.profileImage;
     final gender = auth.customer?.gender?.toLowerCase();
     _gender = gender == 'male' || gender == 'female' ? gender : null;
@@ -61,7 +62,6 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
-    _phoneController.dispose();
     super.dispose();
   }
 
@@ -73,8 +73,14 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       imageQuality: 90,
     );
     if (picked == null || !mounted) return;
+    final cropped = await cropPickedImage(
+      context,
+      picked,
+      ImageCropShape.circle,
+    );
+    if (cropped == null || !mounted) return;
     setState(() {
-      _pickedImage = picked;
+      _pickedImage = cropped;
       _removedImage = false;
     });
   }
@@ -111,7 +117,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('Profile updated')));
-        context.pop();
+        context.go(_profileRoute);
       }
     } catch (e) {
       if (mounted) {
@@ -121,6 +127,20 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       }
     } finally {
       if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  bool get _isOwnerMode =>
+      GoRouterState.of(context).uri.path.startsWith('/owner');
+
+  String get _profileRoute =>
+      _isOwnerMode ? RoutePaths.ownerProfile : RoutePaths.customerProfile;
+
+  void _onBack() {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go(_profileRoute);
     }
   }
 
@@ -140,7 +160,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         showMenu: false,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
-          onPressed: () => context.pop(),
+          onPressed: _onBack,
         ),
       ),
       body: auth == null
@@ -223,34 +243,29 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                             validator: validateOptionalEmail,
                           ),
                           const SizedBox(height: 12),
-                          PremiumTextField(
-                            controller: _phoneController,
+                          ProfileDetailRow(
+                            icon: Icons.phone_rounded,
                             label: 'Phone',
-                            keyboardType: TextInputType.phone,
-                            enabled: false,
+                            value: auth.user.phone ?? '',
                           ),
                           const SizedBox(height: 8),
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: TextButton(
-                              onPressed: _saving
-                                  ? null
-                                  : () {
-                                      final isOwner = GoRouterState.of(context)
-                                          .uri
-                                          .path
-                                          .startsWith('/owner');
-                                      context.push(
-                                        isOwner
-                                            ? RoutePaths.ownerChangePhone
-                                            : RoutePaths.customerChangePhone,
-                                      );
-                                    },
-                              child: const Text('Change phone number'),
-                            ),
+                          PremiumButton(
+                            label: 'Change mobile number',
+                            icon: Icons.phonelink_setup_rounded,
+                            variant: PremiumButtonVariant.ghost,
+                            size: PremiumButtonSize.small,
+                            onPressed: _saving
+                                ? null
+                                : () {
+                                    context.push(
+                                      _isOwnerMode
+                                          ? RoutePaths.ownerChangePhone
+                                          : RoutePaths.customerChangePhone,
+                                    );
+                                  },
                           ),
                           Padding(
-                            padding: const EdgeInsets.only(top: 0),
+                            padding: const EdgeInsets.only(top: 8),
                             child: Text(
                               'Changing your phone requires OTP verification on the new number.',
                               style: Theme.of(context).textTheme.bodySmall
@@ -346,6 +361,8 @@ class _ProfilePhotoPreview extends StatelessWidget {
           ? CachedNetworkImage(
               imageUrl: resolveImageUrl(existingImageUrl!),
               fit: BoxFit.cover,
+              memCacheWidth: memCachePx(context, 96),
+              memCacheHeight: memCachePx(context, 96),
               errorWidget: (_, __, ___) => _InitialsAvatar(initials: initials),
             )
           : _InitialsAvatar(initials: initials),

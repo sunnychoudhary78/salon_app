@@ -8,6 +8,7 @@ import 'package:saloon_booking/core/network/user_facing_error.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_decorations.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
+import 'package:saloon_booking/core/utils/currency_utils.dart';
 import 'package:saloon_booking/core/utils/form_validators.dart';
 import 'package:saloon_booking/core/utils/phone_validation.dart';
 import 'package:saloon_booking/core/utils/salon_time_utils.dart';
@@ -88,7 +89,7 @@ class _EditSalonScreenState extends ConsumerState<EditSalonScreen> {
     _descriptionController.text = salon.description ?? '';
     _phoneController.text = salon.phone ?? '';
     if (salon.premiumBookingFee != null) {
-      _premiumFeeController.text = salon.premiumBookingFee!.toStringAsFixed(0);
+      _premiumFeeController.text = salon.premiumBookingFee!.toStringAsFixed(2);
     }
     _openingTime =
         parseSalonTime(salon.openingTime) ??
@@ -254,9 +255,7 @@ class _EditSalonScreenState extends ConsumerState<EditSalonScreen> {
       await ref.read(authProvider.notifier).refreshProfile();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Update request submitted — pending admin approval'),
-        ),
+        const SnackBar(content: Text('Salon details saved')),
       );
       context.pop();
     } catch (e) {
@@ -278,7 +277,7 @@ class _EditSalonScreenState extends ConsumerState<EditSalonScreen> {
           children: [
             PremiumAppBar(
               title: 'Edit salon',
-              subtitle: 'Request changes for admin approval',
+              subtitle: 'Update your salon details anytime',
               showMenu: false,
               leading: IconButton(
                 icon: const Icon(Icons.arrow_back_rounded),
@@ -364,9 +363,9 @@ class _EditSalonScreenState extends ConsumerState<EditSalonScreen> {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             const SectionHeader(
-                              title: 'Request salon changes',
+                              title: 'Salon details',
                               subtitle:
-                                  'Updates are sent to admin for approval before going live.',
+                                  'Changes go live immediately after you save.',
                             ),
                             const SizedBox(height: 12),
                             GlassCard(
@@ -498,7 +497,7 @@ class _EditSalonScreenState extends ConsumerState<EditSalonScreen> {
                                     data: (config) => Text(
                                       config.enabled
                                           ? 'Leave empty to use platform default '
-                                                '(₹${config.fee.toStringAsFixed(0)}). '
+                                                '(${formatMoney(config.fee)}). '
                                                 'Changes apply immediately.'
                                           : 'Urgent bookings are disabled platform-wide.',
                                       style: Theme.of(context)
@@ -621,7 +620,7 @@ class _EditSalonScreenState extends ConsumerState<EditSalonScreen> {
         ),
       ),
       bottomNavigationBar: ScreenActionBar(
-        label: 'Submit for approval',
+        label: 'Save changes',
         loading: _loading,
         onPressed: _loading ? null : _submit,
       ),

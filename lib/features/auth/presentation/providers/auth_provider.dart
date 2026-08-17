@@ -1,12 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:saloon_booking/core/crash/crash_reporting.dart';
 import 'package:saloon_booking/core/network/unauthorized_trigger.dart';
 import 'package:saloon_booking/core/notifications/notification_service.dart';
 import 'package:saloon_booking/core/providers/owner_approval_provider.dart';
 import 'package:saloon_booking/core/providers/user_data_invalidation.dart';
+import 'package:saloon_booking/core/storage/secure_storage.dart';
 import 'package:saloon_booking/features/auth/data/models/user_model.dart';
 import 'package:saloon_booking/features/auth/data/repositories/auth_repository.dart';
-import 'package:saloon_booking/main.dart';
 
 class PendingSignup {
   const PendingSignup({required this.signupToken, required this.phone});
@@ -34,9 +36,13 @@ class Auth extends AsyncNotifier<AuthState?> {
   Future<AuthState?> build() async {
     ref.keepAlive();
     ref.listen(unauthorizedTriggerProvider, (_, __) {
+      invalidateAllUserScopedData(ref);
+      ref.read(secureStorageProvider).clearCachedToken();
       ref.read(hasApprovedSalonsProvider.notifier).reset();
       ref.read(pendingSignupProvider.notifier).clear();
       state = const AsyncData(null);
+      // Persist logged-out flag + wipe disk token; never block redirect.
+      unawaited(ref.read(authRepositoryProvider).logout());
     });
 
     final session = await ref.read(authRepositoryProvider).restoreSession();
@@ -85,6 +91,7 @@ class Auth extends AsyncNotifier<AuthState?> {
   Future<void> completeProfile({
     required String name,
     required String gender,
+    required String accountType,
     String? email,
   }) async {
     final pending = ref.read(pendingSignupProvider);
@@ -98,6 +105,7 @@ class Auth extends AsyncNotifier<AuthState?> {
           signupToken: pending.signupToken,
           name: name,
           gender: gender,
+          accountType: accountType,
           email: email,
         );
     ref.read(pendingSignupProvider.notifier).clear();
@@ -119,14 +127,24 @@ class Auth extends AsyncNotifier<AuthState?> {
     }
   }
 
-  Future<void> logout({bool silent = false}) async {
+  Future<void> logout() async {
     invalidateAllUserScopedData(ref);
-    await ref.read(notificationServiceProvider).unregisterCurrentDevice();
-    await ref.read(authRepositoryProvider).logout();
+    ref.read(secureStorageProvider).clearCachedToken();
     ref.read(hasApprovedSalonsProvider.notifier).reset();
     ref.read(pendingSignupProvider.notifier).clear();
+    // Clear session first so GoRouter redirects to login immediately.
     state = const AsyncData(null);
-    Root.restartApp();
+
+    try {
+      await ref.read(authRepositoryProvider).logout();
+    } catch (e, stack) {
+      CrashReporting.recordError(e, stack, reason: 'logout');
+    }
+
+    // Best-effort; never block navigation to login.
+    unawaited(
+      ref.read(notificationServiceProvider).unregisterCurrentDevice(),
+    );
   }
 
   void updateAuthState(AuthState authState) {

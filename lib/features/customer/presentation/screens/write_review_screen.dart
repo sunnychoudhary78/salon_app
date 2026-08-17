@@ -27,7 +27,8 @@ class WriteReviewScreen extends ConsumerStatefulWidget {
 
 class _WriteReviewScreenState extends ConsumerState<WriteReviewScreen> {
   final _formKey = GlobalKey<FormState>();
-  int _rating = 5;
+  int _salonRating = 5;
+  int _staffRating = 5;
   final _reviewController = TextEditingController();
   bool _loading = false;
 
@@ -52,7 +53,7 @@ class _WriteReviewScreenState extends ConsumerState<WriteReviewScreen> {
     return text;
   }
 
-  Future<void> _submit() async {
+  Future<void> _submit({required bool hasStaff}) async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
     setState(() => _loading = true);
@@ -61,7 +62,8 @@ class _WriteReviewScreenState extends ConsumerState<WriteReviewScreen> {
           .read(reviewActionsProvider.notifier)
           .submit(
             bookingId: widget.bookingId,
-            rating: _rating,
+            rating: _salonRating,
+            staffRating: hasStaff ? _staffRating : null,
             review: _reviewController.text.trim().isEmpty
                 ? null
                 : _reviewController.text.trim(),
@@ -101,10 +103,58 @@ class _WriteReviewScreenState extends ConsumerState<WriteReviewScreen> {
     return null;
   }
 
+  Widget _starRow({required int rating, required ValueChanged<int> onChanged}) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cell = (constraints.maxWidth / 5).clamp(1.0, 56.0);
+        final iconSize = (cell * 0.78).clamp(1.0, 44.0);
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(5, (i) {
+            final selected = i < rating;
+            return SizedBox(
+              width: cell,
+              height: cell,
+              child: IconButton(
+                onPressed: () => setState(() {
+                  onChanged(i + 1);
+                  _formKey.currentState?.validate();
+                }),
+                padding: EdgeInsets.zero,
+                visualDensity: VisualDensity.compact,
+                constraints: BoxConstraints.tightFor(width: cell, height: cell),
+                style: IconButton.styleFrom(
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  minimumSize: Size(cell, cell),
+                  padding: EdgeInsets.zero,
+                ),
+                icon: Icon(
+                  selected ? Icons.star_rounded : Icons.star_border_rounded,
+                  color: AppColors.starGold,
+                  size: iconSize,
+                  shadows: selected
+                      ? [
+                          Shadow(
+                            color: AppColors.starGold.withValues(alpha: 0.6),
+                            blurRadius: 12,
+                          ),
+                        ]
+                      : null,
+                ),
+              ),
+            );
+          }),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final bookingsAsync = ref.watch(myBookingsProvider);
     final staff = _staffFromBookings(bookingsAsync.asData?.value);
+    final hasStaff = staff != null;
+    final lowRating = _salonRating <= 2 || (hasStaff && _staffRating <= 2);
 
     return PopScope(
       canPop: false,
@@ -120,7 +170,7 @@ class _WriteReviewScreenState extends ConsumerState<WriteReviewScreen> {
             onPressed: () => popOrGoHome(context),
           ),
         ),
-        body: Padding(
+        body: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: AnimatedEntrance(
             child: Form(
@@ -130,13 +180,41 @@ class _WriteReviewScreenState extends ConsumerState<WriteReviewScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (staff != null) ...[
+                    Text(
+                      'Salon experience',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'How was the salon overall?',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      _ratingLabel(_salonRating),
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: context.appColors.accent,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _starRow(
+                      rating: _salonRating,
+                      onChanged: (value) => _salonRating = value,
+                    ),
+                    if (hasStaff) ...[
+                      const SizedBox(height: 24),
                       Row(
                         children: [
                           StaffAvatar(
                             name: staff.name,
                             imageUrl: staff.profileImage,
-                            size: 56,
+                            size: 48,
                           ),
                           const SizedBox(width: 14),
                           Expanded(
@@ -144,13 +222,13 @@ class _WriteReviewScreenState extends ConsumerState<WriteReviewScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Rate ${staff.name}',
+                                  'Staff experience',
                                   style: Theme.of(context).textTheme.titleMedium
                                       ?.copyWith(fontWeight: FontWeight.w700),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  'How was your experience with this stylist?',
+                                  'How was your experience with ${staff.name}?',
                                   style: Theme.of(context).textTheme.bodySmall
                                       ?.copyWith(
                                         color: AppColors.textSecondary,
@@ -161,68 +239,39 @@ class _WriteReviewScreenState extends ConsumerState<WriteReviewScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 20),
-                    ] else ...[
+                      const SizedBox(height: 12),
                       Text(
-                        'Rating',
-                        style: Theme.of(context).textTheme.titleMedium,
+                        _ratingLabel(_staffRating),
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          color: context.appColors.accent,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                       const SizedBox(height: 8),
-                    ],
-                    Text(
-                      _ratingLabel(_rating),
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: context.appColors.accent,
-                        fontWeight: FontWeight.w700,
+                      _starRow(
+                        rating: _staffRating,
+                        onChanged: (value) => _staffRating = value,
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(5, (i) {
-                        final selected = i < _rating;
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: IconButton(
-                            onPressed: () => setState(() {
-                              _rating = i + 1;
-                              _formKey.currentState?.validate();
-                            }),
-                            icon: Icon(
-                              selected
-                                  ? Icons.star_rounded
-                                  : Icons.star_border_rounded,
-                              color: context.appColors.accent,
-                              size: 44,
-                              shadows: selected
-                                  ? [
-                                      Shadow(
-                                        color: context.appColors.accent
-                                            .withValues(alpha: 0.6),
-                                        blurRadius: 12,
-                                      ),
-                                    ]
-                                  : null,
-                            ),
-                          ),
-                        );
-                      }),
-                    ),
+                    ],
+                    const SizedBox(height: 16),
                     PremiumTextField(
                       controller: _reviewController,
-                      label: _rating <= 2
+                      label: lowRating
                           ? 'Review (required for low ratings)'
                           : 'Review (optional)',
-                      hint: staff != null
-                          ? 'Share what you loved about ${staff.name}'
+                      hint: hasStaff
+                          ? 'Share what you loved about the salon and ${staff.name}'
                           : 'Share what you loved about your visit',
                       maxLines: 4,
                       inputFormatters: [
                         LengthLimitingTextInputFormatter(kReviewMaxLength),
                       ],
-                      validator: (v) =>
-                          validateReviewComment(v, rating: _rating),
+                      validator: (v) => validateReviewComment(
+                        v,
+                        rating: _salonRating,
+                        staffRating: hasStaff ? _staffRating : null,
+                      ),
                       onChanged: (_) => setState(() {}),
                     ),
                     const SizedBox(height: 24),
@@ -230,7 +279,9 @@ class _WriteReviewScreenState extends ConsumerState<WriteReviewScreen> {
                       label: 'Submit review',
                       loading: _loading,
                       variant: PremiumButtonVariant.accent,
-                      onPressed: _loading ? null : _submit,
+                      onPressed: _loading
+                          ? null
+                          : () => _submit(hasStaff: hasStaff),
                     ),
                   ],
                 ),

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/core/constants/salon_service_icons.dart';
 import 'package:saloon_booking/core/constants/salon_service_names.dart';
+import 'package:saloon_booking/core/utils/currency_utils.dart';
+import 'package:saloon_booking/core/utils/image_decode_utils.dart';
 import 'package:saloon_booking/features/customer/data/models/salon_model.dart';
 import 'package:saloon_booking/shared/widgets/marquee_text.dart';
 import 'package:saloon_booking/shared/widgets/tap_scale_wrapper.dart';
@@ -60,6 +62,8 @@ class SalonServiceCard extends StatelessWidget {
                     ? Image.asset(
                         iconAsset,
                         fit: BoxFit.contain,
+                        cacheWidth: memCachePx(context, 160),
+                        cacheHeight: memCachePx(context, 160),
                         errorBuilder: (context, error, stackTrace) =>
                             const _FallbackIcon(),
                       )
@@ -84,29 +88,34 @@ class SalonServiceCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        if (hasDiscount) ...[
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (hasDiscount)
+                            Text(
+                              formatMoney(service.price),
+                              style: const TextStyle(
+                                fontSize: 11,
+                                height: 1.15,
+                                color: _textMuted,
+                                decoration: TextDecoration.lineThrough,
+                                decorationColor: Colors.black,
+                              ),
+                            ),
                           Text(
-                            '₹${service.price.toStringAsFixed(0)}',
+                            formatMoney(displayPrice),
                             style: const TextStyle(
-                              fontSize: 11,
-                              color: _textMuted,
-                              decoration: TextDecoration.lineThrough,
-                              decorationColor: Colors.black,
+                              fontSize: 13,
+                              height: 1.15,
+                              fontWeight: FontWeight.w800,
+                              color: _textPrimary,
                             ),
                           ),
-                          const SizedBox(width: 4),
                         ],
-                        Text(
-                          '₹${displayPrice.toStringAsFixed(0)}',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w800,
-                            color: _textPrimary,
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ],
                 ),

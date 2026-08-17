@@ -292,7 +292,8 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final bottom = MediaQuery.viewInsetsOf(context).bottom;
+    final bottom = MediaQuery.viewInsetsOf(context).bottom +
+        MediaQuery.viewPaddingOf(context).bottom;
 
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 8, 20, 20 + bottom),

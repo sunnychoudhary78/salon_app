@@ -5,6 +5,7 @@ import 'package:saloon_booking/core/routing/splash_gate_provider.dart';
 import 'package:saloon_booking/core/network/unauthorized_trigger.dart';
 import 'package:saloon_booking/core/routing/app_page_transitions.dart';
 import 'package:saloon_booking/core/routing/route_paths.dart';
+import 'package:saloon_booking/core/ui/root_scaffold_messenger.dart';
 import 'package:saloon_booking/core/utils/role_utils.dart';
 import 'package:saloon_booking/features/auth/data/models/user_model.dart';
 import 'package:saloon_booking/features/auth/presentation/providers/auth_provider.dart';
@@ -50,6 +51,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   final authNotifier = _AuthRefreshNotifier(ref);
 
   return GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: RoutePaths.splash,
     refreshListenable: authNotifier,
     redirect: (context, state) {
@@ -92,11 +94,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       }
 
       if (isAuthRoute || isSplash) {
-        return _homeForUser(authState);
+        return homePathForUser(authState);
       }
 
-      if (isSalonOwnerAccount(authState) && location.startsWith('/customer/')) {
-        return RoutePaths.ownerDashboard;
+      if (needsOwnerOnboarding(authState)) {
+        if (location == RoutePaths.becomeOwner) return null;
+        return RoutePaths.becomeOwner;
+      }
+
+      if (!isSalonOwner(authState.user) && location == RoutePaths.becomeOwner) {
+        return RoutePaths.customerHome;
+      }
+
+      if (isSalonOwner(authState.user) && location.startsWith('/customer/')) {
+        return homePathForUser(authState);
       }
 
       return null;
@@ -399,20 +410,42 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   );
 });
 
-String _homeForUser(AuthState authState) {
-  if (isSalonOwnerAccount(authState)) {
-    return RoutePaths.ownerDashboard;
-  }
-  return RoutePaths.customerHome;
-}
-
 class _AuthRefreshNotifier extends ChangeNotifier {
   _AuthRefreshNotifier(this._ref) {
-    _ref.listen(authProvider, (_, __) => notifyListeners());
+    _ref.listen(authProvider, (previous, next) {
+      if (previous == null || authChangeRequiresRedirect(previous, next)) {
+        notifyListeners();
+      }
+    });
     _ref.listen(unauthorizedTriggerProvider, (_, __) => notifyListeners());
     _ref.listen(onboardingCompletedProvider, (_, __) => notifyListeners());
     _ref.listen(splashGateProvider, (_, __) => notifyListeners());
   }
 
   final Ref _ref;
+}
+
+/// Whether an auth provider update should re-run GoRouter redirects.
+///
+/// Profile field edits (name, photo, email) must not rebuild the route stack;
+/// login, logout, loading, and role/owner identity changes still must.
+@visibleForTesting
+bool authChangeRequiresRedirect(
+  AsyncValue<AuthState?> previous,
+  AsyncValue<AuthState?> next,
+) {
+  if (previous.isLoading != next.isLoading) return true;
+  if (previous.hasError != next.hasError) return true;
+
+  final prevAuth = previous.value;
+  final nextAuth = next.value;
+  if ((prevAuth == null) != (nextAuth == null)) return true;
+  if (prevAuth == null || nextAuth == null) return false;
+
+  if (isAdminOnly(prevAuth.user) != isAdminOnly(nextAuth.user)) return true;
+  if (isSalonOwner(prevAuth.user) != isSalonOwner(nextAuth.user)) return true;
+  if (isSalonOwnerAccount(prevAuth) != isSalonOwnerAccount(nextAuth)) {
+    return true;
+  }
+  return false;
 }

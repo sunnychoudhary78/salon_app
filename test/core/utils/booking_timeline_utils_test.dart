@@ -3,6 +3,7 @@ import 'package:saloon_booking/core/utils/booking_timeline_utils.dart';
 import 'package:saloon_booking/features/customer/data/models/salon_model.dart';
 
 BookingModel _booking({
+  String id = 'b1',
   required String status,
   String date = '2020-01-01',
   String time = '10:00:00',
@@ -12,7 +13,7 @@ BookingModel _booking({
   int? durationMinutes = 60,
 }) {
   return BookingModel(
-    id: 'b1',
+    id: id,
     bookingStatus: status,
     bookingDate: date,
     bookingTime: time,
@@ -82,6 +83,35 @@ void main() {
         ),
         isFalse,
       );
+    });
+  });
+
+  group('customerVisitCanReview', () {
+    test('shows Rate when no sibling has a review and one is reviewable', () {
+      final group = [
+        _booking(id: 'a', status: 'COMPLETED', canReview: true),
+        _booking(id: 'b', status: 'COMPLETED', canReview: true),
+      ];
+      expect(customerVisitHasReview(group), isFalse);
+      expect(customerVisitCanReview(group), isTrue);
+      expect(customerVisitReviewBooking(group)?.id, 'a');
+    });
+
+    test('hides Rate when one sibling is already reviewed', () {
+      final group = [
+        _booking(id: 'a', status: 'COMPLETED', hasReview: true),
+        _booking(id: 'b', status: 'COMPLETED', canReview: true),
+      ];
+      expect(customerVisitHasReview(group), isTrue);
+      expect(customerVisitCanReview(group), isFalse);
+      expect(customerVisitReviewBooking(group), isNull);
+    });
+
+    test('single reviewed booking is not rateable', () {
+      final group = [
+        _booking(status: 'COMPLETED', hasReview: true, canReview: true),
+      ];
+      expect(customerVisitCanReview(group), isFalse);
     });
   });
 }

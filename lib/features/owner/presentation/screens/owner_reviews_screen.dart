@@ -104,7 +104,7 @@ class _OwnerReviewsScreenState extends ConsumerState<OwnerReviewsScreen> {
                               style: Theme.of(context).textTheme.displaySmall
                                   ?.copyWith(
                                     fontWeight: FontWeight.w800,
-                                    color: context.appColors.accent,
+                                    color: AppColors.starGold,
                                   ),
                             ),
                             Row(
@@ -115,7 +115,7 @@ class _OwnerReviewsScreenState extends ConsumerState<OwnerReviewsScreen> {
                                       ? Icons.star_rounded
                                       : Icons.star_border_rounded,
                                   size: 18,
-                                  color: context.appColors.accent,
+                                  color: AppColors.starGold,
                                 ),
                               ),
                             ),
@@ -144,14 +144,14 @@ class _OwnerReviewsScreenState extends ConsumerState<OwnerReviewsScreen> {
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: context.appColors.accent.withValues(
+                            color: AppColors.starGold.withValues(
                               alpha: 0.12,
                             ),
                             borderRadius: BorderRadius.circular(14),
                           ),
                           child: Icon(
                             Icons.star_rounded,
-                            color: context.appColors.accent,
+                            color: AppColors.starGold,
                             size: 28,
                           ),
                         ),
@@ -316,12 +316,40 @@ class _ReviewCard extends StatelessWidget {
                               ? Icons.star_rounded
                               : Icons.star_border_rounded,
                           size: 14,
-                          color: context.appColors.accent,
+                          color: AppColors.starGold,
                         ),
                       ),
                     ),
                   ],
                 ),
+                if (review.staffRating != null) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Text(
+                        review.staffName != null
+                            ? 'Staff · ${review.staffName}'
+                            : 'Staff',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: context.appColors.textMuted,
+                        ),
+                      ),
+                      const Spacer(),
+                      Row(
+                        children: List.generate(
+                          5,
+                          (j) => Icon(
+                            j < review.staffRating!
+                                ? Icons.star_rounded
+                                : Icons.star_border_rounded,
+                            size: 14,
+                            color: AppColors.starGold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
                 if (review.salonName != null) ...[
                   const SizedBox(height: 10),
                   Container(

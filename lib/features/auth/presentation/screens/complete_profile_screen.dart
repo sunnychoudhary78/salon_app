@@ -6,10 +6,12 @@ import 'package:saloon_booking/core/routing/route_paths.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/core/utils/form_validators.dart';
+import 'package:saloon_booking/core/utils/role_utils.dart';
 import 'package:saloon_booking/features/auth/presentation/providers/auth_provider.dart';
 import 'package:saloon_booking/features/customer/data/providers/audience_mode_provider.dart';
 import 'package:saloon_booking/core/theme/app_animations.dart';
 import 'package:saloon_booking/shared/widgets/animated_entrance.dart';
+import 'package:saloon_booking/features/settings/presentation/widgets/legal_acknowledgement.dart';
 import 'package:saloon_booking/shared/widgets/auth_scaffold.dart';
 import 'package:saloon_booking/shared/widgets/premium_button.dart';
 import 'package:saloon_booking/shared/widgets/premium_text_field.dart';
@@ -26,6 +28,7 @@ class _CompleteProfileScreenState extends ConsumerState<CompleteProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
+  String? _accountType;
   String? _gender;
   bool _loading = false;
   String? _error;
@@ -39,6 +42,10 @@ class _CompleteProfileScreenState extends ConsumerState<CompleteProfileScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_accountType == null) {
+      setState(() => _error = 'Please choose how you want to register');
+      return;
+    }
     if (_gender == null) {
       setState(() => _error = 'Please select your gender');
       return;
@@ -61,6 +68,7 @@ class _CompleteProfileScreenState extends ConsumerState<CompleteProfileScreen> {
           .completeProfile(
             name: _nameController.text.trim(),
             gender: _gender!,
+            accountType: _accountType!,
             email: _emailController.text.trim().isEmpty
                 ? null
                 : _emailController.text.trim(),
@@ -69,7 +77,10 @@ class _CompleteProfileScreenState extends ConsumerState<CompleteProfileScreen> {
           .read(audienceModeProvider.notifier)
           .hydrateFromGender(_gender);
       if (!mounted) return;
-      context.go(RoutePaths.customerHome);
+      final auth = ref.read(authProvider).value;
+      context.go(
+        auth != null ? homePathForUser(auth) : RoutePaths.customerHome,
+      );
     } catch (e) {
       if (mounted) setState(() => _error = userFacingErrorMessage(e));
     } finally {
@@ -95,6 +106,8 @@ class _CompleteProfileScreenState extends ConsumerState<CompleteProfileScreen> {
       showLogo: true,
       logoHero: true,
       logoSize: AuthScaffold.heroLogoSize,
+      headerFlex: 2,
+      sheetFlex: 3,
       child: AnimatedEntrance(
         style: EntranceStyle.scaleIn,
         child: Form(
@@ -103,6 +116,67 @@ class _CompleteProfileScreenState extends ConsumerState<CompleteProfileScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
             children: [
+              Text(
+                'Register as',
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: colors.textMuted,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: _ChoiceOption(
+                      label: 'Customer',
+                      subtitle: 'Book appointments',
+                      selected: _accountType == 'customer',
+                      onTap: () => setState(() {
+                        _accountType = 'customer';
+                        _error = null;
+                      }),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _ChoiceOption(
+                      label: 'Salon owner',
+                      subtitle: 'List your salon',
+                      selected: _accountType == 'salon_owner',
+                      onTap: () => setState(() {
+                        _accountType = 'salon_owner';
+                        _error = null;
+                      }),
+                    ),
+                  ),
+                ],
+              ),
+              if (_accountType != null) ...[
+                const SizedBox(height: 10),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Icons.info_outline_rounded,
+                      size: 16,
+                      color: colors.textMuted,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _accountType == 'salon_owner'
+                            ? 'You are registering as a salon owner. This cannot be changed later.'
+                            : 'You are registering as a customer. This cannot be changed later.',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colors.textMuted,
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 20),
               PremiumTextField(
                 controller: _nameController,
                 label: 'Full name',
@@ -131,7 +205,7 @@ class _CompleteProfileScreenState extends ConsumerState<CompleteProfileScreen> {
               Row(
                 children: [
                   Expanded(
-                    child: _GenderOption(
+                    child: _ChoiceOption(
                       label: 'Male',
                       selected: _gender == 'male',
                       onTap: () => setState(() => _gender = 'male'),
@@ -139,7 +213,7 @@ class _CompleteProfileScreenState extends ConsumerState<CompleteProfileScreen> {
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: _GenderOption(
+                    child: _ChoiceOption(
                       label: 'Female',
                       selected: _gender == 'female',
                       onTap: () => setState(() => _gender = 'female'),
@@ -163,6 +237,8 @@ class _CompleteProfileScreenState extends ConsumerState<CompleteProfileScreen> {
                 icon: Icons.check_rounded,
                 onPressed: _submit,
               ),
+              const SizedBox(height: 16),
+              const LegalAcknowledgement.auth(),
             ],
           ),
         ),
@@ -171,14 +247,16 @@ class _CompleteProfileScreenState extends ConsumerState<CompleteProfileScreen> {
   }
 }
 
-class _GenderOption extends StatelessWidget {
-  const _GenderOption({
+class _ChoiceOption extends StatelessWidget {
+  const _ChoiceOption({
     required this.label,
     required this.selected,
     required this.onTap,
+    this.subtitle,
   });
 
   final String label;
+  final String? subtitle;
   final bool selected;
   final VoidCallback onTap;
 
@@ -192,7 +270,7 @@ class _GenderOption extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 14),
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
@@ -200,13 +278,27 @@ class _GenderOption extends StatelessWidget {
               width: selected ? 1.5 : 1,
             ),
           ),
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: colors.textPrimary,
-            ),
+          child: Column(
+            children: [
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: colors.textPrimary,
+                ),
+              ),
+              if (subtitle != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  subtitle!,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colors.textMuted,
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
       ),

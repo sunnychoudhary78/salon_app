@@ -11,11 +11,14 @@ import 'package:saloon_booking/core/theme/accent_palette.dart';
 import 'package:saloon_booking/core/theme/accent_palette_provider.dart';
 import 'package:saloon_booking/core/theme/app_theme.dart';
 import 'package:saloon_booking/core/theme/theme_mode_provider.dart';
+import 'package:saloon_booking/core/ui/root_scaffold_messenger.dart';
 import 'package:saloon_booking/core/ui/system_ui_scope.dart';
+import 'package:saloon_booking/core/updates/app_update_gate.dart';
+import 'package:saloon_booking/core/utils/role_utils.dart';
 import 'package:saloon_booking/features/auth/data/models/user_model.dart';
 import 'package:saloon_booking/features/auth/presentation/providers/auth_provider.dart';
-
-final rootScaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
+import 'package:saloon_booking/features/owner/presentation/widgets/pending_booking_gate_lifecycle.dart';
+import 'package:saloon_booking/features/owner/presentation/widgets/pending_booking_gate_overlay.dart';
 
 class SalonApp extends ConsumerStatefulWidget {
   const SalonApp({super.key});
@@ -66,8 +69,13 @@ class _SalonAppState extends ConsumerState<SalonApp> {
   Widget build(BuildContext context) {
     final router = ref.watch(appRouterProvider);
     final themeMode = ref.watch(themeModeProvider).value ?? ThemeMode.dark;
-    final accentPalette =
+    final storedPalette =
         ref.watch(accentPaletteProvider).value ?? AccentPalette.rose;
+    final auth = ref.watch(authProvider).value;
+    final accentPalette = AccentPalette.forSession(
+      isOwner: auth != null && isSalonOwnerAccount(auth),
+      stored: storedPalette,
+    );
 
     return SystemUiScope(
       brightness: themeMode == ThemeMode.light
@@ -82,8 +90,28 @@ class _SalonAppState extends ConsumerState<SalonApp> {
         routerConfig: router,
         debugShowCheckedModeBanner: false,
         builder: (context, child) {
-          return UserActivityScope(
-            child: IdleDebugOverlay(child: child ?? const SizedBox.shrink()),
+          return AppUpdateGate(
+            currentLocation: () {
+              try {
+                return router.routerDelegate.currentConfiguration.uri.path;
+              } catch (_) {
+                return '';
+              }
+            },
+            routeListenable: router.routerDelegate,
+            child: PendingBookingGateLifecycle(
+              child: UserActivityScope(
+                child: IdleDebugOverlay(
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      child ?? const SizedBox.shrink(),
+                      const PendingBookingGateOverlay(),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           );
         },
       ),

@@ -8,6 +8,7 @@ import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/features/auth/presentation/providers/auth_provider.dart';
 import 'package:saloon_booking/shared/widgets/app_logo.dart';
+import 'package:saloon_booking/shared/widgets/staff_avatar.dart';
 
 class DrawerNavItem {
   const DrawerNavItem({
@@ -15,6 +16,7 @@ class DrawerNavItem {
     required this.label,
     this.index,
     this.route,
+    this.section,
   }) : assert(index != null || route != null, 'Provide either index or route'),
        assert(
          index == null || route == null,
@@ -25,6 +27,11 @@ class DrawerNavItem {
   final String label;
   final int? index;
   final String? route;
+
+  /// Heading this item sits under. When any item supplies one, the drawer
+  /// renders items in list order and groups them by consecutive section,
+  /// instead of the legacy fixed arrangement.
+  final String? section;
 }
 
 class AppDrawer extends ConsumerWidget {
@@ -57,8 +64,8 @@ class AppDrawer extends ConsumerWidget {
     final ownerBusinessName = isOwnerMode
         ? auth?.salonOwner?.businessName
         : null;
-    final subtitle =
-        headerSubtitle ?? (isOwnerMode ? 'Owner' : 'Customer');
+    final subtitle = headerSubtitle ?? (isOwnerMode ? 'Owner' : 'Customer');
+    final entries = _buildDrawerEntries(items);
 
     return Drawer(
       backgroundColor: colors.surface,
@@ -78,6 +85,7 @@ class AppDrawer extends ConsumerWidget {
                 userContact: auth?.user.email?.isNotEmpty == true
                     ? auth!.user.email!
                     : (auth?.user.phone ?? ''),
+                profileImageUrl: auth?.customer?.profileImage,
                 pending: pending,
                 attentionHint: attentionHint,
                 onAttentionHintTap: onAttentionHintTap,
@@ -85,9 +93,9 @@ class AppDrawer extends ConsumerWidget {
               Expanded(
                 child: ListView.builder(
                   padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
-                  itemCount: _drawerItemCount(items, isOwnerMode),
+                  itemCount: entries.length,
                   itemBuilder: (context, i) {
-                    final mapped = _mapDrawerIndex(i, items, isOwnerMode);
+                    final mapped = entries[i];
                     if (mapped.isSection) {
                       return Padding(
                         padding: EdgeInsets.fromLTRB(
@@ -203,6 +211,7 @@ class _DrawerHeader extends StatelessWidget {
     this.ownerBusinessName,
     this.userName,
     this.userContact = '',
+    this.profileImageUrl,
     this.attentionHint,
     this.onAttentionHintTap,
   });
@@ -211,6 +220,7 @@ class _DrawerHeader extends StatelessWidget {
   final String? ownerBusinessName;
   final String? userName;
   final String userContact;
+  final String? profileImageUrl;
   final bool pending;
   final String? attentionHint;
   final VoidCallback? onAttentionHintTap;
@@ -305,29 +315,10 @@ class _DrawerHeader extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      gradient: colors.accentGradient,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: colors.accent.withValues(alpha: 0.22),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: Text(
-                      userName![0].toUpperCase(),
-                      style: TextStyle(
-                        color: colors.onAccent,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 18,
-                      ),
-                    ),
+                  StaffAvatar(
+                    name: userName ?? 'C',
+                    imageUrl: profileImageUrl,
+                    size: 44,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -572,10 +563,26 @@ class _DrawerNavTile extends StatelessWidget {
   }
 }
 
-int _drawerItemCount(List<DrawerNavItem> items, bool isOwnerMode) {
-  if (isOwnerMode) return items.length + 3;
-  // Customer: Explore + Account section headers.
-  return items.length + 2;
+List<_DrawerListEntry> _buildDrawerEntries(List<DrawerNavItem> items) {
+  if (items.any((item) => item.section != null)) {
+    final entries = <_DrawerListEntry>[];
+    String? openSection;
+    for (final item in items) {
+      final section = item.section;
+      if (section != null && section != openSection) {
+        entries.add(_DrawerListEntry.section(section));
+        openSection = section;
+      }
+      entries.add(_DrawerListEntry.item(item));
+    }
+    return entries;
+  }
+
+  return [
+    // Customer: Explore + Account section headers for the fixed 5-item list.
+    // Never scale with items.length — that duplicated the last mapped item.
+    for (var i = 0; i < 7; i++) _mapDrawerIndex(i, items),
+  ];
 }
 
 class _DrawerListEntry {
@@ -592,20 +599,9 @@ class _DrawerListEntry {
   final DrawerNavItem? item;
 }
 
-_DrawerListEntry _mapDrawerIndex(
-  int index,
-  List<DrawerNavItem> items,
-  bool isOwnerMode,
-) {
-  if (isOwnerMode) {
-    if (index == 0) return const _DrawerListEntry.section('Management');
-    if (index <= 4) return _DrawerListEntry.item(items[index - 1]);
-    if (index == 5) return const _DrawerListEntry.section('Salon');
-    if (index <= 7) return _DrawerListEntry.item(items[index - 2]);
-    if (index == 8) return const _DrawerListEntry.section('Account');
-    return _DrawerListEntry.item(items[index - 3]);
-  }
-
+/// Legacy fixed arrangement for the customer drawer, which supplies items
+/// without sections. Owner items carry a [DrawerNavItem.section] instead.
+_DrawerListEntry _mapDrawerIndex(int index, List<DrawerNavItem> items) {
   // Customer drawer order in shell: Home, Profile, Bookings, Notifications, Settings
   // Display: Explore → Home, Bookings · Account → Profile, Notifications, Settings
   if (index == 0) return const _DrawerListEntry.section('Explore');

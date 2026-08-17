@@ -1,10 +1,11 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:saloon_booking/core/theme/accent_palette.dart';
 import 'package:saloon_booking/core/theme/accent_palette_provider.dart';
 import 'package:saloon_booking/core/theme/app_theme.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
+import 'package:saloon_booking/core/utils/role_utils.dart';
+import 'package:saloon_booking/features/auth/data/models/user_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -89,4 +90,43 @@ void main() {
       expect(dark.colorScheme.onSecondary, palette.tokens.onAccent);
     }
   });
+
+  test(
+    'owner sessions resolve to plum without changing the stored palette',
+    () {
+      const user = UserModel(id: 'u1', name: 'Owner', roles: []);
+      const owner = AuthState(
+        token: 't',
+        user: user,
+        salonOwner: SalonOwnerProfileModel(id: 'o1', businessName: 'Glow'),
+      );
+      const customer = AuthState(token: 't', user: user);
+
+      expect(
+        AccentPalette.forSession(
+          isOwner: isSalonOwnerAccount(owner),
+          stored: AccentPalette.ocean,
+        ),
+        AccentPalette.plum,
+      );
+      expect(
+        AccentPalette.forSession(
+          isOwner: isSalonOwnerAccount(customer),
+          stored: AccentPalette.rose,
+        ),
+        AccentPalette.rose,
+      );
+      expect(
+        AccentPalette.forSession(
+          isOwner: isSalonOwnerAccount(customer),
+          stored: AccentPalette.ocean,
+        ),
+        AccentPalette.ocean,
+      );
+      expect(
+        AccentPalette.customerChoices,
+        isNot(contains(AccentPalette.plum)),
+      );
+    },
+  );
 }

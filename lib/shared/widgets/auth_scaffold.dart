@@ -10,6 +10,8 @@ class AuthScaffold extends StatelessWidget {
     this.showLogo = false,
     this.logoSize = 72,
     this.logoHero = false,
+    this.headerFlex,
+    this.sheetFlex,
     this.onBack,
     required this.child,
   });
@@ -22,6 +24,8 @@ class AuthScaffold extends StatelessWidget {
   final bool showLogo;
   final double logoSize;
   final bool logoHero;
+  final int? headerFlex;
+  final int? sheetFlex;
   final VoidCallback? onBack;
   final Widget child;
 
@@ -38,8 +42,8 @@ class AuthScaffold extends StatelessWidget {
     final keyboardLogoSize = keyboardOpen
         ? (effectiveLogoSize * 0.82).clamp(100.0, 180.0)
         : effectiveLogoSize;
-    final headerFlex = logoHero ? 3 : 2;
-    final sheetFlex = logoHero ? 2 : 3;
+    final headerFlex = this.headerFlex ?? (logoHero ? 3 : 2);
+    final sheetFlex = this.sheetFlex ?? (logoHero ? 2 : 3);
 
     return Scaffold(
       resizeToAvoidBottomInset: true,

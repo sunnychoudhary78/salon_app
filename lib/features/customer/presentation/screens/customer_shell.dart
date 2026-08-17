@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:saloon_booking/core/ui/system_ui_scope.dart';
+import 'package:saloon_booking/core/routing/navigation_utils.dart';
 import 'package:saloon_booking/core/routing/route_paths.dart';
 import 'package:saloon_booking/features/notifications/data/providers/notification_history_provider.dart';
 import 'package:saloon_booking/features/customer/data/services/customer_service.dart';
@@ -27,6 +28,13 @@ class _CustomerShellState extends ConsumerState<CustomerShell> {
   static const _bookingsIndex = 2;
   static const _notificationsIndex = 3;
 
+  static const _branchRoots = {
+    RoutePaths.customerHome,
+    RoutePaths.customerProfile,
+    RoutePaths.customerBookings,
+    RoutePaths.customerNotifications,
+  };
+
   void _onSelect(int index) {
     widget.navigationShell.goBranch(
       index,
@@ -37,12 +45,21 @@ class _CustomerShellState extends ConsumerState<CustomerShell> {
 
   void _handleBack(BuildContext context) {
     final router = GoRouter.of(context);
-    if (router.canPop()) {
+    final leaf = routerLeafLocation(router);
+    final action = resolveShellBack(
+      leaf: leaf,
+      branchRoots: _branchRoots,
+      canPop: router.canPop(),
+      atHomeTab: widget.navigationShell.currentIndex == _homeIndex,
+    );
+
+    if (action == ShellBackAction.popNested) {
       router.pop();
       return;
     }
-    if (widget.navigationShell.currentIndex != _homeIndex) {
+    if (action == ShellBackAction.goHome) {
       widget.navigationShell.goBranch(_homeIndex);
+      ref.read(customerShellTabIndexProvider.notifier).select(_homeIndex);
       return;
     }
     final now = DateTime.now();

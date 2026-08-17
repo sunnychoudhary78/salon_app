@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/core/utils/phone_utils.dart';
@@ -25,7 +24,7 @@ class OwnerDashboardAppointmentTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final time = _formatTime(appointment.bookingTime);
+    final time = appointment.displayTime;
     final customer = appointment.customer?.name ?? 'Guest';
     final phone = appointment.customer?.phone?.trim();
     final salonName = appointment.salon?.salonName?.trim();
@@ -43,17 +42,17 @@ class OwnerDashboardAppointmentTile extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.15),
+                color: colors.primary.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Column(
                 children: [
-                  const Text(
+                  Text(
                     'NEXT',
                     style: TextStyle(
                       fontSize: 9,
                       fontWeight: FontWeight.w800,
-                      color: AppColors.primary,
+                      color: colors.primary,
                       letterSpacing: 0.8,
                     ),
                   ),
@@ -124,9 +123,9 @@ class OwnerDashboardAppointmentTile extends StatelessWidget {
                   const SizedBox(height: 3),
                   Text(
                     '#$bookingNumber',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: colors.textMuted,
-                    ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.labelSmall?.copyWith(color: colors.textMuted),
                   ),
                 ],
                 if (paymentHint != null) ...[
@@ -180,16 +179,5 @@ class OwnerDashboardAppointmentTile extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  String _formatTime(String time) {
-    if (time.isEmpty) return '—';
-    final trimmed = time.length >= 5 ? time.substring(0, 5) : time;
-    try {
-      final parsed = DateFormat('HH:mm').parse(trimmed);
-      return DateFormat.jm().format(parsed);
-    } catch (_) {
-      return trimmed;
-    }
   }
 }

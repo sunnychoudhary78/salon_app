@@ -67,10 +67,11 @@ class AppThemeExtension extends ThemeExtension<AppThemeExtension> {
   final Color drawerGradientStart;
   final Color drawerGradientEnd;
 
-  /// Hairline-first ambient shadow (no accent glow).
+  /// Hairline-first ambient shadow. A passed [color] is applied at low alpha
+  /// so leftover status tints cannot become a solid green/red/rose glow.
   List<BoxShadow> cardShadow({Color? color}) => [
     BoxShadow(
-      color: color ?? elevationShadow,
+      color: color?.withValues(alpha: 0.12) ?? elevationShadow,
       blurRadius: 16,
       offset: const Offset(0, 4),
     ),

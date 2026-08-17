@@ -21,7 +21,13 @@ class SalonServicesSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final audience = ref.watch(audienceModeValueProvider);
     final services = salon.services
-        .where((s) => isServiceVisibleForAudience(s.serviceName, audience))
+        .where(
+          (s) => isServiceVisibleForAudience(
+            s.serviceName,
+            audience,
+            serviceFor: s.serviceFor,
+          ),
+        )
         .toList();
     if (services.isEmpty) return const SizedBox.shrink();
 

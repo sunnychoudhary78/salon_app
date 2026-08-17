@@ -24,6 +24,16 @@ bool isCustomer(UserModel user) => user.roles.any((r) => r.name == 'CUSTOMER');
 
 bool isSalonOwnerAccount(AuthState auth) => auth.salonOwner != null;
 
+/// Chose salon owner at signup but has not created the owner profile yet.
+bool needsOwnerOnboarding(AuthState auth) =>
+    isSalonOwner(auth.user) && auth.salonOwner == null;
+
+String homePathForUser(AuthState auth) {
+  if (needsOwnerOnboarding(auth)) return RoutePaths.becomeOwner;
+  if (isSalonOwnerAccount(auth)) return RoutePaths.ownerDashboard;
+  return RoutePaths.customerHome;
+}
+
 bool isApprovedSalonOwner(AuthState auth, {required bool hasApprovedSalons}) =>
     isSalonOwner(auth.user) && auth.salonOwner != null && hasApprovedSalons;
 

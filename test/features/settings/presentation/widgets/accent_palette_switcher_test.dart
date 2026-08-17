@@ -33,9 +33,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    for (final palette in AccentPalette.values) {
+    for (final palette in AccentPalette.customerChoices) {
       expect(find.text(palette.label), findsOneWidget);
     }
+    expect(find.text(AccentPalette.plum.label), findsNothing);
 
     await tester.tap(find.byKey(const ValueKey('accent-ocean')));
     await tester.pumpAndSettle();

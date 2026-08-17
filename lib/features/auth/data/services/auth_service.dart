@@ -47,6 +47,7 @@ class AuthService {
     required String signupToken,
     required String name,
     required String gender,
+    required String accountType,
     String? email,
   }) async {
     final response = await _dio.post(
@@ -54,6 +55,7 @@ class AuthService {
       data: {
         'name': name,
         'gender': gender,
+        'account_type': accountType,
         if (email != null && email.isNotEmpty) 'email': email,
       },
       options: Options(

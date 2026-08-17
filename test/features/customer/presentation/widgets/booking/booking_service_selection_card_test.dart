@@ -46,8 +46,8 @@ void main() {
     expect(find.text('Haircut'), findsOneWidget);
     expect(find.text('A tailored cut and finish'), findsOneWidget);
     expect(find.text('45 min'), findsOneWidget);
-    expect(find.text('₹600'), findsOneWidget);
-    expect(find.text('₹450'), findsOneWidget);
+    expect(find.text('₹600.00'), findsOneWidget);
+    expect(find.text('₹450.00'), findsOneWidget);
   });
 
   testWidgets('toggles through the full-card tap target and shows selection', (

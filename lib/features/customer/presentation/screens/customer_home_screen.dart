@@ -7,12 +7,14 @@ import 'package:go_router/go_router.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:saloon_booking/core/location/selected_location.dart';
 import 'package:saloon_booking/core/location/selected_location_provider.dart';
+import 'package:saloon_booking/core/utils/image_decode_utils.dart';
 import 'package:saloon_booking/core/network/user_facing_error.dart';
 import 'package:saloon_booking/core/routing/route_paths.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/core/theme/app_decorations.dart';
 import 'package:saloon_booking/features/auth/presentation/providers/auth_provider.dart';
+import 'package:saloon_booking/features/customer/data/models/salon_model.dart';
 import 'package:saloon_booking/features/customer/data/providers/salon_browse_filters_provider.dart';
 import 'package:saloon_booking/features/customer/data/services/customer_service.dart';
 import 'package:saloon_booking/features/customer/presentation/widgets/home_search_header.dart';
@@ -115,6 +117,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
           try {
             await ref.read(authProvider.notifier).refreshProfile();
             ref.invalidate(bannersProvider);
+            ref.invalidate(favoriteSalonsProvider);
             ref.invalidate(forYouSalonsProvider);
             await ref.read(paginatedSalonsProvider.notifier).reload();
             final selected = ref.read(selectedLocationProvider).location;
@@ -123,13 +126,9 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
             }
           } catch (e) {
             if (context.mounted) {
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(
+              ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text(
-                    'Refresh failed: ${userFacingErrorMessage(e)}',
-                  ),
+                  content: Text('Refresh failed: ${userFacingErrorMessage(e)}'),
                 ),
               );
             }
@@ -156,6 +155,12 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
                     const SizedBox(height: 16),
                     const AnimatedEntrance(
                       index: 1,
+                      animateKey: ValueKey('home-favorites-rail'),
+                      child: _FavoriteSalonRailSection(),
+                    ),
+                    const AnimatedEntrance(
+                      index: 2,
+                      animateKey: ValueKey('home-foryou-rail'),
                       child: _ForYouSalonRailSection(),
                     ),
                   ],
@@ -331,6 +336,11 @@ class _CuratedBannersSectionState
                                   child: CachedNetworkImage(
                                     imageUrl: banner.imageUrl!,
                                     fit: BoxFit.cover,
+                                    memCacheWidth: memCachePx(
+                                      context,
+                                      MediaQuery.sizeOf(context).width,
+                                    ),
+                                    memCacheHeight: memCachePx(context, 190),
                                     errorWidget: (context, error, stackTrace) =>
                                         _bannerFallback(context),
                                   ),
@@ -449,53 +459,109 @@ class _CuratedBannersSectionState
   );
 }
 
+class _FavoriteSalonRailSection extends ConsumerWidget {
+  const _FavoriteSalonRailSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return _HomeSalonRail(
+      value: ref.watch(favoriteSalonsProvider),
+      title: 'Favorites',
+      subtitle: 'Salons you saved',
+    );
+  }
+}
+
 class _ForYouSalonRailSection extends ConsumerWidget {
   const _ForYouSalonRailSection();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final value = ref.watch(forYouSalonsProvider);
+    return _HomeSalonRail(
+      value: ref.watch(forYouSalonsProvider),
+      title: 'For you',
+      subtitle: 'Featured picks & deals near you',
+    );
+  }
+}
 
+class _HomeSalonRail extends StatelessWidget {
+  const _HomeSalonRail({
+    required this.value,
+    required this.title,
+    required this.subtitle,
+  });
+
+  static const _cardWidth = 268.0;
+  static const _railHeight = 320.0;
+
+  final AsyncValue<List<SalonModel>> value;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
     return value.when(
-      loading: () => const SizedBox.shrink(),
+      loading: () => _railShell(child: _railShimmer()),
       error: (_, __) => const SizedBox.shrink(),
       data: (items) {
         if (items.isEmpty) {
           return const SizedBox.shrink();
         }
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SectionHeader(
-              title: 'For you',
-              subtitle: 'Featured picks & deals near you',
-            ),
-            const SizedBox(height: 14),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              clipBehavior: Clip.none,
-              padding: const EdgeInsets.symmetric(horizontal: 2),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  for (var i = 0; i < items.length; i++) ...[
-                    if (i > 0) const SizedBox(width: 14),
-                    SalonCard(
-                      salon: items[i],
-                      cardWidth: 268,
-                      autoPlayImages: true,
-                      showPromoChips: true,
-                      onTap: () => context.push(
-                        '${RoutePaths.customerSalons}/${items[i].id}',
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ],
+        return _railShell(
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            clipBehavior: Clip.hardEdge,
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            itemCount: items.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 14),
+            itemBuilder: (context, i) {
+              final salon = items[i];
+              return Align(
+                alignment: Alignment.topCenter,
+                child: SalonCard(
+                  key: ValueKey(salon.id),
+                  salon: salon,
+                  cardWidth: _cardWidth,
+                  compactRating: true,
+                  autoPlayImages: true,
+                  showPromoChips: true,
+                  onTap: () =>
+                      context.push('${RoutePaths.customerSalons}/${salon.id}'),
+                ),
+              );
+            },
+          ),
         );
       },
+    );
+  }
+
+  Widget _railShell({required Widget child}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SectionHeader(title: title, subtitle: subtitle),
+          const SizedBox(height: 14),
+          SizedBox(height: _railHeight, child: child),
+        ],
+      ),
+    );
+  }
+
+  Widget _railShimmer() {
+    return ListView.separated(
+      scrollDirection: Axis.horizontal,
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      itemCount: 3,
+      separatorBuilder: (_, __) => const SizedBox(width: 14),
+      itemBuilder: (_, __) => const Align(
+        alignment: Alignment.topCenter,
+        child: ShimmerBox(width: _cardWidth, height: _railHeight, radius: 16),
+      ),
     );
   }
 }
@@ -540,20 +606,16 @@ class _AllSalonsFeedSliver extends StatelessWidget {
             return Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: RepaintBoundary(
-                child: AnimatedEntrance(
-                  index: index + 3,
-                  child: SalonCard(
-                    salon: salon,
-                    autoPlayImages: true,
-                    onTap: () => context.push(
-                      '${RoutePaths.customerSalons}/${salon.id}',
-                    ),
-                    onBook: salon.hasServices
-                        ? () => context.push(
-                            '${RoutePaths.customerSalons}/${salon.id}/book',
-                          )
-                        : null,
-                  ),
+                child: SalonCard(
+                  salon: salon,
+                  autoPlayImages: true,
+                  onTap: () =>
+                      context.push('${RoutePaths.customerSalons}/${salon.id}'),
+                  onBook: salon.hasServices
+                      ? () => context.push(
+                          '${RoutePaths.customerSalons}/${salon.id}/book',
+                        )
+                      : null,
                 ),
               ),
             );

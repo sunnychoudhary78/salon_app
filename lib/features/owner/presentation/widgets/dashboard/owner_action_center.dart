@@ -4,11 +4,14 @@ import 'package:go_router/go_router.dart';
 import 'package:saloon_booking/core/routing/route_paths.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
+import 'package:saloon_booking/core/utils/currency_utils.dart';
 import 'package:saloon_booking/features/owner/data/models/owner_dashboard_v2_model.dart';
 import 'package:saloon_booking/features/owner/presentation/utils/owner_dashboard_appointment_ui.dart';
 import 'package:saloon_booking/features/owner/presentation/utils/owner_profile_completion_nav.dart';
+import 'package:saloon_booking/features/owner/presentation/utils/owner_profile_field_labels.dart';
 import 'package:saloon_booking/features/owner/presentation/widgets/dashboard/premium_chip.dart';
 import 'package:saloon_booking/shared/widgets/glass_card.dart';
+import 'package:saloon_booking/shared/widgets/premium_countdown.dart';
 
 class OwnerActionCenter extends ConsumerStatefulWidget {
   const OwnerActionCenter({
@@ -202,11 +205,18 @@ class _ActionRow extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
+                  if (isPremiumUnpaid) ...[
+                    const SizedBox(height: 4),
+                    PremiumCountdown(
+                      expiresAt: item.premiumPaymentDueAt,
+                      unpaidLabel: 'Waiting for premium payment',
+                    ),
+                  ],
                 ],
               ),
             ),
             const SizedBox(width: 8),
-            _actionLabel(section.type),
+            _ActionLabel(type: section.type),
           ],
         ),
       ),
@@ -258,7 +268,7 @@ class _ActionRow extends StatelessWidget {
         final number = item.bookingNumber;
         if (number != null && number.isNotEmpty) parts.add('#$number');
         if (item.amount != null) {
-          parts.add('₹${item.amount!.toStringAsFixed(0)}');
+          parts.add(formatMoney(item.amount!));
         }
         final time = _formatTime(item.bookingTime);
         if (time.isNotEmpty) parts.add(time);
@@ -268,6 +278,12 @@ class _ActionRow extends StatelessWidget {
         if (parts.isEmpty) return item.salonName;
         return parts.join(' · ');
       case 'profile_completeness':
+        final leftover = humanizeMissingFields(item.missing ?? const []);
+        final leftoverText = leftover.isEmpty ? null : leftover.join(', ');
+        if (item.completenessPercent != null && leftoverText != null) {
+          return '${item.completenessPercent}% complete · $leftoverText';
+        }
+        if (leftoverText != null) return leftoverText;
         if (item.completenessPercent != null) {
           return '${item.completenessPercent}% complete';
         }
@@ -281,8 +297,15 @@ class _ActionRow extends StatelessWidget {
     if (time == null || time.isEmpty) return '';
     return time.length >= 5 ? time.substring(0, 5) : time;
   }
+}
 
-  Widget _actionLabel(String type) {
+class _ActionLabel extends StatelessWidget {
+  const _ActionLabel({required this.type});
+
+  final String type;
+
+  @override
+  Widget build(BuildContext context) {
     final label = switch (type) {
       'pending_bookings' => 'Review',
       'cash_confirmations_pending' => 'Confirm',
@@ -291,13 +314,23 @@ class _ActionRow extends StatelessWidget {
       'profile_completeness' => 'Complete',
       _ => 'View',
     };
-    return Text(
-      label,
-      style: const TextStyle(
-        color: AppColors.primary,
-        fontWeight: FontWeight.w700,
-        fontSize: 13,
-      ),
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: context.appColors.primary,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        Icon(
+          Icons.chevron_right_rounded,
+          size: 16,
+          color: context.appColors.primary,
+        ),
+      ],
     );
   }
 }

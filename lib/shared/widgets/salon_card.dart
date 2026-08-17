@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
+import 'package:saloon_booking/core/utils/image_decode_utils.dart';
 import 'package:saloon_booking/features/customer/data/models/salon_model.dart';
 import 'package:saloon_booking/shared/widgets/glass_overlay_panel.dart';
 import 'package:saloon_booking/shared/widgets/salon_card_image_carousel.dart';
@@ -49,8 +50,8 @@ class SalonCard extends StatelessWidget {
         ? SalonRatingBadgeSize.compact
         : SalonRatingBadgeSize.regular;
     final width = cardWidth ?? MediaQuery.sizeOf(context).width - 32;
-    final memCacheWidth = (width.clamp(200.0, 480.0) * 1.5).round();
-    final memCacheHeight = (imageHeight * 1.5).round();
+    final memCacheWidth = memCachePx(context, width);
+    final memCacheHeight = memCachePx(context, imageHeight);
 
     final infoSection = GlassOverlayPanel(
       padding: compactRating

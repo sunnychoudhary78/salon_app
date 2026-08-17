@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/core/utils/booking_timeline_utils.dart';
 
@@ -35,7 +34,7 @@ class BookingWhenBadge extends StatelessWidget {
       ),
       BookingWhenLabel.upcoming => (
         'Upcoming',
-        AppColors.success,
+        colors.primary,
         Icons.event_rounded,
       ),
       BookingWhenLabel.past => (

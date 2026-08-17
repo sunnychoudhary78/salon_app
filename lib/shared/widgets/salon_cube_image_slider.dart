@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:saloon_booking/core/lifecycle/user_activity_provider.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
+import 'package:saloon_booking/core/utils/image_decode_utils.dart';
 import 'package:saloon_booking/core/utils/image_url_utils.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
@@ -205,11 +206,14 @@ class _SalonCubeImageSliderState extends ConsumerState<SalonCubeImageSlider> {
   }
 
   Widget _networkImage(String url) {
+    final width = MediaQuery.sizeOf(context).width;
     return CachedNetworkImage(
       imageUrl: resolveImageUrl(url),
       height: widget.height,
       width: double.infinity,
       fit: BoxFit.cover,
+      memCacheWidth: memCachePx(context, width),
+      memCacheHeight: memCachePx(context, widget.height),
       errorWidget: (context, error, stackTrace) => Container(
         height: widget.height,
         color: context.appColors.surface,

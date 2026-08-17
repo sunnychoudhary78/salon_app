@@ -1,7 +1,7 @@
 name: saloon_booking
 description: CATCHY — customer and salon owner booking app.
 publish_to: "none"
-version: 1.0.0+5
+version: 1.0.0+8
 
 environment:
   sdk: ^3.10.8
@@ -26,6 +26,7 @@ dependencies:
   image_picker: ^1.1.2
   image_picker_android: ^0.8.13+17
   image_picker_platform_interface: ^2.11.1
+  crop_your_image: ^2.0.0
   geolocator: ^13.0.4
   geocoding: ^3.0.0
   google_maps_flutter: ^2.12.1
@@ -36,8 +37,10 @@ dependencies:
   firebase_crashlytics: ^5.0.7
   firebase_messaging: ^16.3.0
   flutter_local_notifications: ^22.0.1
+  audioplayers: ^6.5.0
   razorpay_flutter: ^1.4.5
   fl_chart: ^1.2.0
+  in_app_update: ^4.2.5
 
 dev_dependencies:
   flutter_test:
@@ -64,6 +67,7 @@ flutter:
     - assets/splash/
     - assets/services/men/
     - assets/services/women/
+    - assets/sounds/booking_urgent.wav
   fonts:
     - family: Outfit
       fonts:

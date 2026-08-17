@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
+import 'package:saloon_booking/core/utils/image_decode_utils.dart';
+import 'package:saloon_booking/core/utils/image_url_utils.dart';
 
 class StaffAvatar extends StatelessWidget {
   const StaffAvatar({
@@ -31,8 +33,10 @@ class StaffAvatar extends StatelessWidget {
       );
     } else if (imageUrl != null && imageUrl!.isNotEmpty) {
       child = CachedNetworkImage(
-        imageUrl: imageUrl!,
+        imageUrl: resolveImageUrl(imageUrl!),
         fit: BoxFit.cover,
+        memCacheWidth: memCachePx(context, size),
+        memCacheHeight: memCachePx(context, size),
         errorWidget: (_, __, ___) => _StaffInitial(initial: initial),
         placeholder: (_, __) => _StaffInitial(initial: initial),
       );

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:saloon_booking/core/routing/route_paths.dart';
+import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/features/notifications/data/providers/notification_history_provider.dart';
 import 'package:saloon_booking/features/owner/data/models/owner_dashboard_v2_model.dart';
@@ -70,7 +71,7 @@ class OwnerDashboardHeader extends ConsumerWidget
                 ),
               if (businessName != null && businessName!.isNotEmpty)
                 Text(' · ', style: TextStyle(color: colors.textMuted)),
-              if (meta.salonCount > 1)
+              if (meta.canSwitchSalons)
                 InkWell(
                   onTap: () => _showSalonPicker(context, ref),
                   borderRadius: BorderRadius.circular(12),
@@ -127,9 +128,13 @@ class OwnerDashboardHeader extends ConsumerWidget
                 top: 8,
                 child: Container(
                   padding: const EdgeInsets.all(4),
-                  decoration: const BoxDecoration(
-                    color: Colors.red,
+                  decoration: BoxDecoration(
+                    color: AppColors.error,
                     shape: BoxShape.circle,
+                    border: Border.all(
+                      color: colors.navBarBackground,
+                      width: 1.5,
+                    ),
                   ),
                   constraints: const BoxConstraints(
                     minWidth: 16,
@@ -141,6 +146,7 @@ class OwnerDashboardHeader extends ConsumerWidget
                       color: Colors.white,
                       fontSize: 9,
                       fontWeight: FontWeight.w700,
+                      height: 1.1,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -154,9 +160,15 @@ class OwnerDashboardHeader extends ConsumerWidget
 
   String _scopeLabel(String? scopedId) {
     if (scopedId == null || scopedId.isEmpty) {
-      return meta.salonCount > 1 ? 'All salons' : 'My salon';
+      return meta.canSwitchSalons ? 'All salons' : 'My salon';
     }
-    return salonNames[scopedId] ?? 'Salon';
+    return salonNames[scopedId] ??
+        meta.pickerSalons
+            .where((s) => s.salonId == scopedId)
+            .map((s) => s.salonName)
+            .where((name) => name.isNotEmpty)
+            .firstOrNull ??
+        'Salon';
   }
 
   Future<void> _showSalonPicker(BuildContext context, WidgetRef ref) async {
@@ -175,13 +187,18 @@ class OwnerDashboardHeader extends ConsumerWidget
                     : null,
                 onTap: () => Navigator.pop(ctx, ''),
               ),
-              for (final id in meta.salonIds)
+              for (final salon in meta.pickerSalons)
                 ListTile(
-                  title: Text(salonNames[id] ?? 'Salon'),
-                  trailing: currentScopedId == id
+                  title: Text(
+                    salonNames[salon.salonId] ??
+                        (salon.salonName.isNotEmpty
+                            ? salon.salonName
+                            : 'Salon'),
+                  ),
+                  trailing: currentScopedId == salon.salonId
                       ? const Icon(Icons.check_rounded)
                       : null,
-                  onTap: () => Navigator.pop(ctx, id),
+                  onTap: () => Navigator.pop(ctx, salon.salonId),
                 ),
             ],
           ),

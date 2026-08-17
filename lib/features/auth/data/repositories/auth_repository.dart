@@ -4,12 +4,17 @@ import 'package:saloon_booking/core/crash/crash_reporting.dart';
 import 'package:saloon_booking/core/storage/secure_storage.dart';
 import 'package:saloon_booking/features/auth/data/models/user_model.dart';
 import 'package:saloon_booking/features/auth/data/services/auth_service.dart';
+import 'package:saloon_booking/features/onboarding/data/onboarding_repository.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+const _authLoggedOutKey = 'auth_logged_out';
 
 class AuthRepository {
-  AuthRepository(this._service, this._storage);
+  AuthRepository(this._service, this._storage, this._prefsFuture);
 
   final AuthService _service;
   final SecureStorageService _storage;
+  final Future<SharedPreferences> _prefsFuture;
 
   Future<void> requestOtp({required String phone}) =>
       _service.requestOtp(phone: phone);
@@ -26,7 +31,7 @@ class AuthRepository {
       throw StateError('OTP verification succeeded but auth data was missing');
     }
 
-    await _storage.writeToken(auth.token);
+    await _persistSession(auth.token);
     final profile = await _service.getProfile();
     return OtpVerifyResult(
       isNewUser: false,
@@ -38,21 +43,28 @@ class AuthRepository {
     required String signupToken,
     required String name,
     required String gender,
+    required String accountType,
     String? email,
   }) async {
     final auth = await _service.completeProfile(
       signupToken: signupToken,
       name: name,
       gender: gender,
+      accountType: accountType,
       email: email,
     );
-    await _storage.writeToken(auth.token);
+    await _persistSession(auth.token);
     final profile = await _service.getProfile();
     return AuthState.fromProfile(auth.token, profile);
   }
 
   Future<AuthState?> restoreSession() async {
     CrashReporting.breadcrumb('restore_session_start');
+    if (await _isLoggedOut()) {
+      await _storage.deleteToken();
+      return null;
+    }
+
     final token = await _storage.readToken();
     if (token == null || token.isEmpty) return null;
     try {
@@ -67,9 +79,51 @@ class AuthRepository {
     }
   }
 
-  Future<void> logout() => _storage.deleteToken();
+  Future<void> logout() async {
+    try {
+      await _setLoggedOut(true);
+    } catch (e, stack) {
+      debugPrint('[auth] setLoggedOut failed: $e');
+      CrashReporting.recordError(e, stack, reason: 'logout_setLoggedOut');
+    }
+    try {
+      await _storage.deleteToken();
+    } catch (e, stack) {
+      debugPrint('[auth] deleteToken failed: $e');
+      CrashReporting.recordError(e, stack, reason: 'logout_deleteToken');
+    }
+  }
 
   Future<ProfileResponse> getProfile() => _service.getProfile();
+
+  Future<void> _persistSession(String token) async {
+    await _setLoggedOut(false);
+    await _storage.writeToken(token);
+  }
+
+  Future<bool> _isLoggedOut() async {
+    try {
+      final prefs = await withStorageTimeout(
+        _prefsFuture,
+        label: 'isLoggedOut_prefs',
+      );
+      return prefs.getBool(_authLoggedOutKey) ?? false;
+    } catch (e, stack) {
+      CrashReporting.recordError(e, stack, reason: 'isLoggedOut');
+      return false;
+    }
+  }
+
+  Future<void> _setLoggedOut(bool value) async {
+    final prefs = await withStorageTimeout(
+      _prefsFuture,
+      label: 'setLoggedOut_prefs',
+    );
+    await withStorageTimeout(
+      prefs.setBool(_authLoggedOutKey, value),
+      label: 'setLoggedOut_setBool',
+    );
+  }
 }
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
@@ -77,5 +131,6 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepository(
     ref.watch(authServiceProvider),
     ref.watch(secureStorageProvider),
+    ref.watch(sharedPreferencesProvider.future),
   );
 });

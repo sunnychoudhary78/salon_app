@@ -79,10 +79,12 @@ class _OtpVerifyScreenState extends ConsumerState<OtpVerifyScreen> {
     });
   }
 
-  String get _maskedPhone {
+  String get _displayPhone {
     final digits = widget.phone.replaceAll(RegExp(r'\D'), '');
-    if (digits.length < 4) return widget.phone;
-    return '******${digits.substring(digits.length - 4)}';
+    if (digits.length == 10) {
+      return '${digits.substring(0, 5)} ${digits.substring(5)}';
+    }
+    return digits.isNotEmpty ? digits : widget.phone;
   }
 
   Future<void> _resend() async {
@@ -130,10 +132,9 @@ class _OtpVerifyScreenState extends ConsumerState<OtpVerifyScreen> {
         context.go(RoutePaths.completeProfile);
       } else {
         final auth = ref.read(authProvider).value;
-        final home = auth != null && isSalonOwnerAccount(auth)
-            ? RoutePaths.ownerDashboard
-            : RoutePaths.customerHome;
-        context.go(home);
+        context.go(
+          auth != null ? homePathForUser(auth) : RoutePaths.customerHome,
+        );
       }
     } catch (e) {
       if (mounted) setState(() => _error = userFacingErrorMessage(e));
@@ -148,7 +149,7 @@ class _OtpVerifyScreenState extends ConsumerState<OtpVerifyScreen> {
 
     return AuthScaffold(
       headline: 'Verify your number',
-      subtitle: 'Sent to $_maskedPhone',
+      subtitle: 'Sent to $_displayPhone',
       onBack: () => context.pop(),
       child: AnimatedEntrance(
         style: EntranceStyle.scaleIn,

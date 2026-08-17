@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:saloon_booking/core/constants/salon_service_names.dart';
 import 'package:saloon_booking/core/theme/app_animations.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
+import 'package:saloon_booking/core/utils/image_decode_utils.dart';
 import 'package:saloon_booking/features/customer/data/providers/audience_mode_provider.dart';
 
 /// Compact Men/Women capsule for the home greeting row.
@@ -157,6 +158,8 @@ class _SegmentState extends State<_Segment> {
                 width: 20,
                 height: 20,
                 fit: BoxFit.cover,
+                cacheWidth: memCachePx(context, 20),
+                cacheHeight: memCachePx(context, 20),
                 filterQuality: FilterQuality.high,
               ),
             ),

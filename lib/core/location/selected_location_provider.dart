@@ -190,6 +190,21 @@ class SelectedLocationNotifier extends Notifier<SelectedLocationState> {
     await _persist(location);
   }
 
+  /// Clears the selected location (manual city or GPS) and falls back to GPS.
+  Future<bool> clearLocation() async {
+    state = const SelectedLocationState(
+      location: SelectedLocation.unset(),
+      isLoading: true,
+    );
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_prefsKey);
+    } catch (_) {
+      // Persistence failure is non-fatal.
+    }
+    return refreshGps();
+  }
+
   Future<bool> refreshGps({bool silent = false}) {
     final inFlight = _gpsRefreshFuture;
     if (inFlight != null) return inFlight;
@@ -246,7 +261,7 @@ class SelectedLocationNotifier extends Notifier<SelectedLocationState> {
         return false;
       }
 
-      final coords = await _locationService.getCurrentLocation();
+      final coords = await _resolveGpsCoords(ensure.warmupLocation);
       if (coords == null) {
         state = SelectedLocationState(
           location: hasPersistedLocation
@@ -278,6 +293,16 @@ class SelectedLocationNotifier extends Notifier<SelectedLocationState> {
       );
       return false;
     }
+  }
+
+  Future<UserLocation?> _resolveGpsCoords(UserLocation? warmup) async {
+    var coords = await _locationService.getCurrentLocation();
+    coords ??= warmup;
+    if (coords != null) return coords;
+
+    await Future<void>.delayed(const Duration(milliseconds: 1500));
+    coords = await _locationService.getCurrentLocation();
+    return coords ?? warmup;
   }
 }
 

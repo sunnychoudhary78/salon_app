@@ -27,6 +27,20 @@ class _LocationPickerSheet extends ConsumerStatefulWidget {
 class _LocationPickerSheetState extends ConsumerState<_LocationPickerSheet> {
   final _cityController = TextEditingController();
   bool _gpsLoading = false;
+  bool _clearing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final loc = ref.read(selectedLocationProvider).location;
+      if (loc.isSet && loc.source == LocationSource.manualCity) {
+        _cityController.text = (loc.city ?? loc.displayLabel).trim();
+        setState(() {});
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -49,6 +63,14 @@ class _LocationPickerSheetState extends ConsumerState<_LocationPickerSheet> {
     if (mounted) Navigator.pop(context);
   }
 
+  Future<void> _clearLocation() async {
+    setState(() => _clearing = true);
+    await ref.read(selectedLocationProvider.notifier).clearLocation();
+    if (!mounted) return;
+    setState(() => _clearing = false);
+    Navigator.pop(context);
+  }
+
   @override
   Widget build(BuildContext context) {
     final locationState = ref.watch(selectedLocationProvider);
@@ -56,13 +78,16 @@ class _LocationPickerSheetState extends ConsumerState<_LocationPickerSheet> {
     final isGpsActive = current.isSet && current.source == LocationSource.gps;
     final isCityActive =
         current.isSet && current.source == LocationSource.manualCity;
+    final cityText = _cityController.text.trim();
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
         20,
         8,
         20,
-        28 + MediaQuery.paddingOf(context).bottom,
+        28 +
+            MediaQuery.paddingOf(context).bottom +
+            MediaQuery.viewInsetsOf(context).bottom,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -89,7 +114,7 @@ class _LocationPickerSheetState extends ConsumerState<_LocationPickerSheet> {
             subtitle: isGpsActive ? current.displayLabel : 'Detect via GPS',
             isActive: isGpsActive,
             isLoading: _gpsLoading || locationState.isLoading,
-            onTap: _gpsLoading ? null : _useCurrentLocation,
+            onTap: _gpsLoading || _clearing ? null : _useCurrentLocation,
           ),
           if (locationState.gpsDenied) ...[
             const SizedBox(height: 10),
@@ -124,7 +149,20 @@ class _LocationPickerSheetState extends ConsumerState<_LocationPickerSheet> {
             controller: _cityController,
             label: 'Search city',
             hint: 'e.g. Mumbai, Bengaluru',
-            prefixIcon: Icon(Icons.location_city_rounded),
+            prefixIcon: const Icon(Icons.location_city_rounded),
+            suffixIcon: cityText.isEmpty
+                ? null
+                : IconButton(
+                    tooltip: 'Clear',
+                    onPressed: () {
+                      _cityController.clear();
+                      setState(() {});
+                    },
+                    icon: Icon(
+                      Icons.clear_rounded,
+                      color: context.appColors.textMuted,
+                    ),
+                  ),
             onChanged: (_) => setState(() {}),
           ),
           if (isCityActive) ...[
@@ -135,13 +173,23 @@ class _LocationPickerSheetState extends ConsumerState<_LocationPickerSheet> {
                 context,
               ).textTheme.labelSmall?.copyWith(color: context.appColors.accent),
             ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: _clearing ? null : _clearLocation,
+                child: Text(
+                  _clearing ? 'Clearing…' : 'Clear location',
+                  style: TextStyle(color: context.appColors.accent),
+                ),
+              ),
+            ),
           ],
           const SizedBox(height: 16),
           PremiumButton(
             label: 'Apply city',
             variant: PremiumButtonVariant.primary,
-            onPressed: _cityController.text.trim().isEmpty ? null : _applyCity,
-            disabledMessage: _cityController.text.trim().isEmpty
+            onPressed: cityText.isEmpty || _clearing ? null : _applyCity,
+            disabledMessage: cityText.isEmpty
                 ? 'Please enter a city to continue'
                 : null,
           ),

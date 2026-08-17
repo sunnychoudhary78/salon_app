@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/core/constants/salon_service_icons.dart';
 import 'package:saloon_booking/core/constants/salon_service_names.dart';
+import 'package:saloon_booking/core/utils/image_decode_utils.dart';
 
 class ServiceArtwork extends StatelessWidget {
   const ServiceArtwork({
@@ -36,6 +37,8 @@ class ServiceArtwork extends StatelessWidget {
           : Image.asset(
               asset,
               fit: BoxFit.contain,
+              cacheWidth: memCachePx(context, size),
+              cacheHeight: memCachePx(context, size),
               errorBuilder: (context, error, stackTrace) =>
                   const _ServiceArtworkFallback(),
             ),

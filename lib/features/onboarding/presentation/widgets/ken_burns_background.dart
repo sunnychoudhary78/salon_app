@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:saloon_booking/core/utils/image_decode_utils.dart';
 
 class KenBurnsBackground extends StatefulWidget {
   const KenBurnsBackground({
@@ -78,6 +79,8 @@ class _KenBurnsBackgroundState extends State<KenBurnsBackground>
             width: size.width * 1.15,
             height: size.height * 1.15,
             alignment: widget.alignment,
+            cacheWidth: memCachePx(context, size.width, max: 1080),
+            cacheHeight: memCachePx(context, size.height, max: 1920),
           ),
         ),
       ),

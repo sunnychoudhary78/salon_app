@@ -1,12 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:saloon_booking/core/routing/route_paths.dart';
 import 'package:saloon_booking/features/owner/data/models/owner_dashboard_v2_model.dart';
 import 'package:saloon_booking/features/owner/data/services/owner_service.dart';
 import 'package:saloon_booking/features/owner/presentation/providers/owner_booking_focus_provider.dart';
 
+/// `HH:mm[:ss]` from the API rendered in the device's 12/24h locale format.
+String formatOwnerBookingTime(String time) {
+  if (time.isEmpty) return '—';
+  final trimmed = time.length >= 5 ? time.substring(0, 5) : time;
+  try {
+    return DateFormat.jm().format(DateFormat('HH:mm').parse(trimmed));
+  } catch (_) {
+    return trimmed;
+  }
+}
+
 extension OwnerDashboardAppointmentUi on OwnerDashboardAppointment {
+  String get displayTime => formatOwnerBookingTime(bookingTime);
+
   String get servicesDisplay {
     if (services.isEmpty) return 'Appointment';
     return services

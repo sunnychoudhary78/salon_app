@@ -11,6 +11,7 @@ import 'package:saloon_booking/core/providers/owner_approval_provider.dart';
 import 'package:saloon_booking/core/routing/route_paths.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
+import 'package:saloon_booking/core/utils/currency_utils.dart';
 import 'package:saloon_booking/core/utils/form_validators.dart';
 import 'package:saloon_booking/core/utils/phone_validation.dart';
 import 'package:saloon_booking/core/utils/salon_geocoding.dart';
@@ -70,6 +71,10 @@ class _SalonOwnerWizardScreenState
   void initState() {
     super.initState();
     final auth = ref.read(authProvider).value;
+    final ownerPhone = normalizePhoneDigits(auth?.user.phone ?? '');
+    if (ownerPhone.isNotEmpty) {
+      _phoneController.text = ownerPhone;
+    }
     if (auth?.salonOwner != null) {
       _businessController.text = auth!.salonOwner!.businessName;
       _gstController.text = auth.salonOwner!.gstNumber ?? '';
@@ -559,7 +564,14 @@ class _SalonOwnerWizardScreenState
                     if (_premiumFeeController.text.trim().isNotEmpty)
                       _reviewRow(
                         'Urgent fee',
-                        '₹${_premiumFeeController.text.trim()}',
+                        () {
+                          final parsed = double.tryParse(
+                            _premiumFeeController.text.trim(),
+                          );
+                          return parsed != null
+                              ? formatMoney(parsed)
+                              : '₹${_premiumFeeController.text.trim()}';
+                        }(),
                       ),
                     if (_descriptionController.text.trim().isNotEmpty)
                       _reviewRow(

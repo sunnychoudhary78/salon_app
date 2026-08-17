@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:saloon_booking/core/lifecycle/user_activity_provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:saloon_booking/core/network/user_facing_error.dart';
 import 'package:saloon_booking/core/notifications/notification_router.dart';
@@ -11,18 +10,20 @@ import 'package:saloon_booking/core/notifications/notification_types.dart';
 import 'package:saloon_booking/core/routing/route_paths.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_decorations.dart';
+import 'package:saloon_booking/core/utils/currency_utils.dart';
 import 'package:saloon_booking/features/customer/data/models/salon_model.dart';
 import 'package:saloon_booking/features/customer/data/services/customer_service.dart';
 import 'package:saloon_booking/features/payments/presentation/providers/payment_provider.dart';
+import 'package:saloon_booking/features/settings/presentation/widgets/legal_acknowledgement.dart';
 import 'package:saloon_booking/core/utils/booking_timeline_utils.dart';
 import 'package:saloon_booking/shared/widgets/empty_state.dart';
-import 'package:saloon_booking/shared/widgets/animated_list_item.dart';
 import 'package:saloon_booking/shared/widgets/async_value_widget.dart';
 import 'package:saloon_booking/shared/widgets/auto_refresh.dart';
 import 'package:saloon_booking/shared/widgets/booking_card.dart';
 import 'package:saloon_booking/shared/widgets/glass_card.dart';
 import 'package:saloon_booking/shared/widgets/premium_app_bar.dart';
 import 'package:saloon_booking/shared/widgets/premium_button.dart';
+import 'package:saloon_booking/shared/widgets/premium_countdown.dart';
 import 'package:saloon_booking/shared/widgets/section_header.dart';
 
 class CustomerBookingsScreen extends ConsumerStatefulWidget {
@@ -41,6 +42,7 @@ class _CustomerBookingsScreenState extends ConsumerState<CustomerBookingsScreen>
   late TabController _tabController;
   String? _highlightedBookingId;
   String? _pendingFocusId;
+  String? _processingPaymentKey;
   bool _wantKeepAlive = true;
 
   @override
@@ -86,8 +88,12 @@ class _CustomerBookingsScreenState extends ConsumerState<CustomerBookingsScreen>
   Future<void> _runPaymentAction(
     BuildContext context,
     Future<void> Function() action,
-    String successMessage,
-  ) async {
+    String successMessage, {
+    String? actionKey,
+  }) async {
+    if (actionKey != null) {
+      setState(() => _processingPaymentKey = actionKey);
+    }
     try {
       await action();
       if (!context.mounted) return;
@@ -99,6 +105,10 @@ class _CustomerBookingsScreenState extends ConsumerState<CustomerBookingsScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(userFacingErrorMessage(e))),
       );
+    } finally {
+      if (actionKey != null && mounted) {
+        setState(() => _processingPaymentKey = null);
+      }
     }
   }
 
@@ -157,25 +167,32 @@ class _CustomerBookingsScreenState extends ConsumerState<CustomerBookingsScreen>
     WidgetRef ref,
     List<BookingModel> group,
   ) {
-    final paymentLoading = ref.watch(paymentActionsProvider).isLoading;
     final representative = group.firstWhere(
       (b) => b.isPremium,
       orElse: () => group.first,
     );
+    final groupKey = _requestGroupKey(representative);
+    final thisGroupBusy = _processingPaymentKey?.startsWith('$groupKey:') == true;
     final rows = <Widget>[];
 
     if (_groupNeedsPremiumPayment(group)) {
+      final premiumOnlyKey = '$groupKey:PREMIUM_ONLY';
+      final combinedKey = '$groupKey:COMBINED';
       rows.add(
-        PremiumCountdown(expiresAt: representative.premiumPayment?.expiresAt),
+        PremiumCountdown(expiresAt: representative.premiumPaymentDueAt),
       );
+      rows.add(const Padding(
+        padding: EdgeInsets.only(top: 8, bottom: 4),
+        child: LegalAcknowledgement.booking(textAlign: TextAlign.start),
+      ));
       rows.add(
         _actionsBar([
           PremiumButton(
             label: 'Pay premium only',
             expand: false,
             size: PremiumButtonSize.small,
-            loading: paymentLoading,
-            onPressed: paymentLoading
+            loading: _processingPaymentKey == premiumOnlyKey,
+            onPressed: thisGroupBusy
                 ? null
                 : () => _runPaymentAction(
                     context,
@@ -186,17 +203,18 @@ class _CustomerBookingsScreenState extends ConsumerState<CustomerBookingsScreen>
                           checkoutKind: 'PREMIUM_ONLY',
                         ),
                     'Premium payment successful',
+                    actionKey: premiumOnlyKey,
                   ),
           ),
           if (representative.premiumAmount != null)
             PremiumButton(
               label:
-                  'Pay full ₹${((representative.premiumAmount ?? 0) + _groupServiceTotal(group)).toStringAsFixed(0)}',
+                  'Pay full ${formatMoney((representative.premiumAmount ?? 0) + _groupServiceTotal(group))}',
               expand: false,
               size: PremiumButtonSize.small,
               variant: PremiumButtonVariant.accent,
-              loading: paymentLoading,
-              onPressed: paymentLoading
+              loading: _processingPaymentKey == combinedKey,
+              onPressed: thisGroupBusy
                   ? null
                   : () => _runPaymentAction(
                       context,
@@ -207,6 +225,7 @@ class _CustomerBookingsScreenState extends ConsumerState<CustomerBookingsScreen>
                             checkoutKind: 'COMBINED',
                           ),
                       'Payment successful',
+                      actionKey: combinedKey,
                     ),
             ),
         ]),
@@ -224,14 +243,20 @@ class _CustomerBookingsScreenState extends ConsumerState<CustomerBookingsScreen>
     }
 
     if (_groupCanChooseSalonPayment(group)) {
+      final salonFeeKey = '$groupKey:SALON_FEE';
+      final payAtShopKey = '$groupKey:PAY_AT_SHOP';
+      rows.add(const Padding(
+        padding: EdgeInsets.only(top: 8, bottom: 4),
+        child: LegalAcknowledgement.booking(textAlign: TextAlign.start),
+      ));
       rows.add(
         _actionsBar([
           PremiumButton(
             label: 'Pay online',
             expand: false,
             size: PremiumButtonSize.small,
-            loading: paymentLoading,
-            onPressed: paymentLoading
+            loading: _processingPaymentKey == salonFeeKey,
+            onPressed: thisGroupBusy
                 ? null
                 : () => _runPaymentAction(
                     context,
@@ -242,6 +267,7 @@ class _CustomerBookingsScreenState extends ConsumerState<CustomerBookingsScreen>
                           checkoutKind: 'SALON_FEE',
                         ),
                     'Payment successful',
+                    actionKey: salonFeeKey,
                   ),
           ),
           PremiumButton(
@@ -249,7 +275,8 @@ class _CustomerBookingsScreenState extends ConsumerState<CustomerBookingsScreen>
             expand: false,
             size: PremiumButtonSize.small,
             variant: PremiumButtonVariant.ghost,
-            onPressed: paymentLoading
+            loading: _processingPaymentKey == payAtShopKey,
+            onPressed: thisGroupBusy
                 ? null
                 : () => _runPaymentAction(
                     context,
@@ -257,43 +284,51 @@ class _CustomerBookingsScreenState extends ConsumerState<CustomerBookingsScreen>
                         .read(paymentActionsProvider.notifier)
                         .selectPayAtShop(representative),
                     'Pay at shop selected',
+                    actionKey: payAtShopKey,
                   ),
           ),
         ]),
       );
+    } else if (_groupAwaitingSalonCashConfirmation(group)) {
+      rows.add(
+        Text(
+          'Waiting for salon approval',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: AppColors.warning,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      );
     }
 
-    for (final booking in group) {
-      if (customerCanReview(booking)) {
-        final staffName = booking.staff?.name;
-        rows.add(
-          _actionsBar([
-            PremiumButton(
-              label: staffName != null && staffName.isNotEmpty
-                  ? 'Rate salon · $staffName'
-                  : 'Rate salon',
-              expand: false,
-              size: PremiumButtonSize.small,
-              variant: PremiumButtonVariant.accent,
-              onPressed: () => context.push(
-                '${RoutePaths.customerBookings}/${booking.id}/review',
-              ),
-            ),
-          ]),
-        );
-      } else if (booking.hasReview) {
-        rows.add(
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text(
-              'Salon reviewed',
-              style: Theme.of(
-                context,
-              ).textTheme.labelSmall?.copyWith(color: AppColors.success),
+    // One Rate / Reviewed control per visit (multi-service groups share a card).
+    final reviewBooking = customerVisitReviewBooking(group);
+    if (reviewBooking != null) {
+      rows.add(
+        _actionsBar([
+          PremiumButton(
+            label: 'Rate salon',
+            expand: false,
+            size: PremiumButtonSize.small,
+            variant: PremiumButtonVariant.accent,
+            onPressed: () => context.push(
+              '${RoutePaths.customerBookings}/${reviewBooking.id}/review',
             ),
           ),
-        );
-      }
+        ]),
+      );
+    } else if (customerVisitHasReview(group)) {
+      rows.add(
+        Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text(
+            'Salon reviewed',
+            style: Theme.of(
+              context,
+            ).textTheme.labelSmall?.copyWith(color: AppColors.success),
+          ),
+        ),
+      );
     }
 
     if (group.any((b) => b.canCancel)) {
@@ -329,6 +364,11 @@ class _CustomerBookingsScreenState extends ConsumerState<CustomerBookingsScreen>
     return !rep.salonFeePaid && !rep.salonFeePayAtShop;
   }
 
+  bool _groupAwaitingSalonCashConfirmation(List<BookingModel> group) {
+    final rep = group.firstWhere((b) => b.isPremium, orElse: () => group.first);
+    return rep.isAccepted && rep.salonFeePayAtShop && !rep.salonFeePaid;
+  }
+
   double _groupServiceTotal(List<BookingModel> group) {
     return group.fold<double>(
       0,
@@ -338,11 +378,17 @@ class _CustomerBookingsScreenState extends ConsumerState<CustomerBookingsScreen>
 
   /// Groups bookings created from one request (same groupId) together,
   /// preserving order. Legacy rows without a groupId stand alone.
+  String _requestGroupKey(BookingModel booking) {
+    final groupId = booking.groupId;
+    if (groupId != null && groupId.isNotEmpty) return groupId;
+    return 'single:${booking.id}';
+  }
+
   List<List<BookingModel>> _groupByRequest(List<BookingModel> items) {
     final groups = <List<BookingModel>>[];
     final indexByKey = <String, int>{};
     for (final booking in items) {
-      final key = booking.groupId ?? 'single:${booking.id}';
+      final key = _requestGroupKey(booking);
       final existing = indexByKey[key];
       if (existing == null) {
         indexByKey[key] = groups.length;
@@ -359,60 +405,65 @@ class _CustomerBookingsScreenState extends ConsumerState<CustomerBookingsScreen>
     List<BookingModel> items, {
     required bool isActiveTab,
   }) {
+    Future<void> onRefresh() async => ref.invalidate(myBookingsProvider);
+
     if (items.isEmpty) {
-      return EmptyStateScrollable(
-        child: EmptyState(
-          icon: isActiveTab
-              ? Icons.event_available_outlined
-              : Icons.history_rounded,
-          title: isActiveTab ? 'No active bookings' : 'No past bookings',
-          subtitle: isActiveTab
-              ? 'Upcoming and pending appointments will appear here.'
-              : 'Completed, cancelled, and declined visits show up here.',
-          actionLabel: isActiveTab ? 'Explore salons' : null,
-          onAction: isActiveTab
-              ? () => context.go(RoutePaths.customerHome)
-              : null,
+      return RefreshIndicator(
+        onRefresh: onRefresh,
+        child: EmptyStateScrollable(
+          child: EmptyState(
+            icon: isActiveTab
+                ? Icons.event_available_outlined
+                : Icons.history_rounded,
+            title: isActiveTab ? 'No active bookings' : 'No past bookings',
+            subtitle: isActiveTab
+                ? 'Upcoming and pending appointments will appear here.'
+                : 'Completed, cancelled, and declined visits show up here.',
+            actionLabel: isActiveTab ? 'Explore salons' : null,
+            onAction: isActiveTab
+                ? () => context.go(RoutePaths.customerHome)
+                : null,
+          ),
         ),
       );
     }
 
     final groups = _groupByRequest(items);
 
-    return ListView.builder(
-      padding: EdgeInsets.fromLTRB(
-        16,
-        8,
-        16,
-        AppDecorations.scrollBottomPadding(context),
-      ),
-      itemCount: groups.length + 1,
-      itemBuilder: (context, index) {
-        if (index == 0) {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 14),
-            child: SectionHeader(
-              title: isActiveTab ? 'Active appointments' : 'Past appointments',
-              subtitle:
-                  '${groups.length} booking${groups.length == 1 ? '' : 's'}',
-            ),
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      child: ListView.builder(
+        padding: EdgeInsets.fromLTRB(
+          16,
+          8,
+          16,
+          AppDecorations.scrollBottomPadding(context),
+        ),
+        itemCount: groups.length + 1,
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 14),
+              child: SectionHeader(
+                title: isActiveTab ? 'Active appointments' : 'Past appointments',
+                subtitle:
+                    '${groups.length} booking${groups.length == 1 ? '' : 's'}',
+              ),
+            );
+          }
+          final group = groups[index - 1];
+          // Prefer the premium row as the representative so the URGENT badge and
+          // premium amount surface on the card.
+          final representative = group.firstWhere(
+            (b) => b.isPremium,
+            orElse: () => group.first,
           );
-        }
-        final group = groups[index - 1];
-        // Prefer the premium row as the representative so the URGENT badge and
-        // premium amount surface on the card.
-        final representative = group.firstWhere(
-          (b) => b.isPremium,
-          orElse: () => group.first,
-        );
-        final serviceNames = group
-            .map((b) => b.service?.serviceName)
-            .whereType<String>()
-            .toList();
-        final highlighted = group.any((b) => b.id == _highlightedBookingId);
-        return AnimatedListItem(
-          index: index,
-          child: AnimatedContainer(
+          final serviceNames = group
+              .map((b) => b.service?.serviceName)
+              .whereType<String>()
+              .toList();
+          final highlighted = group.any((b) => b.id == _highlightedBookingId);
+          return AnimatedContainer(
             duration: const Duration(milliseconds: 300),
             margin: const EdgeInsets.symmetric(vertical: 2),
             decoration: BoxDecoration(
@@ -426,9 +477,9 @@ class _CustomerBookingsScreenState extends ConsumerState<CustomerBookingsScreen>
               serviceNames: serviceNames,
               trailing: _groupTrailing(context, ref, group),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 
@@ -511,13 +562,15 @@ class _CustomerBookingsScreenState extends ConsumerState<CustomerBookingsScreen>
               ),
             ),
             Expanded(
-              child: RefreshIndicator(
-                onRefresh: () async => ref.invalidate(myBookingsProvider),
-                child: AsyncValueWidget(
-                  value: bookings,
-                  data: (items) {
-                    if (items.isEmpty) {
-                      return ListView(
+              child: AsyncValueWidget(
+                value: bookings,
+                data: (items) {
+                  if (items.isEmpty) {
+                    return RefreshIndicator(
+                      onRefresh: () async =>
+                          ref.invalidate(myBookingsProvider),
+                      child: ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
                         padding: EdgeInsets.fromLTRB(
                           16,
                           16,
@@ -533,117 +586,29 @@ class _CustomerBookingsScreenState extends ConsumerState<CustomerBookingsScreen>
                             actionLabel: 'Explore salons',
                           ),
                         ],
-                      );
-                    }
-
-                    if (_pendingFocusId != null) {
-                      final focusId = _pendingFocusId!;
-                      _pendingFocusId = null;
-                      _focusBooking(focusId, active, past);
-                    }
-
-                    return TabBarView(
-                      controller: _tabController,
-                      children: [
-                        _buildBookingList(context, active, isActiveTab: true),
-                        _buildBookingList(context, past, isActiveTab: false),
-                      ],
+                      ),
                     );
-                  },
-                ),
+                  }
+
+                  if (_pendingFocusId != null) {
+                    final focusId = _pendingFocusId!;
+                    _pendingFocusId = null;
+                    _focusBooking(focusId, active, past);
+                  }
+
+                  return TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildBookingList(context, active, isActiveTab: true),
+                      _buildBookingList(context, past, isActiveTab: false),
+                    ],
+                  );
+                },
               ),
             ),
           ],
         ),
       ),
     );
-  }
-}
-
-/// Self-contained countdown that ticks once per second on its own, so it does
-/// not force the whole bookings screen to rebuild every second. Pauses while idle.
-class PremiumCountdown extends ConsumerStatefulWidget {
-  const PremiumCountdown({super.key, required this.expiresAt});
-
-  final DateTime? expiresAt;
-
-  @override
-  ConsumerState<PremiumCountdown> createState() => _PremiumCountdownState();
-}
-
-class _PremiumCountdownState extends ConsumerState<PremiumCountdown> {
-  Timer? _timer;
-
-  @override
-  void initState() {
-    super.initState();
-    _startTimerIfNeeded();
-  }
-
-  @override
-  void didUpdateWidget(PremiumCountdown oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.expiresAt != widget.expiresAt) {
-      _timer?.cancel();
-      _timer = null;
-      _startTimerIfNeeded();
-    }
-  }
-
-  void _startTimerIfNeeded() {
-    if (widget.expiresAt == null || ref.read(userIdleProvider)) return;
-    _timer ??= Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted || ref.read(userIdleProvider)) return;
-      setState(() {});
-    });
-  }
-
-  void _stopTimer() {
-    _timer?.cancel();
-    _timer = null;
-  }
-
-  @override
-  void dispose() {
-    _stopTimer();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    ref.listen(userIdleProvider, (previous, next) {
-      if (next) {
-        _stopTimer();
-      } else {
-        _startTimerIfNeeded();
-        if (mounted) setState(() {});
-      }
-    });
-
-    return Text(
-      _remainingLabel(widget.expiresAt),
-      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-        color: AppColors.warning,
-        fontWeight: FontWeight.w700,
-      ),
-    );
-  }
-
-  String _remainingLabel(DateTime? expiresAt) {
-    if (expiresAt == null) return 'Pay now to confirm this premium booking';
-    final remaining = expiresAt.difference(DateTime.now());
-    if (remaining.isNegative) return 'Premium payment window expired';
-    final minutes = remaining.inMinutes
-        .remainder(60)
-        .toString()
-        .padLeft(2, '0');
-    final seconds = remaining.inSeconds
-        .remainder(60)
-        .toString()
-        .padLeft(2, '0');
-    if (remaining.inHours > 0) {
-      return 'Premium payment due in ${remaining.inHours}:$minutes:$seconds';
-    }
-    return 'Premium payment due in $minutes:$seconds';
   }
 }

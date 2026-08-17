@@ -67,12 +67,14 @@ String? validateDiscountPrice(String? value, {required double? price}) {
   final trimmed = (value ?? '').trim();
   if (trimmed.isEmpty) return null;
   final parsed = double.tryParse(trimmed);
-  if (parsed == null) return 'Enter a valid discount price';
-  if (parsed <= 0) return 'Discount must be greater than 0';
+  if (parsed == null) return 'Enter a valid final price after discount';
+  if (parsed <= 0) return 'Final price after discount must be greater than 0';
   if (price == null || price <= 0) {
     return 'Enter a valid price first';
   }
-  if (parsed >= price) return 'Discount must be less than price';
+  if (parsed >= price) {
+    return 'Final price after discount must be less than the original price';
+  }
   return null;
 }
 
@@ -134,12 +136,17 @@ String? validateGstOptional(String? value) {
   return null;
 }
 
-String? validateReviewComment(String? value, {required int rating}) {
+String? validateReviewComment(
+  String? value, {
+  required int rating,
+  int? staffRating,
+}) {
   final trimmed = (value ?? '').trim();
   if (trimmed.length > kReviewMaxLength) {
     return 'Keep review under $kReviewMaxLength characters';
   }
-  if (rating <= 2 && trimmed.isEmpty) {
+  final lowRating = rating <= 2 || (staffRating != null && staffRating <= 2);
+  if (lowRating && trimmed.isEmpty) {
     return 'Please add a comment for low ratings';
   }
   return null;

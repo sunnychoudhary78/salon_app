@@ -3,6 +3,7 @@ import 'package:saloon_booking/core/notifications/notification_payload.dart';
 import 'package:saloon_booking/core/notifications/notification_types.dart';
 import 'package:saloon_booking/core/routing/app_router.dart';
 import 'package:saloon_booking/core/routing/route_paths.dart';
+import 'package:saloon_booking/features/owner/presentation/providers/pending_booking_gate_provider.dart';
 
 class NotificationRouter {
   NotificationRouter(this._ref);
@@ -20,6 +21,11 @@ class NotificationRouter {
               userRole: payload.userRole,
             ),
           );
+    }
+
+    if (payload.isUrgentBooking) {
+      // ignore: discarded_futures
+      _ref.read(pendingBookingGateProvider.notifier).refresh();
     }
 
     final router = _ref.read(appRouterProvider);
@@ -52,7 +58,8 @@ class NotificationRouter {
     if (userRole == NotificationUserRoles.salonOwner) {
       return switch (type) {
         NotificationTypes.newBooking ||
-        NotificationTypes.bookingCancelled => RoutePaths.ownerBookings,
+        NotificationTypes.bookingCancelled ||
+        NotificationTypes.payAtShopSelected => RoutePaths.ownerBookings,
         NotificationTypes.paymentReceived => RoutePaths.ownerEarnings,
         NotificationTypes.salonApplicationSubmitted ||
         NotificationTypes.salonApplicationApproved ||

@@ -36,7 +36,7 @@ class AccentPaletteSwitcher extends ConsumerWidget {
           spacing: 12,
           runSpacing: 12,
           children: [
-            for (final palette in AccentPalette.values)
+            for (final palette in AccentPalette.customerChoices)
               _PaletteOption(
                 key: ValueKey('accent-${palette.storageValue}'),
                 palette: palette,

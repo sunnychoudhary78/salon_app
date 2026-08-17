@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 
 class RatingHistogram extends StatelessWidget {
@@ -27,7 +28,7 @@ class RatingHistogram extends StatelessWidget {
             Text(
               averageRating.toStringAsFixed(1),
               style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                color: context.appColors.accent,
+                color: AppColors.starGold,
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -39,7 +40,7 @@ class RatingHistogram extends StatelessWidget {
                 return Icon(
                   filled ? Icons.star_rounded : Icons.star_outline_rounded,
                   size: 14,
-                  color: context.appColors.accent,
+                  color: AppColors.starGold,
                 );
               }),
             ),
@@ -73,7 +74,7 @@ class RatingHistogram extends StatelessWidget {
                     Icon(
                       Icons.star_rounded,
                       size: 10,
-                      color: context.appColors.accent,
+                      color: AppColors.starGold,
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -85,7 +86,7 @@ class RatingHistogram extends StatelessWidget {
                           backgroundColor: colors.glassBorder.withValues(
                             alpha: 0.3,
                           ),
-                          color: context.appColors.accent.withValues(
+                          color: AppColors.starGold.withValues(
                             alpha: 0.85,
                           ),
                         ),

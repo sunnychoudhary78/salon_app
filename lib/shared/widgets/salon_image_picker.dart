@@ -7,6 +7,8 @@ import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/core/utils/form_validators.dart';
 import 'package:saloon_booking/core/utils/image_url_utils.dart';
+import 'package:saloon_booking/core/utils/image_decode_utils.dart';
+import 'package:saloon_booking/shared/widgets/image_crop_screen.dart';
 
 class SalonImagePicker extends StatelessWidget {
   const SalonImagePicker({
@@ -39,7 +41,14 @@ class SalonImagePicker extends StatelessWidget {
     }
 
     if (picked.isEmpty) return;
-    onImagesChanged([...images, ...picked].take(maxImages).toList());
+    if (!context.mounted) return;
+    final cropped = await cropPickedImages(
+      context,
+      picked,
+      ImageCropShape.landscape,
+    );
+    if (cropped.isEmpty || !context.mounted) return;
+    onImagesChanged([...images, ...cropped].take(maxImages).toList());
   }
 
   void _removeImage(int index) {
@@ -199,8 +208,15 @@ class SalonImageEditor extends StatelessWidget {
       picked = await picker.pickMultiImage(limit: remaining);
     }
     if (picked.isEmpty) return;
+    if (!context.mounted) return;
+    final cropped = await cropPickedImages(
+      context,
+      picked,
+      ImageCropShape.landscape,
+    );
+    if (cropped.isEmpty || !context.mounted) return;
     onNewImagesChanged(
-      [...newImages, ...picked].take(remaining + newImages.length).toList(),
+      [...newImages, ...cropped].take(remaining + newImages.length).toList(),
     );
   }
 
@@ -266,6 +282,8 @@ class SalonImageEditor extends StatelessWidget {
                       width: 100,
                       height: 100,
                       fit: BoxFit.cover,
+                      memCacheWidth: memCachePx(context, 100),
+                      memCacheHeight: memCachePx(context, 100),
                     ),
                   );
                 }

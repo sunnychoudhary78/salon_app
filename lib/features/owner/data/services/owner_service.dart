@@ -94,15 +94,16 @@ class OwnerService {
     return parseDataList(response.data, SalonApplicationModel.fromJson);
   }
 
-  Future<SalonApplicationModel> submitSalonUpdateRequest({
+  Future<SalonModel> updateSalon({
     required String salonId,
     required Map<String, dynamic> body,
   }) async {
-    return submitSalonApplication({
-      'application_type': 'UPDATE',
-      'salon_id': salonId,
-      ...body,
-    });
+    final response = await _dio.put(
+      '${AppConfig.appPrefix}/owner/salons/$salonId',
+      data: body,
+    );
+    final data = (response.data as Map<String, dynamic>)['data'];
+    return SalonModel.fromJson(data as Map<String, dynamic>);
   }
 
   Future<SalonApplicationModel> submitSalonDeactivateRequest({
@@ -278,9 +279,17 @@ class OwnerService {
     );
   }
 
-  Future<OwnerBookingModel> completeBooking(String id) async {
+  Future<OwnerBookingModel> completeBooking(
+    String id, {
+    double? extraAmount,
+    double? confirmedAmount,
+  }) async {
     final response = await _dio.patch(
       '${AppConfig.appPrefix}/owner/bookings/$id/complete',
+      data: {
+        'extra_amount': ?extraAmount,
+        'confirmed_amount': ?confirmedAmount,
+      },
     );
     return OwnerBookingModel.fromJson(
       (response.data as Map<String, dynamic>)['data'] as Map<String, dynamic>,
@@ -326,11 +335,15 @@ class OwnerService {
 
   Future<void> confirmBookingGroupCash({
     required String groupId,
+    double? extraAmount,
     double? confirmedAmount,
   }) async {
     await _dio.patch(
       '${AppConfig.appPrefix}/owner/booking-groups/$groupId/confirm-cash',
-      data: {if (confirmedAmount != null) 'confirmed_amount': confirmedAmount},
+      data: {
+        'extra_amount': ?extraAmount,
+        'confirmed_amount': ?confirmedAmount,
+      },
     );
   }
 
@@ -481,7 +494,8 @@ SalonApplicationModel? pendingApplicationForSalon(
   String salonId,
 ) {
   for (final app in applications) {
-    if (app.salonId == salonId && app.isPending) return app;
+    // Profile UPDATE no longer goes through approval; ignore leftover UPDATE apps.
+    if (app.salonId == salonId && app.isPending && !app.isUpdate) return app;
   }
   return null;
 }
@@ -612,8 +626,13 @@ class OwnerBookingActions {
     return booking;
   }
 
-  Future<OwnerBookingModel> complete(String id) async {
-    final booking = await _ref.read(ownerServiceProvider).completeBooking(id);
+  Future<OwnerBookingModel> complete(
+    String id, {
+    double? extraAmount,
+  }) async {
+    final booking = await _ref
+        .read(ownerServiceProvider)
+        .completeBooking(id, extraAmount: extraAmount);
     _ref.invalidate(ownerBookingsProvider);
     _ref.invalidate(ownerAllBookingsProvider);
     _ref.invalidate(ownerDashboardProvider);
@@ -624,12 +643,14 @@ class OwnerBookingActions {
 
   Future<void> confirmCashPayment(
     String groupId, {
+    double? extraAmount,
     double? confirmedAmount,
   }) async {
     await _ref
         .read(ownerServiceProvider)
         .confirmBookingGroupCash(
           groupId: groupId,
+          extraAmount: extraAmount,
           confirmedAmount: confirmedAmount,
         );
     _ref.invalidate(ownerBookingsProvider);
@@ -678,8 +699,7 @@ class OwnerOnboardingActions {
   }) async {
     await _ref
         .read(ownerServiceProvider)
-        .submitSalonUpdateRequest(salonId: salonId, body: body);
-    _ref.invalidate(ownerSalonApplicationsProvider);
+        .updateSalon(salonId: salonId, body: body);
     _ref.invalidate(ownerSalonsProvider);
   }
 

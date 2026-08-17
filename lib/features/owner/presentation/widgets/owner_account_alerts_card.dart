@@ -218,11 +218,16 @@ class _ProfileSection extends StatelessWidget {
     final incompleteSalons = profileCompleteness.salons
         .where((s) => s.completenessPercent < 100)
         .toList();
-    final missingLabels = aggregateMissingFields(
+    final leftoverLabels = aggregateMissingFields(
       incompleteSalons
           .map((s) => (salonName: s.salonName, missing: s.missing))
           .toList(),
     );
+    final leftoverSentence = leftoverLabels.isEmpty
+        ? null
+        : incompleteSalons.length > 1
+        ? '${incompleteSalons.length} salons still need details'
+        : 'Still to add: ${leftoverLabels.join(', ')}';
 
     return GlassCard(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -248,10 +253,10 @@ class _ProfileSection extends StatelessWidget {
               ),
             ],
           ),
-          if (profileCompleteness.incompleteCount > 1) ...[
+          if (leftoverSentence != null) ...[
             const SizedBox(height: 4),
             Text(
-              '${profileCompleteness.incompleteCount} salons need attention',
+              leftoverSentence,
               style: Theme.of(
                 context,
               ).textTheme.bodySmall?.copyWith(color: colors.textMuted),
@@ -266,44 +271,16 @@ class _ProfileSection extends StatelessWidget {
               backgroundColor: colors.glassBorder,
             ),
           ),
-          if (missingLabels.isNotEmpty) ...[
+          if (incompleteSalons.length == 1 && leftoverLabels.isNotEmpty) ...[
             const SizedBox(height: 10),
-            Text(
-              'Missing',
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: colors.textMuted,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: missingLabels
-                  .map(
-                    (label) => Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.warning.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: AppColors.warning.withValues(alpha: 0.3),
-                        ),
-                      ),
-                      child: Text(
-                        label,
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: AppColors.warning,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  )
-                  .toList(),
-            ),
+            _MissingChips(labels: leftoverLabels),
+          ],
+          if (incompleteSalons.length > 1) ...[
+            const SizedBox(height: 12),
+            for (var i = 0; i < incompleteSalons.length; i++) ...[
+              if (i > 0) const SizedBox(height: 10),
+              _SalonLeftoverBlock(salon: incompleteSalons[i]),
+            ],
           ],
           const SizedBox(height: 10),
           Align(
@@ -322,6 +299,88 @@ class _ProfileSection extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _SalonLeftoverBlock extends StatelessWidget {
+  const _SalonLeftoverBlock({required this.salon});
+
+  final OwnerDashboardProfileSalon salon;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final labels = humanizeMissingFields(salon.missing);
+    final name = salon.salonName.trim().isEmpty
+        ? 'Salon'
+        : salon.salonName.trim();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                name,
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: colors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            Text(
+              '${salon.completenessPercent}%',
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: salon.completenessPercent < 90
+                    ? AppColors.warning
+                    : colors.textMuted,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+        if (labels.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          _MissingChips(labels: labels),
+        ],
+      ],
+    );
+  }
+}
+
+class _MissingChips extends StatelessWidget {
+  const _MissingChips({required this.labels});
+
+  final List<String> labels;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: labels
+          .map(
+            (label) => Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.warning.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: AppColors.warning.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Text(
+                label,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: AppColors.warning,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          )
+          .toList(),
     );
   }
 }

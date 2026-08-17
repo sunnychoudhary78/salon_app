@@ -15,10 +15,12 @@ import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/core/theme/app_decorations.dart';
 import 'package:saloon_booking/core/utils/booking_timeline_utils.dart';
+import 'package:saloon_booking/core/utils/currency_utils.dart';
 import 'package:saloon_booking/core/utils/form_validators.dart';
 import 'package:saloon_booking/features/owner/data/models/owner_model.dart';
 import 'package:saloon_booking/features/owner/data/services/owner_service.dart';
 import 'package:saloon_booking/features/owner/presentation/providers/owner_booking_focus_provider.dart';
+import 'package:saloon_booking/features/owner/presentation/widgets/extra_cash_dialog.dart';
 import 'package:saloon_booking/shared/widgets/animated_list_item.dart';
 import 'package:saloon_booking/shared/widgets/async_value_widget.dart';
 import 'package:saloon_booking/shared/widgets/auto_refresh.dart';
@@ -28,10 +30,12 @@ import 'package:saloon_booking/shared/widgets/glass_card.dart';
 import 'package:saloon_booking/shared/widgets/gradient_background.dart';
 import 'package:saloon_booking/shared/widgets/premium_app_bar.dart';
 import 'package:saloon_booking/shared/widgets/premium_button.dart';
+import 'package:saloon_booking/shared/widgets/premium_countdown.dart';
 import 'package:saloon_booking/shared/widgets/premium_dialog.dart';
 import 'package:saloon_booking/shared/widgets/premium_text_field.dart';
 import 'package:saloon_booking/shared/widgets/section_header.dart';
 import 'package:saloon_booking/shared/widgets/status_badge.dart';
+import 'package:saloon_booking/shared/widgets/staff_avatar.dart';
 
 class OwnerBookingsScreen extends ConsumerStatefulWidget {
   const OwnerBookingsScreen({super.key});
@@ -223,17 +227,6 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen>
     return '$dateLabel · $time';
   }
 
-  Color _statusAccent(String status, BuildContext context) {
-    return switch (status.toUpperCase()) {
-      'PENDING' => AppColors.warning,
-      'ACCEPTED' => AppColors.success,
-      'COMPLETED' => AppColors.primaryLight,
-      'CANCELLED' => context.appColors.textMuted,
-      'REJECTED' => AppColors.error,
-      _ => context.appColors.accent,
-    };
-  }
-
   String _errorMessage(Object error) => userFacingErrorMessage(error);
 
   Future<bool> _runBookingAction({
@@ -295,14 +288,29 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen>
   }
 
   Future<bool> _completeBooking(
-    String bookingId, {
+    OwnerBookingModel booking, {
     BuildContext? closeContext,
     VoidCallback? onStateChanged,
-  }) {
+  }) async {
+    double? extraAmount;
+    extraAmount = await showExtraCashDialog(
+      context: context,
+      bookedAmount: booking.salonFeeAmount ?? 0,
+      title: booking.requiresCashConfirmation
+          ? 'Complete & confirm cash'
+          : 'Mark completed',
+      confirmLabel: 'Complete',
+      alreadyPaidOnline: !booking.requiresCashConfirmation,
+    );
+    if (extraAmount == null) return false;
+    if (!mounted) return false;
+    if (closeContext != null && !closeContext.mounted) return false;
     return _runBookingAction(
-      bookingId: bookingId,
+      bookingId: booking.id,
       action: _OwnerBookingAction.complete,
-      request: () => ref.read(ownerBookingActionsProvider).complete(bookingId),
+      request: () => ref
+          .read(ownerBookingActionsProvider)
+          .complete(booking.id, extraAmount: extraAmount),
       successMessage: 'Booking completed',
       closeContext: closeContext,
       onStateChanged: onStateChanged,
@@ -318,6 +326,16 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen>
     final booking = group.first;
     final groupId = booking.groupId ?? booking.id;
 
+    final extraAmount = await showExtraCashDialog(
+      context: context,
+      bookedAmount: booking.salonFeeAmount ?? 0,
+      title: 'Confirm cash received',
+      confirmLabel: 'Confirm cash',
+    );
+    if (extraAmount == null) return false;
+    if (!mounted) return false;
+    if (closeContext != null && !closeContext.mounted) return false;
+
     setState(() {
       _processingBookingId = booking.id;
       _processingAction = _OwnerBookingAction.confirmCash;
@@ -325,7 +343,9 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen>
     onStateChanged?.call();
 
     try {
-      await ref.read(ownerBookingActionsProvider).confirmCashPayment(groupId);
+      await ref
+          .read(ownerBookingActionsProvider)
+          .confirmCashPayment(groupId, extraAmount: extraAmount);
       if (!mounted) return false;
       await _refreshBookings();
       if (closeContext != null && closeContext.mounted) {
@@ -348,7 +368,6 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen>
   }
 
   Future<void> _showBookingDetail(List<OwnerBookingModel> group) async {
-    final booking = group.first;
     final serviceNames = group
         .map((b) => b.serviceName)
         .whereType<String>()
@@ -363,9 +382,14 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen>
       ),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheetState) {
-          final currentBooking = _displayBooking(booking);
+          final displayedGroup = [
+            for (final item in group) _displayBooking(item),
+          ];
+          final currentBooking = displayedGroup.first;
+          final isUrgent = ownerGroupIsPremium(displayedGroup);
+          final premiumAmount = ownerGroupPremiumAmount(displayedGroup);
+          final premiumBooking = ownerGroupPremium(displayedGroup);
           final status = currentBooking.bookingStatus.toUpperCase();
-          final accent = _statusAccent(status, ctx);
           final processingThis = _isBookingProcessing(currentBooking.id);
           void notifySheet() {
             if (ctx.mounted) setSheetState(() {});
@@ -382,31 +406,23 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen>
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Container(
-                  height: 4,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [accent, accent.withValues(alpha: 0.3)],
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: ctx.appColors.glassBorder,
+                      borderRadius: BorderRadius.circular(2),
                     ),
-                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
                 const SizedBox(height: 16),
                 Row(
                   children: [
-                    CircleAvatar(
-                      radius: 24,
-                      backgroundColor: AppColors.primary.withValues(alpha: 0.2),
-                      child: Text(
-                        (currentBooking.customer?.name ?? 'C')
-                            .substring(0, 1)
-                            .toUpperCase(),
-                        style: TextStyle(
-                          color: context.appColors.accent,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 18,
-                        ),
-                      ),
+                    StaffAvatar(
+                      name: currentBooking.customer?.name ?? 'C',
+                      imageUrl: currentBooking.customer?.profileImage,
+                      size: 48,
                     ),
                     const SizedBox(width: 14),
                     Expanded(
@@ -472,7 +488,7 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen>
                     ],
                   ),
                 ),
-                if (currentBooking.isPremium) ...[
+                if (isUrgent) ...[
                   const SizedBox(height: 8),
                   Container(
                     padding: const EdgeInsets.all(12),
@@ -482,7 +498,7 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen>
                     ),
                     child: Text(
                       'Urgent booking'
-                      '${currentBooking.premiumAmount != null ? ' · ₹${currentBooking.premiumAmount!.toStringAsFixed(0)} premium' : ''}',
+                      '${premiumAmount != null ? ' · ${formatMoney(premiumAmount)} premium' : ''}',
                       style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
                         color: context.appColors.accent,
                       ),
@@ -534,6 +550,14 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen>
                 ],
                 if (status == 'ACCEPTED') ...[
                   const SizedBox(height: 20),
+                  if (premiumBooking.needsPremiumPayment ||
+                      premiumBooking.premiumPaymentExpired) ...[
+                    PremiumCountdown(
+                      expiresAt: premiumBooking.premiumPaymentDueAt,
+                      unpaidLabel: 'Waiting for customer to pay premium',
+                    ),
+                    const SizedBox(height: 8),
+                  ],
                   if (!currentBooking.canComplete)
                     Text(
                       currentBooking.paymentWaitingMessage,
@@ -573,7 +597,7 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen>
                       onPressed: processingThis
                           ? null
                           : () => _completeBooking(
-                              currentBooking.id,
+                              currentBooking,
                               closeContext: ctx,
                               onStateChanged: notifySheet,
                             ),
@@ -608,9 +632,11 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen>
   }
 
   Widget _buildBookingCard(List<OwnerBookingModel> group) {
-    final booking = group.first;
+    final displayedGroup = [for (final item in group) _displayBooking(item)];
+    final booking = displayedGroup.first;
+    final isUrgent = ownerGroupIsPremium(displayedGroup);
+    final premiumBooking = ownerGroupPremium(displayedGroup);
     final status = booking.bookingStatus.toUpperCase();
-    final accent = _statusAccent(status, context);
     final processingThis = _isBookingProcessing(booking.id);
     final highlighted = group.any((b) => b.id == _highlightedBookingId);
     final serviceNames = group
@@ -632,228 +658,202 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen>
       ),
       child: GlassCard(
         onTap: processingThis ? null : () => _showBookingDetail(group),
-        shadowColor: accent,
-        child: Row(
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 4,
-              height: 100,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [accent, accent.withValues(alpha: 0.2)],
+            Row(
+              children: [
+                StaffAvatar(
+                  name: booking.customer?.name ?? 'C',
+                  imageUrl: booking.customer?.profileImage,
+                  size: 36,
                 ),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      CircleAvatar(
-                        radius: 18,
-                        backgroundColor: AppColors.primary.withValues(
-                          alpha: 0.2,
-                        ),
-                        child: Text(
-                          (booking.customer?.name ?? 'C')
-                              .substring(0, 1)
-                              .toUpperCase(),
-                          style: TextStyle(
-                            color: context.appColors.accent,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
+                      Text(
+                        booking.customer?.name ?? 'Customer',
+                        style: Theme.of(context).textTheme.titleSmall,
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              booking.customer?.name ?? 'Customer',
-                              style: Theme.of(context).textTheme.titleSmall,
-                            ),
-                            Text(
-                              servicesLabel,
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(
-                                    color: context.appColors.textMuted,
-                                  ),
-                            ),
-                            if (serviceNames.length > 1)
-                              Text(
-                                '${serviceNames.length} services in this request',
-                                style: Theme.of(context).textTheme.labelSmall
-                                    ?.copyWith(color: context.appColors.accent),
-                              ),
-                          ],
-                        ),
-                      ),
-                      StatusBadge(status: booking.bookingStatus),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 6,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.schedule_rounded,
-                            size: 16,
-                            color: context.appColors.accent.withValues(
-                              alpha: 0.85,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            _formatBookingDateTime(
-                              booking.bookingDate,
-                              booking.bookingTime,
-                            ),
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ],
-                      ),
-                      BookingWhenBadge(
-                        date: booking.bookingDate,
-                        time: booking.bookingTime,
-                        compact: true,
-                      ),
-                      if (booking.isPremium)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: context.appColors.accent.withValues(
-                              alpha: 0.2,
-                            ),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            'URGENT',
-                            style: TextStyle(
-                              color: context.appColors.accent,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  if (booking.salonName != null) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      booking.salonName!,
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: context.appColors.accent,
-                      ),
-                    ),
-                  ],
-                  if (booking.staffName != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      'Staff: ${booking.staffName}',
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: context.appColors.textMuted,
-                      ),
-                    ),
-                  ],
-                  if (status == 'PENDING') ...[
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: PremiumButton(
-                            label: 'Accept',
-                            size: PremiumButtonSize.small,
-                            loading: _isProcessing(
-                              booking.id,
-                              _OwnerBookingAction.accept,
-                            ),
-                            loadingLabel: 'Accepting',
-                            onPressed: processingThis
-                                ? null
-                                : () => _acceptBooking(booking.id),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: PremiumButton(
-                            label: 'Reject',
-                            size: PremiumButtonSize.small,
-                            variant: PremiumButtonVariant.ghost,
-                            loading: _isProcessing(
-                              booking.id,
-                              _OwnerBookingAction.reject,
-                            ),
-                            loadingLabel: 'Rejecting',
-                            onPressed: processingThis
-                                ? null
-                                : () => _reject(booking.id),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                  if (status == 'ACCEPTED' && !booking.canComplete)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 12),
-                      child: Text(
-                        booking.paymentWaitingMessage,
+                      Text(
+                        servicesLabel,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: context.appColors.textMuted,
                         ),
                       ),
-                    ),
-                  if (status == 'ACCEPTED' && booking.canComplete)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 12),
-                      child: PremiumButton(
-                        label: booking.requiresCashConfirmation
-                            ? 'Complete & confirm cash'
-                            : 'Mark completed',
-                        size: PremiumButtonSize.small,
-                        loading: _isProcessing(
-                          booking.id,
-                          _OwnerBookingAction.complete,
+                      if (serviceNames.length > 1)
+                        Text(
+                          '${serviceNames.length} services in this request',
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(color: context.appColors.accent),
                         ),
-                        loadingLabel: 'Completing',
-                        onPressed: processingThis
-                            ? null
-                            : () => _completeBooking(booking.id),
+                    ],
+                  ),
+                ),
+                StatusBadge(status: booking.bookingStatus),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.schedule_rounded,
+                      size: 16,
+                      color: context.appColors.accent.withValues(alpha: 0.85),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      _formatBookingDateTime(
+                        booking.bookingDate,
+                        booking.bookingTime,
+                      ),
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+                BookingWhenBadge(
+                  date: booking.bookingDate,
+                  time: booking.bookingTime,
+                  compact: true,
+                ),
+                if (isUrgent)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: context.appColors.accent.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'URGENT',
+                      style: TextStyle(
+                        color: context.appColors.accent,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                  if (status == 'COMPLETED' && booking.requiresCashConfirmation)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 12),
-                      child: PremiumButton(
-                        label: 'Confirm cash received',
-                        size: PremiumButtonSize.small,
-                        loading: _isProcessing(
-                          booking.id,
-                          _OwnerBookingAction.confirmCash,
-                        ),
-                        loadingLabel: 'Confirming',
-                        onPressed: processingThis
-                            ? null
-                            : () => _confirmCashPayment(group),
+                  ),
+              ],
+            ),
+            if (booking.salonName != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                booking.salonName!,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: context.appColors.accent,
+                ),
+              ),
+            ],
+            if (booking.staffName != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Staff: ${booking.staffName}',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: context.appColors.textMuted,
+                ),
+              ),
+            ],
+            if (status == 'PENDING') ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: PremiumButton(
+                      label: 'Accept',
+                      size: PremiumButtonSize.small,
+                      loading: _isProcessing(
+                        booking.id,
+                        _OwnerBookingAction.accept,
                       ),
+                      loadingLabel: 'Accepting',
+                      onPressed: processingThis
+                          ? null
+                          : () => _acceptBooking(booking.id),
                     ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: PremiumButton(
+                      label: 'Reject',
+                      size: PremiumButtonSize.small,
+                      variant: PremiumButtonVariant.ghost,
+                      loading: _isProcessing(
+                        booking.id,
+                        _OwnerBookingAction.reject,
+                      ),
+                      loadingLabel: 'Rejecting',
+                      onPressed: processingThis
+                          ? null
+                          : () => _reject(booking.id),
+                    ),
+                  ),
                 ],
               ),
-            ),
+            ],
+            if (status == 'ACCEPTED' &&
+                (premiumBooking.needsPremiumPayment ||
+                    premiumBooking.premiumPaymentExpired))
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: PremiumCountdown(
+                  expiresAt: premiumBooking.premiumPaymentDueAt,
+                  unpaidLabel: 'Waiting for customer to pay premium',
+                ),
+              ),
+            if (status == 'ACCEPTED' && !booking.canComplete)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Text(
+                  booking.paymentWaitingMessage,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: context.appColors.textMuted,
+                  ),
+                ),
+              ),
+            if (status == 'ACCEPTED' && booking.canComplete)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: PremiumButton(
+                  label: booking.requiresCashConfirmation
+                      ? 'Complete & confirm cash'
+                      : 'Mark completed',
+                  size: PremiumButtonSize.small,
+                  loading: _isProcessing(
+                    booking.id,
+                    _OwnerBookingAction.complete,
+                  ),
+                  loadingLabel: 'Completing',
+                  onPressed: processingThis
+                      ? null
+                      : () => _completeBooking(booking),
+                ),
+              ),
+            if (status == 'COMPLETED' && booking.requiresCashConfirmation)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: PremiumButton(
+                  label: 'Confirm cash received',
+                  size: PremiumButtonSize.small,
+                  loading: _isProcessing(
+                    booking.id,
+                    _OwnerBookingAction.confirmCash,
+                  ),
+                  loadingLabel: 'Confirming',
+                  onPressed: processingThis
+                      ? null
+                      : () => _confirmCashPayment(group),
+                ),
+              ),
           ],
         ),
       ),
@@ -996,6 +996,13 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen>
 
     final bookings = ref.watch(ownerAllBookingsProvider);
 
+    ref.listen(ownerAllBookingsProvider, (previous, next) {
+      next.whenData((items) {
+        if (!mounted || _processingBookingId != null) return;
+        setState(() => _localBookings = items);
+      });
+    });
+
     ref.listen(ownerShellTabIndexProvider, (previous, next) {
       if (next == _bookingsTabIndex && previous != _bookingsTabIndex) {
         Future.microtask(() => unawaited(_refreshBookings()));
@@ -1101,9 +1108,7 @@ class _OwnerBookingsScreenState extends ConsumerState<OwnerBookingsScreen>
                     indicatorSize: TabBarIndicatorSize.tab,
                     labelStyle: Theme.of(context).textTheme.labelLarge
                         ?.copyWith(fontWeight: FontWeight.w800),
-                    unselectedLabelStyle: Theme.of(context)
-                        .textTheme
-                        .labelLarge
+                    unselectedLabelStyle: Theme.of(context).textTheme.labelLarge
                         ?.copyWith(fontWeight: FontWeight.w600),
                     indicator: BoxDecoration(
                       borderRadius: BorderRadius.circular(14),

@@ -6,7 +6,11 @@ enum AccentPalette {
   rose,
   emerald,
   ocean,
-  violet;
+  violet,
+  plum;
+
+  /// Palettes the customer switcher may offer. [plum] is owner-only.
+  static const customerChoices = [gold, rose, emerald, ocean, violet];
 
   String get label => switch (this) {
     gold => 'Gold',
@@ -14,6 +18,7 @@ enum AccentPalette {
     emerald => 'Emerald',
     ocean => 'Ocean',
     violet => 'Violet',
+    plum => 'Plum',
   };
 
   String get storageValue => name;
@@ -59,7 +64,22 @@ enum AccentPalette {
       softDark: Color(0xFF251E38),
       onAccent: Colors.white,
     ),
+    plum => const AccentPaletteTokens(
+      accent: Color(0xFF7A3F55),
+      accentLight: Color(0xFF9A6176),
+      accentDark: Color(0xFF5C2E40),
+      softLight: Color(0xFFF6EBEE),
+      softDark: Color(0xFF24151B),
+      onAccent: Color(0xFFF8F1F3),
+    ),
   };
+
+  /// Owner sessions always use plum. The stored customer palette is left
+  /// untouched so logging out restores rose/ocean/gold/etc.
+  static AccentPalette forSession({
+    required bool isOwner,
+    required AccentPalette stored,
+  }) => isOwner ? plum : stored;
 
   static AccentPalette fromStorage(String? value) {
     // Legacy champagne installs map to gold; unset / unknown defaults to rose.

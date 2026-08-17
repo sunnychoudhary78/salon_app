@@ -7,23 +7,35 @@ class StatusBadge extends StatelessWidget {
 
   final String status;
 
-  Color _color(BuildContext context) => switch (status.toUpperCase()) {
-    'PENDING' || 'PENDING_APPROVAL' => AppColors.warning,
-    'ACCEPTED' || 'ACTIVE' => AppColors.success,
-    'REJECTED' => AppColors.error,
-    'CANCELLED' || 'INACTIVE' => context.appColors.textSecondary,
-    'COMPLETED' || 'PUBLISHED' => AppColors.primaryLight,
-    _ => context.appColors.textSecondary,
-  };
+  Color _color(BuildContext context) {
+    final colors = context.appColors;
+    return switch (status.toUpperCase()) {
+      'PENDING' || 'PENDING_APPROVAL' => AppColors.warning,
+      'ACCEPTED' || 'ACTIVE' || 'VERIFIED' => colors.primary,
+      'COMPLETED' || 'PUBLISHED' => colors.textSecondary,
+      _ => colors.textSecondary,
+    };
+  }
 
   IconData get _icon => switch (status.toUpperCase()) {
     'PENDING' || 'PENDING_APPROVAL' => Icons.schedule_rounded,
-    'ACCEPTED' || 'ACTIVE' => Icons.check_circle_rounded,
+    'ACCEPTED' || 'ACTIVE' || 'VERIFIED' => Icons.check_circle_rounded,
     'REJECTED' => Icons.cancel_rounded,
     'CANCELLED' => Icons.block_rounded,
     'COMPLETED' || 'PUBLISHED' => Icons.verified_rounded,
     _ => Icons.info_outline_rounded,
   };
+
+  String get _label {
+    final words = status.replaceAll('_', ' ').toLowerCase().split(' ');
+    return words
+        .map(
+          (word) => word.isEmpty
+              ? word
+              : '${word[0].toUpperCase()}${word.substring(1)}',
+        )
+        .join(' ');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -32,9 +44,9 @@ class StatusBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.18),
+        color: color.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.35)),
+        border: Border.all(color: color.withValues(alpha: 0.22)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -42,12 +54,12 @@ class StatusBadge extends StatelessWidget {
           Icon(_icon, size: 12, color: color),
           const SizedBox(width: 4),
           Text(
-            status.replaceAll('_', ' '),
+            _label,
             style: TextStyle(
               color: color,
               fontSize: 11,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.3,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.2,
             ),
           ),
         ],

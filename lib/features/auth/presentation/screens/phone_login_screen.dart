@@ -12,6 +12,7 @@ import 'package:saloon_booking/features/auth/presentation/utils/otp_sms_listener
 import 'package:saloon_booking/core/theme/app_animations.dart';
 import 'package:saloon_booking/shared/widgets/animated_entrance.dart';
 import 'package:saloon_booking/shared/widgets/auth_scaffold.dart';
+import 'package:saloon_booking/features/settings/presentation/widgets/legal_acknowledgement.dart';
 import 'package:saloon_booking/shared/widgets/premium_button.dart';
 import 'package:saloon_booking/shared/widgets/premium_text_field.dart';
 
@@ -98,6 +99,8 @@ class _PhoneLoginScreenState extends ConsumerState<PhoneLoginScreen> {
                 icon: Icons.sms_outlined,
                 onPressed: _submit,
               ),
+              const SizedBox(height: 16),
+              const LegalAcknowledgement.auth(),
             ],
           ),
         ),

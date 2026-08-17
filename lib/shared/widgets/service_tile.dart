@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
+import 'package:saloon_booking/core/utils/currency_utils.dart';
 import 'package:saloon_booking/features/customer/data/models/salon_model.dart';
 import 'package:saloon_booking/shared/widgets/glass_card.dart';
 
@@ -13,6 +14,7 @@ class ServiceTile extends StatelessWidget {
     this.multiSelect = false,
     this.showBookAffordance = false,
     this.showStatus = false,
+    this.showServiceFor = false,
   });
 
   final ServiceModel service;
@@ -21,6 +23,7 @@ class ServiceTile extends StatelessWidget {
   final bool multiSelect;
   final bool showBookAffordance;
   final bool showStatus;
+  final bool showServiceFor;
 
   @override
   Widget build(BuildContext context) {
@@ -74,6 +77,13 @@ class ServiceTile extends StatelessWidget {
                         '${service.durationMinutes ?? 30} min',
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
+                      if (showServiceFor) ...[
+                        const SizedBox(width: 8),
+                        _ServiceStatusPill(
+                          label: service.serviceForLabel,
+                          active: true,
+                        ),
+                      ],
                       if (showStatus) ...[
                         const SizedBox(width: 8),
                         _ServiceStatusPill(
@@ -91,14 +101,14 @@ class ServiceTile extends StatelessWidget {
               children: [
                 if (hasDiscount)
                   Text(
-                    '₹${service.price.toStringAsFixed(0)}',
+                    formatMoney(service.price),
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: colors.textMuted,
                       decoration: TextDecoration.lineThrough,
                     ),
                   ),
                 Text(
-                  '₹${service.effectivePrice.toStringAsFixed(0)}',
+                  formatMoney(service.effectivePrice),
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     color: hasDiscount
                         ? AppColors.success

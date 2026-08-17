@@ -24,10 +24,10 @@ class SalonStaffSection extends StatelessWidget {
       title: 'Our Staff',
       subtitle: 'Choose a preferred stylist when you book',
       child: SizedBox(
-        height: 136,
+        height: 156,
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
-          padding: EdgeInsets.zero,
+          padding: const EdgeInsets.symmetric(vertical: 6),
           clipBehavior: Clip.none,
           itemCount: staff.length,
           separatorBuilder: (context, index) => const SizedBox(width: 10),

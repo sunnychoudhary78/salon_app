@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:saloon_booking/core/routing/navigation_utils.dart';
@@ -100,15 +99,6 @@ class SalonDetailScreen extends ConsumerWidget {
     }
   }
 
-  void _shareSalon(BuildContext context, SalonModel salon) {
-    final link = '${RoutePaths.customerSalons}/$salonId';
-    final text = 'Check out ${salon.salonName} on CATCHY\n$link';
-    Clipboard.setData(ClipboardData(text: text));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Salon link copied to clipboard')),
-    );
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final salonAsync = ref.watch(salonDetailProvider(salonId));
@@ -124,49 +114,59 @@ class SalonDetailScreen extends ConsumerWidget {
         backgroundColor: context.appColors.surface,
         body: AsyncValueWidget(
           value: salonAsync,
-          data: (salon) => CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(
-                child: SalonHeroSection(
-                  salon: salon,
-                  onBack: () => popOrGoHome(context),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: SalonSummaryCard(
-                  salon: salon,
-                  onDirections: () => _openDirections(context, salon),
-                  onCall: () => _callSalon(context, salon),
-                  onShare: () => _shareSalon(context, salon),
-                ),
-              ),
-              SliverList(
-                delegate: SliverChildListDelegate([
-                  SalonServicesSection(
+          data: (salon) => RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(salonDetailProvider(salonId));
+              ref.invalidate(salonReviewsProvider(salonId));
+              await Future.wait([
+                ref.read(salonDetailProvider(salonId).future),
+                ref.read(salonReviewsProvider(salonId).future),
+              ]);
+            },
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                SliverToBoxAdapter(
+                  child: SalonHeroSection(
                     salon: salon,
-                    onBookService: (serviceId) =>
-                        _openBooking(context, serviceId: serviceId),
+                    onBack: () => popOrGoHome(context),
                   ),
-                  AsyncValueWidget(
-                    value: reviewsAsync,
-                    loading: const SizedBox.shrink(),
-                    data: (reviewsResult) => SalonReviewsSection(
+                ),
+                SliverToBoxAdapter(
+                  child: SalonSummaryCard(
+                    salon: salon,
+                    onDirections: () => _openDirections(context, salon),
+                    onCall: () => _callSalon(context, salon),
+                  ),
+                ),
+                SliverList(
+                  delegate: SliverChildListDelegate([
+                    SalonServicesSection(
                       salon: salon,
-                      reviewsResult: reviewsResult,
+                      onBookService: (serviceId) =>
+                          _openBooking(context, serviceId: serviceId),
                     ),
-                  ),
-                  SalonAboutSection(salon: salon),
-                  SalonWhyChooseSection(salon: salon),
-                  SalonStaffSection(
-                    staff: salon.staff,
-                    onBookStaff: (staffId) =>
-                        _openBooking(context, staffId: staffId),
-                  ),
-                  SalonSimilarSection(salonId: salonId),
-                  const SizedBox(height: 88),
-                ]),
-              ),
-            ],
+                    AsyncValueWidget(
+                      value: reviewsAsync,
+                      loading: const SizedBox.shrink(),
+                      data: (reviewsResult) => SalonReviewsSection(
+                        salon: salon,
+                        reviewsResult: reviewsResult,
+                      ),
+                    ),
+                    SalonAboutSection(salon: salon),
+                    SalonWhyChooseSection(salon: salon),
+                    SalonStaffSection(
+                      staff: salon.staff,
+                      onBookStaff: (staffId) =>
+                          _openBooking(context, staffId: staffId),
+                    ),
+                    SalonSimilarSection(salonId: salonId),
+                    const SizedBox(height: 88),
+                  ]),
+                ),
+              ],
+            ),
           ),
         ),
         bottomNavigationBar: salonAsync.maybeWhen(

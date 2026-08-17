@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
+import 'package:saloon_booking/core/utils/image_decode_utils.dart';
 import 'package:saloon_booking/core/utils/image_url_utils.dart';
 import 'package:saloon_booking/features/customer/data/models/salon_model.dart';
 import 'package:saloon_booking/features/customer/presentation/widgets/salon_detail/salon_detail_helpers.dart';
@@ -64,6 +65,14 @@ class _SalonHeroSectionState extends State<SalonHeroSection> {
                     ? CachedNetworkImage(
                         imageUrl: resolveImageUrl(images.first),
                         fit: BoxFit.cover,
+                        memCacheWidth: memCachePx(
+                          context,
+                          MediaQuery.sizeOf(context).width,
+                        ),
+                        memCacheHeight: memCachePx(
+                          context,
+                          SalonHeroSection.heroHeight,
+                        ),
                         errorWidget: (context, error, stackTrace) =>
                             _placeholder(context),
                       )
@@ -171,7 +180,7 @@ class _SalonHeroSectionState extends State<SalonHeroSection> {
                 child: _MetaBadge(
                   icon: Icons.star_rounded,
                   label: ratingLabel,
-                  color: AppColors.success,
+                  color: AppColors.starGold,
                 ),
               ),
               if (distanceLabel != null) ...[

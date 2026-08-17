@@ -1,34 +1,62 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:saloon_booking/core/network/user_facing_error.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/features/customer/data/models/salon_model.dart';
+import 'package:saloon_booking/features/customer/data/services/customer_service.dart';
 import 'package:saloon_booking/features/customer/presentation/widgets/salon_detail/salon_detail_helpers.dart';
 
-class SalonSummaryCard extends StatefulWidget {
+class SalonSummaryCard extends ConsumerStatefulWidget {
   const SalonSummaryCard({
     super.key,
     required this.salon,
     required this.onDirections,
     required this.onCall,
-    required this.onShare,
   });
 
   final SalonModel salon;
   final VoidCallback onDirections;
   final VoidCallback onCall;
-  final VoidCallback onShare;
 
   @override
-  State<SalonSummaryCard> createState() => _SalonSummaryCardState();
+  ConsumerState<SalonSummaryCard> createState() => _SalonSummaryCardState();
 }
 
-class _SalonSummaryCardState extends State<SalonSummaryCard> {
-  bool _favorited = false;
+class _SalonSummaryCardState extends ConsumerState<SalonSummaryCard> {
+  bool _busy = false;
+
+  Future<void> _toggleFavorite() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await ref
+          .read(salonFavoriteProvider(widget.salon.id).notifier)
+          .toggle();
+      if (!mounted) return;
+      final favorited = ref.read(salonFavoriteProvider(widget.salon.id));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            favorited ? 'Saved to favorites' : 'Removed from favorites',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(userFacingErrorMessage(error))),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final salon = widget.salon;
+    final favorited = ref.watch(salonFavoriteProvider(salon.id));
     final category = salon.isFeatured ? 'Featured Salon' : 'Salon';
     final address = (salon.formattedAddress?.trim().isNotEmpty == true)
         ? salon.formattedAddress!.trim()
@@ -67,19 +95,8 @@ class _SalonSummaryCardState extends State<SalonSummaryCard> {
                   ),
                 ),
                 IconButton(
-                  onPressed: () {
-                    setState(() => _favorited = !_favorited);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          _favorited
-                              ? 'Saved to favorites'
-                              : 'Removed from favorites',
-                        ),
-                      ),
-                    );
-                  },
-                  tooltip: _favorited ? 'Remove favorite' : 'Add favorite',
+                  onPressed: _busy ? null : _toggleFavorite,
+                  tooltip: favorited ? 'Remove favorite' : 'Add favorite',
                   visualDensity: VisualDensity.compact,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(
@@ -87,10 +104,10 @@ class _SalonSummaryCardState extends State<SalonSummaryCard> {
                     minHeight: 40,
                   ),
                   icon: Icon(
-                    _favorited
+                    favorited
                         ? Icons.favorite_rounded
                         : Icons.favorite_border_rounded,
-                    color: _favorited
+                    color: favorited
                         ? AppColors.error
                         : context.appColors.accent,
                     size: 22,
@@ -119,13 +136,6 @@ class _SalonSummaryCardState extends State<SalonSummaryCard> {
                     icon: Icons.call_rounded,
                     label: 'Call',
                     onTap: widget.onCall,
-                  ),
-                ),
-                Expanded(
-                  child: _InlineAction(
-                    icon: Icons.ios_share_rounded,
-                    label: 'Share',
-                    onTap: widget.onShare,
                   ),
                 ),
               ],

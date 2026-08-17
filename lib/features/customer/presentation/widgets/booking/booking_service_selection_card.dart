@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:saloon_booking/core/constants/salon_service_names.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
+import 'package:saloon_booking/core/utils/currency_utils.dart';
 import 'package:saloon_booking/features/customer/data/models/salon_model.dart';
 import 'package:saloon_booking/shared/widgets/service_artwork.dart';
 import 'package:saloon_booking/shared/widgets/tap_scale_wrapper.dart';
@@ -32,7 +33,7 @@ class BookingServiceSelectionCard extends StatelessWidget {
       label:
           '${service.serviceName}, '
           '${service.durationMinutes ?? 30} minutes, '
-          '₹${service.effectivePrice.toStringAsFixed(0)}',
+          '${formatMoney(service.effectivePrice)}',
       child: TapScaleWrapper(
         onTap: onTap,
         borderRadius: radius,
@@ -144,7 +145,7 @@ class BookingServiceSelectionCard extends StatelessWidget {
                         const Spacer(),
                         if (hasDiscount) ...[
                           Text(
-                            '₹${service.price.toStringAsFixed(0)}',
+                            formatMoney(service.price),
                             style: Theme.of(context).textTheme.labelSmall
                                 ?.copyWith(
                                   color: colors.textMuted,
@@ -154,7 +155,7 @@ class BookingServiceSelectionCard extends StatelessWidget {
                           const SizedBox(width: 5),
                         ],
                         Text(
-                          '₹${service.effectivePrice.toStringAsFixed(0)}',
+                          formatMoney(service.effectivePrice),
                           style: Theme.of(context).textTheme.titleSmall
                               ?.copyWith(
                                 color: hasDiscount

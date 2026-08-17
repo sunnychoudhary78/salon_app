@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
+import 'package:saloon_booking/core/utils/currency_utils.dart';
 import 'package:saloon_booking/features/customer/data/models/salon_model.dart';
 import 'package:saloon_booking/features/customer/presentation/widgets/salon_detail/salon_detail_helpers.dart';
 
@@ -50,7 +51,7 @@ class SalonBookingBar extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           minPrice != null
-                              ? '₹${minPrice.toStringAsFixed(0)}'
+                              ? formatMoney(minPrice)
                               : '—',
                           style: Theme.of(context).textTheme.titleLarge
                               ?.copyWith(

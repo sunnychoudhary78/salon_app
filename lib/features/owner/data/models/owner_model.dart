@@ -24,11 +24,17 @@ class OwnerDashboardModel {
 }
 
 class OwnerBookingCustomer {
-  const OwnerBookingCustomer({this.name, this.phone, this.email});
+  const OwnerBookingCustomer({
+    this.name,
+    this.phone,
+    this.email,
+    this.profileImage,
+  });
 
   final String? name;
   final String? phone;
   final String? email;
+  final String? profileImage;
 
   factory OwnerBookingCustomer.fromJson(Map<String, dynamic>? json) {
     if (json == null) return const OwnerBookingCustomer();
@@ -37,6 +43,7 @@ class OwnerBookingCustomer {
       name: user?['name'] as String?,
       phone: user?['phone'] as String?,
       email: user?['email'] as String?,
+      profileImage: json['profile_image'] as String?,
     );
   }
 }
@@ -55,9 +62,13 @@ class OwnerBookingModel {
     this.bookingNumber,
     this.bookingType,
     this.premiumAmount,
+    this.premiumPaymentStatus,
+    this.premiumPaymentDueAt,
     this.requiresCashConfirmation = false,
     this.canComplete = false,
     this.salonFeePaymentState = 'none',
+    this.salonFeeAmount,
+    this.cashExtraAmount = 0,
   });
 
   final String id;
@@ -72,15 +83,34 @@ class OwnerBookingModel {
   final String? bookingNumber;
   final String? bookingType;
   final double? premiumAmount;
+  final String? premiumPaymentStatus;
+  final DateTime? premiumPaymentDueAt;
   final bool requiresCashConfirmation;
   final bool canComplete;
 
   /// none | pending_cash | pending_online | paid
   final String salonFeePaymentState;
+  final double? salonFeeAmount;
+  final double cashExtraAmount;
 
   bool get isPremium => bookingType == 'PREMIUM';
 
+  bool get isAccepted => bookingStatus.toUpperCase() == 'ACCEPTED';
+
   bool get isSalonFeePaid => salonFeePaymentState == 'paid';
+
+  bool get needsPremiumPayment =>
+      isPremium &&
+      isAccepted &&
+      premiumPaymentStatus != 'PAID' &&
+      !premiumPaymentExpired;
+
+  bool get premiumPaymentExpired =>
+      isPremium &&
+      isAccepted &&
+      premiumPaymentStatus != 'PAID' &&
+      premiumPaymentDueAt != null &&
+      !premiumPaymentDueAt!.isAfter(DateTime.now());
 
   String get paymentWaitingMessage {
     switch (salonFeePaymentState) {
@@ -114,9 +144,15 @@ class OwnerBookingModel {
       bookingNumber: json['booking_number'] as String?,
       bookingType: json['booking_type'] as String?,
       premiumAmount: _parseDouble(json['premium_amount']),
+      premiumPaymentStatus: json['premium_payment_status'] as String?,
+      premiumPaymentDueAt: _parseDate(json['premium_payment_due_at']),
       requiresCashConfirmation: requiresCash,
       canComplete: canComplete,
       salonFeePaymentState: state,
+      salonFeeAmount: salonFee == null
+          ? null
+          : (_parseDouble(salonFee['amount']) ?? 0),
+      cashExtraAmount: _parseDouble(salonFee?['cash_extra_amount']) ?? 0,
       customer: OwnerBookingCustomer.fromJson(
         json['customer'] as Map<String, dynamic>?,
       ),
@@ -137,10 +173,30 @@ class OwnerBookingModel {
   }
 }
 
+/// Urgent/premium fee is stored on one row of a multi-service group.
+bool ownerGroupIsPremium(Iterable<OwnerBookingModel> group) =>
+    group.any((b) => b.isPremium);
+
+double? ownerGroupPremiumAmount(Iterable<OwnerBookingModel> group) {
+  for (final booking in group) {
+    if (booking.isPremium) return booking.premiumAmount;
+  }
+  return null;
+}
+
+OwnerBookingModel ownerGroupPremium(Iterable<OwnerBookingModel> group) {
+  return group.firstWhere((b) => b.isPremium, orElse: () => group.first);
+}
+
 double? _parseDouble(dynamic value) {
   if (value == null) return null;
   if (value is num) return value.toDouble();
   return double.tryParse(value.toString());
+}
+
+DateTime? _parseDate(dynamic value) {
+  if (value == null) return null;
+  return DateTime.tryParse(value.toString())?.toLocal();
 }
 
 class OwnerEarningsSummaryModel {

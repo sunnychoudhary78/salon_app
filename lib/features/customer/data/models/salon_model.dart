@@ -17,6 +17,11 @@ int? _parseInt(dynamic value) {
   return null;
 }
 
+DateTime? _parseDate(dynamic value) {
+  if (value == null) return null;
+  return DateTime.tryParse(value.toString())?.toLocal();
+}
+
 class ServiceModel {
   const ServiceModel({
     required this.id,
@@ -26,6 +31,7 @@ class ServiceModel {
     this.description,
     this.discountPrice,
     this.status,
+    this.serviceFor = SalonType.unisex,
   });
 
   final String id;
@@ -35,6 +41,7 @@ class ServiceModel {
   final String? description;
   final double? discountPrice;
   final String? status;
+  final SalonType serviceFor;
 
   double get effectivePrice =>
       discountPrice != null && discountPrice! > 0 && discountPrice! < price
@@ -44,6 +51,8 @@ class ServiceModel {
   bool get hasActiveDiscount => effectivePrice < price;
 
   bool get isActive => status == null || status == 'ACTIVE';
+
+  String get serviceForLabel => serviceFor.serviceAudienceLabel;
 
   factory ServiceModel.fromJson(Map<String, dynamic> json) => ServiceModel(
     id: json['id'].toString(),
@@ -55,6 +64,7 @@ class ServiceModel {
         ? null
         : _parseDouble(json['discount_price']),
     status: json['status'] as String?,
+    serviceFor: SalonType.parse(json['service_for'] as String?),
   );
 
   Map<String, dynamic> toCreateJson({
@@ -62,6 +72,7 @@ class ServiceModel {
     int? durationMinutes,
     double? discountPrice,
     String? status,
+    SalonType? serviceFor,
   }) => {
     'service_name': serviceName,
     'price': price,
@@ -69,6 +80,7 @@ class ServiceModel {
     'duration_minutes': ?durationMinutes,
     'discount_price': ?discountPrice,
     'status': ?status,
+    'service_for': (serviceFor ?? this.serviceFor).apiValue,
   };
 }
 
@@ -164,18 +176,29 @@ class PremiumConfigModel {
     required this.enabled,
     required this.fee,
     required this.currency,
+    this.paymentWindowMinutes = 15,
   });
 
   final bool enabled;
   final double fee;
   final String currency;
+  final int paymentWindowMinutes;
 
-  factory PremiumConfigModel.fromJson(Map<String, dynamic> json) =>
-      PremiumConfigModel(
-        enabled: json['enabled'] as bool? ?? true,
-        fee: _parseDouble(json['fee'], fallback: 199),
-        currency: json['currency'] as String? ?? 'INR',
-      );
+  factory PremiumConfigModel.fromJson(Map<String, dynamic> json) {
+    final rawWindow = json['payment_window_minutes'];
+    final parsedWindow = rawWindow is int
+        ? rawWindow
+        : int.tryParse(rawWindow?.toString() ?? '') ?? 15;
+    final window = parsedWindow < 1
+        ? 15
+        : (parsedWindow > 120 ? 120 : parsedWindow);
+    return PremiumConfigModel(
+      enabled: json['enabled'] as bool? ?? true,
+      fee: _parseDouble(json['fee'], fallback: 199),
+      currency: json['currency'] as String? ?? 'INR',
+      paymentWindowMinutes: window,
+    );
+  }
 }
 
 class SalonSlotModel {
@@ -294,6 +317,7 @@ class SalonModel {
     this.distanceKm,
     this.premiumBookingFee,
     this.staff = const [],
+    this.isFavorite = false,
   });
 
   final String id;
@@ -328,6 +352,7 @@ class SalonModel {
   final double? longitude;
   final double? distanceKm;
   final double? premiumBookingFee;
+  final bool isFavorite;
 
   bool get isActiveForCustomers => status == 'ACTIVE' && isActive;
 
@@ -440,6 +465,7 @@ class SalonModel {
             json['slots_today'] as Map<String, dynamic>,
           )
         : null,
+    isFavorite: json['is_favorite'] as bool? ?? false,
   );
 }
 
@@ -557,6 +583,7 @@ class BookingModel {
     this.notes,
     this.rejectionReason,
     this.premiumPaymentStatus,
+    this.premiumPaymentDueAt,
     this.payments = const [],
     this.premiumPayment,
     this.salonFeePayment,
@@ -579,6 +606,7 @@ class BookingModel {
   final String? notes;
   final String? rejectionReason;
   final String? premiumPaymentStatus;
+  final DateTime? premiumPaymentDueAt;
   final List<PaymentModel> payments;
   final PaymentModel? premiumPayment;
   final PaymentModel? salonFeePayment;
@@ -600,6 +628,7 @@ class BookingModel {
     notes: json['notes'] as String?,
     rejectionReason: json['rejection_reason'] as String?,
     premiumPaymentStatus: json['premium_payment_status'] as String?,
+    premiumPaymentDueAt: _parseDate(json['premium_payment_due_at']),
     payments: (json['payments'] as List<dynamic>? ?? [])
         .map((e) => PaymentModel.fromJson(e as Map<String, dynamic>))
         .toList(),
@@ -639,12 +668,13 @@ class BookingModel {
       isAccepted &&
       isPremium &&
       premiumPaymentStatus != 'PAID' &&
-      (premiumPayment == null || !premiumPayment!.isExpired);
+      !premiumPaymentExpired;
   bool get premiumPaymentExpired =>
       isAccepted &&
       isPremium &&
       premiumPaymentStatus != 'PAID' &&
-      premiumPayment?.isExpired == true;
+      premiumPaymentDueAt != null &&
+      !premiumPaymentDueAt!.isAfter(DateTime.now());
   bool get salonFeePaid => salonFeePayment?.isPaid == true;
   bool get salonFeePayAtShop => salonFeePayment?.isPayAtShop == true;
   bool get canChooseSalonPayment =>
@@ -673,27 +703,37 @@ class ReviewModel {
   const ReviewModel({
     required this.id,
     required this.rating,
+    this.staffRating,
+    this.staffName,
     this.review,
     this.customerName,
     this.salonName,
+    this.status,
     this.createdAt,
   });
 
   final String id;
   final int rating;
+  final int? staffRating;
+  final String? staffName;
   final String? review;
   final String? customerName;
   final String? salonName;
+  final String? status;
   final DateTime? createdAt;
 
   factory ReviewModel.fromJson(Map<String, dynamic> json) => ReviewModel(
     id: json['id'].toString(),
     rating: _parseInt(json['rating']) ?? 0,
+    staffRating: _parseInt(json['staff_rating']),
+    staffName: json['staff_name'] as String? ??
+        json['booking']?['staff']?['name'] as String?,
     review: json['review'] as String?,
     customerName:
         json['customer_name'] as String? ??
         json['customer']?['user']?['name'] as String?,
     salonName: json['salon']?['salon_name'] as String?,
+    status: json['status'] as String?,
     createdAt: json['created_at'] != null
         ? DateTime.tryParse(json['created_at'].toString())
         : null,

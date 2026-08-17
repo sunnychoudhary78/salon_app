@@ -75,7 +75,29 @@ class SalonReviewCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 4),
+                Text(
+                  'Salon',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: colors.textMuted,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
                 ReviewStarsRow(rating: review.rating, size: 15),
+                if (review.staffRating != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    review.staffName != null
+                        ? 'Staff · ${review.staffName}'
+                        : 'Staff',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: colors.textMuted,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  ReviewStarsRow(rating: review.staffRating!, size: 15),
+                ],
                 if (review.review != null && review.review!.isNotEmpty) ...[
                   const SizedBox(height: 7),
                   Text(

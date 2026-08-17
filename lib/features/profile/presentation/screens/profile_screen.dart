@@ -8,6 +8,8 @@ import 'package:saloon_booking/core/routing/route_paths.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/core/theme/app_decorations.dart';
+import 'package:saloon_booking/core/utils/image_url_utils.dart';
+import 'package:saloon_booking/core/utils/image_decode_utils.dart';
 import 'package:saloon_booking/features/auth/presentation/providers/auth_provider.dart';
 import 'package:saloon_booking/features/owner/data/services/owner_service.dart';
 import 'package:saloon_booking/features/owner/presentation/widgets/owner_account_alerts_card.dart';
@@ -199,18 +201,6 @@ class ProfileScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 16),
-            ],
-            if (!isOwnerMode && auth.salonOwner == null) ...[
-              const SizedBox(height: 16),
-              AnimatedEntrance(
-                index: 2,
-                child: PremiumButton(
-                  label: 'Become a salon owner',
-                  icon: Icons.store_rounded,
-                  variant: PremiumButtonVariant.primary,
-                  onPressed: () => context.push(RoutePaths.becomeOwner),
-                ),
-              ),
             ],
             if (!isOwnerMode &&
                 auth.salonOwner != null &&
@@ -417,8 +407,10 @@ class _ProfileAvatar extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: imageUrl != null && imageUrl!.isNotEmpty
           ? CachedNetworkImage(
-              imageUrl: imageUrl!,
+              imageUrl: resolveImageUrl(imageUrl!),
               fit: BoxFit.cover,
+              memCacheWidth: memCachePx(context, 96),
+              memCacheHeight: memCachePx(context, 96),
               errorWidget: (_, __, ___) => _Initials(initials: initials),
             )
           : _Initials(initials: initials),
