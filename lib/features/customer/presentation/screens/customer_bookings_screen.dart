@@ -24,6 +24,7 @@ import 'package:saloon_booking/shared/widgets/glass_card.dart';
 import 'package:saloon_booking/shared/widgets/premium_app_bar.dart';
 import 'package:saloon_booking/shared/widgets/premium_button.dart';
 import 'package:saloon_booking/shared/widgets/premium_countdown.dart';
+import 'package:saloon_booking/shared/widgets/premium_dialog.dart';
 import 'package:saloon_booking/shared/widgets/section_header.dart';
 
 class CustomerBookingsScreen extends ConsumerStatefulWidget {
@@ -119,24 +120,13 @@ class _CustomerBookingsScreenState extends ConsumerState<CustomerBookingsScreen>
       size: PremiumButtonSize.small,
       variant: PremiumButtonVariant.ghost,
       onPressed: () async {
-        final confirmed = await showDialog<bool>(
+        final confirmed = await showPremiumConfirmDialog(
           context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('Cancel booking?'),
-            content: const Text(
-              'Are you sure you want to cancel this booking request?',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Keep'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Cancel booking'),
-              ),
-            ],
-          ),
+          title: 'Cancel booking?',
+          subtitle: 'Are you sure you want to cancel this booking request?',
+          confirmLabel: 'Cancel booking',
+          cancelLabel: 'Keep',
+          confirmVariant: PremiumButtonVariant.accent,
         );
         if (confirmed != true || !context.mounted) return;
         await _runPaymentAction(

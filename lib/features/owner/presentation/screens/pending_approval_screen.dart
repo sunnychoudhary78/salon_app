@@ -6,6 +6,7 @@ import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/core/theme/app_decorations.dart';
 import 'package:saloon_booking/core/routing/route_paths.dart';
+import 'package:saloon_booking/core/utils/platform_utils.dart';
 import 'package:saloon_booking/features/auth/presentation/providers/auth_provider.dart';
 import 'package:saloon_booking/shared/widgets/animated_entrance.dart';
 import 'package:saloon_booking/shared/widgets/glass_card.dart';
@@ -45,7 +46,7 @@ class PendingApprovalScreen extends ConsumerWidget {
               title: 'Application status',
               showMenu: false,
               leading: IconButton(
-                icon: const Icon(Icons.arrow_back_rounded),
+                icon: Icon(platformBackIcon(context)),
                 onPressed: () => context.pop(),
               ),
             ),

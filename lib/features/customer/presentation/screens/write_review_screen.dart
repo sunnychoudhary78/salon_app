@@ -7,6 +7,7 @@ import 'package:saloon_booking/core/network/user_facing_error.dart';
 import 'package:saloon_booking/core/routing/navigation_utils.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/utils/form_validators.dart';
+import 'package:saloon_booking/core/utils/platform_utils.dart';
 import 'package:saloon_booking/features/customer/data/models/salon_model.dart';
 import 'package:saloon_booking/features/customer/data/services/customer_service.dart';
 import 'package:saloon_booking/shared/widgets/animated_entrance.dart';
@@ -166,7 +167,7 @@ class _WriteReviewScreenState extends ConsumerState<WriteReviewScreen> {
           title: 'Write review',
           showMenu: false,
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back_rounded),
+            icon: Icon(platformBackIcon(context)),
             onPressed: () => popOrGoHome(context),
           ),
         ),

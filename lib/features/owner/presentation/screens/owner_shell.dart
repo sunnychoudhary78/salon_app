@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:saloon_booking/core/ui/system_ui_scope.dart';
 import 'package:saloon_booking/core/routing/navigation_utils.dart';
 import 'package:saloon_booking/core/routing/route_paths.dart';
+import 'package:saloon_booking/core/utils/platform_utils.dart';
 import 'package:saloon_booking/features/notifications/data/providers/notification_history_provider.dart';
 import 'package:saloon_booking/features/owner/data/services/owner_service.dart';
 import 'package:saloon_booking/features/owner/presentation/providers/pending_booking_gate_provider.dart';
@@ -93,19 +94,22 @@ class _OwnerShellState extends ConsumerState<OwnerShell> {
       ref.read(ownerShellTabIndexProvider.notifier).select(_dashboardIndex);
       return;
     }
-    final now = DateTime.now();
-    if (_lastBackPress == null ||
-        now.difference(_lastBackPress!) > const Duration(seconds: 2)) {
-      _lastBackPress = now;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Press back again to exit'),
-          duration: Duration(seconds: 2),
-        ),
-      );
-      return;
+    // Android-only: double-back to exit. iOS uses the home gesture.
+    if (!isCupertinoPlatform(context)) {
+      final now = DateTime.now();
+      if (_lastBackPress == null ||
+          now.difference(_lastBackPress!) > const Duration(seconds: 2)) {
+        _lastBackPress = now;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Press back again to exit'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+        return;
+      }
+      SystemNavigator.pop();
     }
-    SystemNavigator.pop();
   }
 
   /// Overflow destinations only — Home, Bookings, My Salons and Profile live in

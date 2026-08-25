@@ -1,10 +1,15 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:saloon_booking/core/theme/app_animations.dart';
 import 'package:saloon_booking/core/theme/app_decorations.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
+import 'package:saloon_booking/core/utils/platform_utils.dart';
 import 'package:saloon_booking/shared/widgets/premium_button.dart';
 
-/// Solid-surface dialog matching Option B v2 Soft Luxury.
+/// Solid-surface dialog matching Option B v2 Soft Luxury (Android),
+/// or a native Cupertino alert on iOS for simple title/actions dialogs.
+/// Dialogs with custom [content] (e.g. text fields) always use the Material
+/// surface so iOS keyboard/focus behavior stays reliable.
 Future<T?> showPremiumDialog<T>({
   required BuildContext context,
   required String title,
@@ -18,6 +23,24 @@ Future<T?> showPremiumDialog<T>({
   PremiumButtonVariant confirmVariant = PremiumButtonVariant.primary,
   bool showCancel = true,
 }) {
+  final useCupertino = isCupertinoPlatform(context) && content == null;
+  if (useCupertino) {
+    return showCupertinoDialog<T>(
+      context: context,
+      barrierDismissible: barrierDismissible,
+      builder: (ctx) => _CupertinoPremiumDialog(
+        title: title,
+        subtitle: subtitle,
+        confirmLabel: confirmLabel,
+        cancelLabel: cancelLabel,
+        onConfirm: onConfirm,
+        onCancel: onCancel,
+        confirmVariant: confirmVariant,
+        showCancel: showCancel,
+      ),
+    );
+  }
+
   return showDialog<T>(
     context: context,
     barrierDismissible: barrierDismissible,
@@ -61,6 +84,21 @@ class PremiumDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Simple confirms can use Cupertino; anything with custom content stays
+    // on the Material surface (TextFields inside CupertinoAlertDialog break).
+    if (isCupertinoPlatform(context) && content == null) {
+      return _CupertinoPremiumDialog(
+        title: title,
+        subtitle: subtitle,
+        confirmLabel: confirmLabel,
+        cancelLabel: cancelLabel,
+        onConfirm: onConfirm,
+        onCancel: onCancel,
+        confirmVariant: confirmVariant,
+        showCancel: showCancel,
+      );
+    }
+
     final colors = context.appColors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -126,6 +164,57 @@ class PremiumDialog extends StatelessWidget {
   }
 }
 
+class _CupertinoPremiumDialog extends StatelessWidget {
+  const _CupertinoPremiumDialog({
+    required this.title,
+    this.subtitle,
+    this.confirmLabel,
+    this.cancelLabel,
+    this.onConfirm,
+    this.onCancel,
+    this.confirmVariant = PremiumButtonVariant.primary,
+    this.showCancel = true,
+  });
+
+  final String title;
+  final String? subtitle;
+  final String? confirmLabel;
+  final String? cancelLabel;
+  final VoidCallback? onConfirm;
+  final VoidCallback? onCancel;
+  final PremiumButtonVariant confirmVariant;
+  final bool showCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    final actions = <Widget>[];
+    if (showCancel && cancelLabel != null) {
+      actions.add(
+        CupertinoDialogAction(
+          onPressed: onCancel ?? () => Navigator.of(context).pop(false),
+          child: Text(cancelLabel!),
+        ),
+      );
+    }
+    if (confirmLabel != null) {
+      actions.add(
+        CupertinoDialogAction(
+          isDefaultAction: confirmVariant != PremiumButtonVariant.ghost,
+          isDestructiveAction: confirmVariant == PremiumButtonVariant.accent,
+          onPressed: onConfirm ?? () => Navigator.of(context).pop(true),
+          child: Text(confirmLabel!),
+        ),
+      );
+    }
+
+    return CupertinoAlertDialog(
+      title: Text(title),
+      content: subtitle != null ? Text(subtitle!) : null,
+      actions: actions,
+    );
+  }
+}
+
 Future<bool?> showPremiumConfirmDialog({
   required BuildContext context,
   required String title,
@@ -135,17 +224,13 @@ Future<bool?> showPremiumConfirmDialog({
   String cancelLabel = 'Cancel',
   PremiumButtonVariant confirmVariant = PremiumButtonVariant.primary,
 }) {
-  return showDialog<bool>(
+  return showPremiumDialog<bool>(
     context: context,
-    builder: (ctx) => PremiumDialog(
-      title: title,
-      subtitle: subtitle,
-      content: content,
-      confirmLabel: confirmLabel,
-      cancelLabel: cancelLabel,
-      onConfirm: () => Navigator.of(ctx).pop(true),
-      onCancel: () => Navigator.of(ctx).pop(false),
-      confirmVariant: confirmVariant,
-    ),
+    title: title,
+    subtitle: subtitle,
+    content: content,
+    confirmLabel: confirmLabel,
+    cancelLabel: cancelLabel,
+    confirmVariant: confirmVariant,
   );
 }

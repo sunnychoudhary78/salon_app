@@ -477,10 +477,21 @@ class _ForYouSalonRailSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final forYou = ref.watch(forYouSalonsProvider);
+    final allSalons = ref.watch(paginatedSalonsProvider);
+
+    // Dual featured/deals fetches often lag the main feed. Once All salons has
+    // settled, hide the tall skeleton instead of leaving it up until empty.
+    final mainFeedSettled = allSalons.hasValue || allSalons.hasError;
+    if (forYou.isLoading && !forYou.hasValue && mainFeedSettled) {
+      return const SizedBox.shrink();
+    }
+
     return _HomeSalonRail(
-      value: ref.watch(forYouSalonsProvider),
+      value: forYou,
       title: 'For you',
       subtitle: 'Featured picks & deals near you',
+      skipLoadingOnReload: true,
     );
   }
 }
@@ -490,6 +501,7 @@ class _HomeSalonRail extends StatelessWidget {
     required this.value,
     required this.title,
     required this.subtitle,
+    this.skipLoadingOnReload = false,
   });
 
   static const _cardWidth = 268.0;
@@ -498,10 +510,13 @@ class _HomeSalonRail extends StatelessWidget {
   final AsyncValue<List<SalonModel>> value;
   final String title;
   final String subtitle;
+  final bool skipLoadingOnReload;
 
   @override
   Widget build(BuildContext context) {
     return value.when(
+      skipLoadingOnReload: skipLoadingOnReload,
+      skipLoadingOnRefresh: skipLoadingOnReload,
       loading: () => _railShell(child: _railShimmer()),
       error: (_, __) => const SizedBox.shrink(),
       data: (items) {

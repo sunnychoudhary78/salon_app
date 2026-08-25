@@ -12,6 +12,7 @@ import 'package:saloon_booking/core/theme/app_decorations.dart';
 import 'package:saloon_booking/core/utils/form_validators.dart';
 import 'package:saloon_booking/core/utils/image_url_utils.dart';
 import 'package:saloon_booking/core/utils/image_decode_utils.dart';
+import 'package:saloon_booking/core/utils/platform_utils.dart';
 import 'package:saloon_booking/features/auth/presentation/providers/auth_provider.dart';
 import 'package:saloon_booking/features/profile/data/services/profile_service.dart';
 import 'package:saloon_booking/features/profile/presentation/widgets/profile_detail_row.dart';
@@ -159,7 +160,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         title: 'Edit profile',
         showMenu: false,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
+          icon: Icon(platformBackIcon(context)),
           onPressed: _onBack,
         ),
       ),

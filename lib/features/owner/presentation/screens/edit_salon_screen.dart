@@ -11,6 +11,7 @@ import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/core/utils/currency_utils.dart';
 import 'package:saloon_booking/core/utils/form_validators.dart';
 import 'package:saloon_booking/core/utils/phone_validation.dart';
+import 'package:saloon_booking/core/utils/platform_utils.dart';
 import 'package:saloon_booking/core/utils/salon_time_utils.dart';
 import 'package:saloon_booking/features/auth/presentation/providers/auth_provider.dart';
 import 'package:saloon_booking/features/customer/data/models/salon_model.dart';
@@ -280,7 +281,7 @@ class _EditSalonScreenState extends ConsumerState<EditSalonScreen> {
               subtitle: 'Update your salon details anytime',
               showMenu: false,
               leading: IconButton(
-                icon: const Icon(Icons.arrow_back_rounded),
+                icon: Icon(platformBackIcon(context)),
                 onPressed: _loading ? null : () => context.pop(),
               ),
             ),

@@ -57,6 +57,8 @@
 	</dict>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>CATCHY needs access to your photo library so you can add salon images.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>CATCHY uses your location only while you are using the app to help you find nearby salons and add your address. The app does not access your location in the background.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>CATCHY uses your location to show nearby salons and distances.</string>
 	<key>LSApplicationQueriesSchemes</key>

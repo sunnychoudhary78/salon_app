@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/core/utils/form_validators.dart';
+import 'package:saloon_booking/shared/widgets/adaptive_progress_indicator.dart';
 import 'package:saloon_booking/shared/widgets/tap_scale_wrapper.dart';
 
 enum PremiumButtonVariant { primary, accent, ghost }
@@ -80,9 +81,10 @@ class PremiumButton extends StatelessWidget {
               SizedBox(
                 height: spinnerSize,
                 width: spinnerSize,
-                child: CircularProgressIndicator(
+                child: AdaptiveProgressIndicator(
                   strokeWidth: 2,
                   color: foregroundColor,
+                  radius: spinnerSize / 2,
                 ),
               ),
               const SizedBox(width: 10),

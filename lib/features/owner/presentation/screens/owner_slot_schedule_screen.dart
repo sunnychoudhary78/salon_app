@@ -10,6 +10,8 @@ import 'package:saloon_booking/core/theme/app_decorations.dart';
 import 'package:saloon_booking/core/utils/form_validators.dart';
 import 'package:saloon_booking/features/customer/data/models/salon_model.dart';
 import 'package:saloon_booking/features/owner/data/services/owner_service.dart';
+import 'package:saloon_booking/core/utils/platform_utils.dart';
+import 'package:saloon_booking/shared/widgets/adaptive_pickers.dart';
 import 'package:saloon_booking/shared/widgets/animated_entrance.dart';
 import 'package:saloon_booking/shared/widgets/async_value_widget.dart';
 import 'package:saloon_booking/shared/widgets/glass_card.dart';
@@ -45,7 +47,7 @@ class _OwnerSlotScheduleScreenState
   String get _dateStr => DateFormat('yyyy-MM-dd').format(_selectedDate);
 
   Future<void> _pickDate() async {
-    final date = await showDatePicker(
+    final date = await showAdaptiveDatePicker(
       context: context,
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 90)),
@@ -149,7 +151,7 @@ class _OwnerSlotScheduleScreenState
         title: 'Manage schedule',
         showMenu: false,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back_rounded),
+          icon: Icon(platformBackIcon(context)),
           onPressed: () => context.pop(),
         ),
       ),

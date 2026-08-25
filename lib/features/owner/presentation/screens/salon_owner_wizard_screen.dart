@@ -14,6 +14,7 @@ import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/core/utils/currency_utils.dart';
 import 'package:saloon_booking/core/utils/form_validators.dart';
 import 'package:saloon_booking/core/utils/phone_validation.dart';
+import 'package:saloon_booking/core/utils/platform_utils.dart';
 import 'package:saloon_booking/core/utils/salon_geocoding.dart';
 import 'package:saloon_booking/core/utils/salon_time_utils.dart';
 import 'package:saloon_booking/features/auth/presentation/providers/auth_provider.dart';
@@ -274,7 +275,7 @@ class _SalonOwnerWizardScreenState
         subtitle: 'Become a CATCHY salon partner',
         showMenu: false,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
+          icon: Icon(platformBackIcon(context)),
           onPressed: () => context.pop(),
         ),
       ),

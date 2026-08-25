@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/core/utils/salon_time_utils.dart';
+import 'package:saloon_booking/shared/widgets/adaptive_pickers.dart';
 
 class SalonHoursPickerRow extends StatelessWidget {
   const SalonHoursPickerRow({
@@ -21,19 +22,9 @@ class SalonHoursPickerRow extends StatelessWidget {
     required TimeOfDay? initial,
     required ValueChanged<TimeOfDay> onChanged,
   }) async {
-    final picked = await showTimePicker(
+    final picked = await showAdaptiveTimePicker(
       context: context,
       initialTime: initial ?? const TimeOfDay(hour: 9, minute: 0),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: Theme.of(
-              context,
-            ).colorScheme.copyWith(primary: context.appColors.accent),
-          ),
-          child: child!,
-        );
-      },
     );
     if (picked != null) onChanged(picked);
   }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:saloon_booking/core/network/user_facing_error.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
+import 'package:saloon_booking/shared/widgets/adaptive_progress_indicator.dart';
 import 'package:saloon_booking/shared/widgets/glass_card.dart';
 import 'package:saloon_booking/shared/widgets/empty_state.dart';
 import 'package:saloon_booking/shared/widgets/premium_button.dart';
@@ -48,7 +49,7 @@ class LoadingView extends StatelessWidget {
             const SizedBox(
               width: 36,
               height: 36,
-              child: CircularProgressIndicator(strokeWidth: 2.5),
+              child: AdaptiveProgressIndicator(strokeWidth: 2.5, radius: 14),
             ),
             if (message != null) ...[
               const SizedBox(height: 16),

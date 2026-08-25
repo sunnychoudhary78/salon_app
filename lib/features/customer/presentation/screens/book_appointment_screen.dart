@@ -20,6 +20,8 @@ import 'package:saloon_booking/features/customer/data/services/customer_service.
 import 'package:saloon_booking/features/customer/presentation/widgets/booking/booking_service_selection_card.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:saloon_booking/core/theme/app_animations.dart';
+import 'package:saloon_booking/core/utils/platform_utils.dart';
+import 'package:saloon_booking/shared/widgets/adaptive_pickers.dart';
 import 'package:saloon_booking/shared/widgets/animated_entrance.dart';
 import 'package:saloon_booking/shared/widgets/async_value_widget.dart';
 import 'package:saloon_booking/shared/widgets/glass_card.dart';
@@ -146,7 +148,7 @@ class _BookAppointmentScreenState extends ConsumerState<BookAppointmentScreen>
       : const ['Choose services', 'Pick date & time', 'Add notes'];
 
   Future<void> _pickDate() async {
-    final date = await showDatePicker(
+    final date = await showAdaptiveDatePicker(
       context: context,
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 90)),
@@ -682,7 +684,7 @@ class _BookAppointmentScreenState extends ConsumerState<BookAppointmentScreen>
           title: 'Book appointment',
           showMenu: false,
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back_rounded),
+            icon: Icon(platformBackIcon(context)),
             onPressed: () => popOrGoHome(context),
           ),
         ),

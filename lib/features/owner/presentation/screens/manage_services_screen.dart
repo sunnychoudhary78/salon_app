@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:saloon_booking/core/constants/salon_service_names.dart';
 import 'package:saloon_booking/core/theme/app_decorations.dart';
+import 'package:saloon_booking/core/utils/platform_utils.dart';
 import 'package:saloon_booking/features/customer/data/models/salon_model.dart';
 import 'package:saloon_booking/features/owner/data/services/owner_service.dart';
 import 'package:saloon_booking/features/owner/presentation/widgets/service_form_sheet.dart';
@@ -71,7 +72,7 @@ class _ManageServicesScreenState extends ConsumerState<ManageServicesScreen> {
         title: 'Manage services',
         showMenu: false,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
+          icon: Icon(platformBackIcon(context)),
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [

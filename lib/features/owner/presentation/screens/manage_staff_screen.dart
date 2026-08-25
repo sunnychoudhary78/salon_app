@@ -6,6 +6,7 @@ import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/core/theme/app_decorations.dart';
 import 'package:saloon_booking/core/utils/form_validators.dart';
+import 'package:saloon_booking/core/utils/platform_utils.dart';
 import 'package:saloon_booking/features/customer/data/models/salon_model.dart';
 import 'package:saloon_booking/features/customer/data/services/customer_service.dart';
 import 'package:saloon_booking/features/owner/data/services/owner_service.dart';
@@ -60,7 +61,7 @@ class _ManageStaffScreenState extends ConsumerState<ManageStaffScreen> {
         title: 'Manage staff',
         showMenu: false,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
+          icon: Icon(platformBackIcon(context)),
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [

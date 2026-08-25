@@ -4,6 +4,7 @@ import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/core/utils/image_decode_utils.dart';
 import 'package:saloon_booking/core/utils/image_url_utils.dart';
+import 'package:saloon_booking/core/utils/platform_utils.dart';
 import 'package:saloon_booking/features/customer/data/models/salon_model.dart';
 import 'package:saloon_booking/features/customer/presentation/widgets/salon_detail/salon_detail_helpers.dart';
 import 'package:saloon_booking/shared/widgets/salon_cube_image_slider.dart';
@@ -141,7 +142,7 @@ class _SalonHeroSectionState extends State<SalonHeroSection> {
                       vertical: 8,
                     ),
                     child: _HeroIconButton(
-                      icon: Icons.arrow_back_rounded,
+                      icon: platformBackIcon(context),
                       onTap: widget.onBack,
                     ),
                   ),

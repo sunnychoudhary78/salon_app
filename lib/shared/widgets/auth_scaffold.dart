@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
+import 'package:saloon_booking/core/utils/platform_utils.dart';
 import 'package:saloon_booking/shared/widgets/app_logo.dart';
 
 class AuthScaffold extends StatelessWidget {
@@ -188,7 +189,7 @@ class _HeroHeader extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: IconButton(
               onPressed: onBack,
-              icon: Icon(Icons.arrow_back_rounded, color: colors.textPrimary),
+              icon: Icon(platformBackIcon(context), color: colors.textPrimary),
               style: IconButton.styleFrom(backgroundColor: colors.glassFill),
             ),
           )
@@ -251,7 +252,7 @@ class _StandardHeader extends StatelessWidget {
         if (onBack != null)
           IconButton(
             onPressed: onBack,
-            icon: Icon(Icons.arrow_back_rounded, color: colors.textPrimary),
+            icon: Icon(platformBackIcon(context), color: colors.textPrimary),
             style: IconButton.styleFrom(backgroundColor: colors.glassFill),
           )
         else
