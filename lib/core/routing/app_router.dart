@@ -19,6 +19,7 @@ import 'package:saloon_booking/features/onboarding/presentation/screens/onboardi
 import 'package:saloon_booking/features/customer/presentation/screens/book_appointment_screen.dart';
 import 'package:saloon_booking/features/customer/presentation/screens/customer_bookings_screen.dart';
 import 'package:saloon_booking/features/customer/presentation/screens/customer_home_screen.dart';
+import 'package:saloon_booking/features/beautyassistant/presentations/screen/beauty_assistant_screen.dart';
 import 'package:saloon_booking/features/customer/presentation/screens/customer_shell.dart';
 import 'package:saloon_booking/features/customer/presentation/screens/salon_detail_screen.dart';
 import 'package:saloon_booking/features/customer/presentation/screens/write_review_screen.dart';
@@ -211,6 +212,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             ],
           ),
         ],
+      ),
+      GoRoute(
+        path: RoutePaths.customerBeautyAssistant,
+        pageBuilder: fadeSlideBuilder((_, __) => const BeautyAssistantScreen()),
       ),
       GoRoute(
         path: RoutePaths.customerSettings,

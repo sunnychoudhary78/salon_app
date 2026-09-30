@@ -9,6 +9,7 @@ class RoutePaths {
   static const adminBlocked = '/admin-blocked';
 
   static const customerHome = '/customer/home';
+  static const customerBeautyAssistant = '/customer/beauty-assistant';
   static const customerSalons = '/customer/salons';
   static const customerBookings = '/customer/bookings';
   static const customerProfile = '/customer/profile';

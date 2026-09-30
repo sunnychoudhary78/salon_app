@@ -99,6 +99,11 @@ class _CustomerShellState extends ConsumerState<CustomerShell> {
       index: _notificationsIndex,
     ),
     DrawerNavItem(
+      icon: Icons.auto_awesome_rounded,
+      label: 'Beauty Assistant',
+      route: RoutePaths.customerBeautyAssistant,
+    ),
+    DrawerNavItem(
       icon: Icons.settings_rounded,
       label: 'Settings',
       route: RoutePaths.customerSettings,

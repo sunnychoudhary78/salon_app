@@ -151,6 +151,8 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
                     ),
                   ),
                   const _CuratedBannersSection(),
+                  const SizedBox(height: 14),
+                  const _BeautyAssistantEntryCard(),
                   if (!isSearching) ...[
                     const SizedBox(height: 16),
                     const AnimatedEntrance(
@@ -262,6 +264,70 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BeautyAssistantEntryCard extends StatelessWidget {
+  const _BeautyAssistantEntryCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Material(
+      color: colors.surfaceElevated,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: () => context.push(RoutePaths.customerBeautyAssistant),
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: colors.glassBorder),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: colors.accentSoft,
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: Icon(Icons.auto_awesome_rounded, color: colors.accent),
+              ),
+              const SizedBox(width: 13),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Your Beauty Assistant',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: colors.textPrimary,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      'Get ideas for your next look',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 16,
+                color: colors.textMuted,
+              ),
+            ],
+          ),
         ),
       ),
     );
