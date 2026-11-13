@@ -18,6 +18,7 @@ import 'package:saloon_booking/features/customer/data/models/salon_model.dart';
 import 'package:saloon_booking/features/customer/data/providers/audience_mode_provider.dart';
 import 'package:saloon_booking/features/customer/data/services/customer_service.dart';
 import 'package:saloon_booking/features/customer/presentation/widgets/booking/booking_service_selection_card.dart';
+import 'package:saloon_booking/features/customer/presentation/widgets/coupon_selection_sheet.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:saloon_booking/core/theme/app_animations.dart';
 import 'package:saloon_booking/core/utils/platform_utils.dart';
@@ -67,6 +68,7 @@ class _BookAppointmentScreenState extends ConsumerState<BookAppointmentScreen>
   final _notesController = TextEditingController();
   String? _error;
   bool _loading = false;
+  CouponModel? _appliedCoupon;
   Timer? _resumeRefreshTimer;
   DateTime? _lastResumeRefreshAt;
 
@@ -193,6 +195,51 @@ class _BookAppointmentScreenState extends ConsumerState<BookAppointmentScreen>
     return salon.services
         .where((s) => _selectedServiceIds.contains(s.id))
         .fold(0, (sum, s) => sum + (s.durationMinutes ?? 30));
+  }
+
+  double _couponDiscount(SalonModel salon) {
+    if (_appliedCoupon == null) return 0.0;
+    return _appliedCoupon!.calculateDiscount(_selectedTotal(salon));
+  }
+
+  double _finalEstimatedTotal(SalonModel salon) {
+    final sub = _selectedTotal(salon);
+    final disc = _couponDiscount(salon);
+    final net = sub - disc;
+    return net < 0 ? 0.0 : net;
+  }
+
+  Future<void> _openCouponSheet(SalonModel salon) async {
+    final subtotal = _selectedTotal(salon);
+    if (subtotal <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select at least one service first')),
+      );
+      return;
+    }
+
+    final selected = await CouponSelectionSheet.show(
+      context,
+      orderAmount: subtotal,
+      currentlyAppliedCode: _appliedCoupon?.code,
+    );
+
+    if (selected != null) {
+      setState(() {
+        _appliedCoupon = selected;
+      });
+      if (mounted) {
+        final disc = selected.calculateDiscount(subtotal);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Coupon "${selected.code}" applied! You saved ${formatMoney(disc)}',
+            ),
+            backgroundColor: Colors.green.shade700,
+          ),
+        );
+      }
+    }
   }
 
   bool get _isUrgentSlotSelected {
@@ -754,6 +801,8 @@ class _BookAppointmentScreenState extends ConsumerState<BookAppointmentScreen>
                             serviceCount: _selectedServiceIds.length,
                             durationMinutes: _selectedDurationMinutes(salon),
                             total: _selectedTotal(salon),
+                            discount: _couponDiscount(salon),
+                            appliedCoupon: _appliedCoupon,
                           ),
                         ),
                       ],
@@ -957,6 +1006,20 @@ class _BookAppointmentScreenState extends ConsumerState<BookAppointmentScreen>
                           validator: validateOptionalNotes,
                         ),
                       ),
+                      const SizedBox(height: 24),
+                      _BookingSectionHeader(
+                        number: hasStaff ? 5 : 4,
+                        title: 'Coupons & Offers',
+                        subtitle:
+                            'Apply discounts and promo codes to save on this visit',
+                      ),
+                      const SizedBox(height: 12),
+                      _CouponBookingTile(
+                        appliedCoupon: _appliedCoupon,
+                        discountAmount: _couponDiscount(salon),
+                        onApplyTap: () => _openCouponSheet(salon),
+                        onRemoveTap: () => setState(() => _appliedCoupon = null),
+                      ),
                       if (_error != null) ...[
                         const SizedBox(height: 12),
                         Text(
@@ -1002,12 +1065,16 @@ class _BookAppointmentScreenState extends ConsumerState<BookAppointmentScreen>
               requestLabel =
                   'Send request ($count service${count > 1 ? 's' : ''})';
             }
+            final discount = _couponDiscount(salon);
+            final finalTotal = _finalEstimatedTotal(salon);
+
             return ScreenActionBar(
               label: requestLabel,
               subtitle: count == 0
                   ? null
                   : '${_selectedDurationMinutes(salon)} min · '
-                        '${formatMoney(_selectedTotal(salon))} estimated'
+                        '${formatMoney(finalTotal)} estimated'
+                        '${discount > 0 ? ' (Saved ${formatMoney(discount)})' : ''}'
                         '${count > 1 ? ' · $count services' : ''}'
                         '${isUrgentSelection ? ' · urgent' : ''}',
               icon: isUrgentSelection
@@ -1130,15 +1197,20 @@ class _BookingSummaryCard extends StatelessWidget {
     required this.serviceCount,
     required this.durationMinutes,
     required this.total,
+    this.discount = 0.0,
+    this.appliedCoupon,
   });
 
   final int serviceCount;
   final int durationMinutes;
   final double total;
+  final double discount;
+  final CouponModel? appliedCoupon;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    final finalEstimated = total - discount > 0 ? total - discount : 0.0;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
@@ -1193,13 +1265,189 @@ class _BookingSummaryCard extends StatelessWidget {
               Expanded(
                 child: _SummaryMetric(
                   icon: Icons.payments_outlined,
-                  value: formatMoney(total),
-                  label: 'Estimated',
+                  value: formatMoney(finalEstimated),
+                  label: discount > 0 ? 'Net Payable' : 'Estimated',
                 ),
               ),
             ],
           ),
+          if (appliedCoupon != null && discount > 0) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.success.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.discount_rounded, size: 14, color: AppColors.success),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Coupon "${appliedCoupon!.code}" applied',
+                    style: const TextStyle(
+                      color: AppColors.success,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    '-${formatMoney(discount)}',
+                    style: const TextStyle(
+                      color: AppColors.success,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
+      ),
+    );
+  }
+}
+
+class _CouponBookingTile extends StatelessWidget {
+  const _CouponBookingTile({
+    required this.appliedCoupon,
+    required this.discountAmount,
+    required this.onApplyTap,
+    required this.onRemoveTap,
+  });
+
+  final CouponModel? appliedCoupon;
+  final double discountAmount;
+  final VoidCallback onApplyTap;
+  final VoidCallback onRemoveTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+
+    if (appliedCoupon != null) {
+      return Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: colors.surfaceElevated,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.success.withValues(alpha: 0.4)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.success.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.check_circle_rounded, color: AppColors.success, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        appliedCoupon!.code,
+                        style: TextStyle(
+                          color: colors.textPrimary,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.success.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text(
+                          'Applied',
+                          style: TextStyle(
+                            color: AppColors.success,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'You save ${formatMoney(discountAmount)} on this booking',
+                    style: TextStyle(color: colors.textMuted, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            TextButton(
+              onPressed: onRemoveTap,
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.error,
+                visualDensity: VisualDensity.compact,
+              ),
+              child: const Text('Remove'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.surfaceElevated,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colors.glassBorder),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onApplyTap,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: colors.accent.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(Icons.local_offer_rounded, color: colors.accent, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Apply Coupon / Promo Code',
+                        style: TextStyle(
+                          color: colors.textPrimary,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Tap to view and apply available discount offers',
+                        style: TextStyle(color: colors.textMuted, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right_rounded, color: colors.textMuted),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

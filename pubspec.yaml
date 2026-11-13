@@ -27,6 +27,7 @@ dependencies:
   image_picker_android: ^0.8.13+17
   image_picker_platform_interface: ^2.11.1
   crop_your_image: ^2.0.0
+  google_mlkit_face_detection: ^0.13.2
   geolocator: ^13.0.4
   geocoding: ^3.0.0
   google_maps_flutter: ^2.12.1

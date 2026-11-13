@@ -76,6 +76,7 @@ class NotificationRouter {
       NotificationTypes.appointmentReminder ||
       NotificationTypes.bookingCancelled ||
       NotificationTypes.paymentSuccessful => RoutePaths.customerBookings,
+      NotificationTypes.rewardUnlocked => RoutePaths.customerRewards,
       NotificationTypes.promotionalOffer => RoutePaths.customerHome,
       _ => null,
     };

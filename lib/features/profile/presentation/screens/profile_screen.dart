@@ -202,6 +202,53 @@ class ProfileScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
             ],
+            if (!isOwnerMode) ...[
+              AnimatedEntrance(
+                index: 1,
+                child: GlassCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SectionHeader(
+                        title: 'Rewards & Offers',
+                        subtitle: 'Scratch cards, partner vouchers, and promo codes',
+                      ),
+                      const SizedBox(height: 12),
+                      PremiumButton(
+                        label: 'My Mystery Rewards & Cards',
+                        icon: Icons.card_giftcard_rounded,
+                        variant: PremiumButtonVariant.primary,
+                        onPressed: () => context.push(RoutePaths.customerRewards),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              AnimatedEntrance(
+                index: 1,
+                child: GlassCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SectionHeader(
+                        title: 'Your Transformations',
+                        subtitle: 'Before & After styling captured by your salons',
+                      ),
+                      const SizedBox(height: 12),
+                      PremiumButton(
+                        label: 'View My Transformations',
+                        icon: Icons.auto_awesome_rounded,
+                        variant: PremiumButtonVariant.primary,
+                        onPressed: () =>
+                            context.push(RoutePaths.customerTransformations),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
             if (!isOwnerMode &&
                 auth.salonOwner != null &&
                 application == null) ...[

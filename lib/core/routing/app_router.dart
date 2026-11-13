@@ -21,11 +21,16 @@ import 'package:saloon_booking/features/customer/presentation/screens/customer_b
 import 'package:saloon_booking/features/customer/presentation/screens/customer_home_screen.dart';
 import 'package:saloon_booking/features/customer/presentation/screens/customer_shell.dart';
 import 'package:saloon_booking/features/customer/presentation/screens/salon_detail_screen.dart';
+import 'package:saloon_booking/features/customer/presentation/screens/my_transformations_screen.dart';
+import 'package:saloon_booking/features/customer/presentation/screens/rewards_screen.dart';
 import 'package:saloon_booking/features/customer/presentation/screens/write_review_screen.dart';
+import 'package:saloon_booking/features/ai_stylist/presentation/screens/ai_stylist_chat_screen.dart';
+import 'package:saloon_booking/features/ai_stylist/presentation/screens/multi_angle_scan_screen.dart';
 import 'package:saloon_booking/features/owner/presentation/screens/edit_salon_screen.dart';
 import 'package:saloon_booking/features/owner/presentation/screens/salon_owner_wizard_screen.dart';
 import 'package:saloon_booking/features/owner/presentation/screens/manage_services_screen.dart';
 import 'package:saloon_booking/features/owner/presentation/screens/manage_staff_screen.dart';
+import 'package:saloon_booking/features/owner/presentation/screens/manage_gallery_screen.dart';
 import 'package:saloon_booking/features/owner/presentation/screens/owner_slot_schedule_screen.dart';
 import 'package:saloon_booking/features/owner/presentation/screens/owner_bookings_screen.dart';
 import 'package:saloon_booking/features/owner/presentation/screens/owner_dashboard_screen.dart';
@@ -219,6 +224,30 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(
+        path: RoutePaths.customerTransformations,
+        pageBuilder: fadeSlideBuilder(
+          (_, __) => const MyTransformationsScreen(),
+        ),
+      ),
+      GoRoute(
+        path: RoutePaths.customerRewards,
+        pageBuilder: fadeSlideBuilder(
+          (_, __) => const RewardsScreen(),
+        ),
+      ),
+      GoRoute(
+        path: RoutePaths.customerAiStylist,
+        pageBuilder: fadeSlideBuilder(
+          (_, __) => const AiStylistChatScreen(),
+        ),
+      ),
+      GoRoute(
+        path: RoutePaths.customerAiScan,
+        pageBuilder: fadeSlideBuilder(
+          (_, __) => const MultiAngleScanScreen(),
+        ),
+      ),
+      GoRoute(
         path: '${RoutePaths.customerSalons}/:id',
         pageBuilder: (context, state) => fadeSlidePage<void>(
           key: state.pageKey,
@@ -294,6 +323,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                     pageBuilder: (context, state) => fadeSlidePage<void>(
                       key: state.pageKey,
                       child: ManageStaffScreen(
+                        salonId: state.pathParameters['salonId']!,
+                      ),
+                    ),
+                  ),
+                  GoRoute(
+                    path: ':salonId/gallery',
+                    pageBuilder: (context, state) => fadeSlidePage<void>(
+                      key: state.pageKey,
+                      child: ManageGalleryScreen(
                         salonId: state.pathParameters['salonId']!,
                       ),
                     ),

@@ -1,5 +1,6 @@
 import 'package:saloon_booking/core/constants/salon_service_names.dart';
 import 'package:saloon_booking/core/utils/json_parse_utils.dart';
+import 'package:saloon_booking/core/utils/image_url_utils.dart';
 import 'package:saloon_booking/features/payments/data/models/payment_model.dart';
 
 double _parseDouble(dynamic value, {double fallback = 0}) {
@@ -474,6 +475,8 @@ class BannerModel {
     required this.id,
     required this.title,
     this.imageUrl,
+    this.redirectType = 'NONE',
+    this.redirectValue,
     this.linkType,
     this.linkTarget,
   });
@@ -481,16 +484,45 @@ class BannerModel {
   final String id;
   final String title;
   final String? imageUrl;
+  final String redirectType;
+  final String? redirectValue;
   final String? linkType;
   final String? linkTarget;
 
-  factory BannerModel.fromJson(Map<String, dynamic> json) => BannerModel(
-    id: json['id'] as String,
-    title: json['title'] as String,
-    imageUrl: json['image_url'] as String?,
-    linkType: json['link_type'] as String?,
-    linkTarget: json['link_target'] as String?,
-  );
+  bool get isSalon =>
+      (redirectType.toUpperCase() == 'SALON' ||
+          linkType?.toUpperCase() == 'SALON') &&
+      targetSalonId != null &&
+      targetSalonId!.isNotEmpty;
+
+  bool get isExternalUrl =>
+      (redirectType.toUpperCase() == 'EXTERNAL_URL' ||
+          linkType?.toUpperCase() == 'EXTERNAL_URL') &&
+      externalUrl != null &&
+      externalUrl!.isNotEmpty;
+
+  String? get targetSalonId => redirectValue ?? linkTarget;
+  String? get externalUrl => redirectValue ?? linkTarget;
+
+  factory BannerModel.fromJson(Map<String, dynamic> json) {
+    final rawImage = json['image'] as String? ?? json['image_url'] as String?;
+    final rawType =
+        json['redirect_type'] as String? ??
+        json['link_type'] as String? ??
+        'NONE';
+    final rawTarget =
+        json['redirect_value'] as String? ?? json['link_target'] as String?;
+
+    return BannerModel(
+      id: json['id'] as String,
+      title: json['title'] as String? ?? '',
+      imageUrl: rawImage != null ? resolveImageUrl(rawImage) : null,
+      redirectType: rawType,
+      redirectValue: rawTarget,
+      linkType: rawType,
+      linkTarget: rawTarget,
+    );
+  }
 }
 
 class BookingSalonRef {
@@ -686,16 +718,58 @@ class CouponModel {
     required this.code,
     required this.discountType,
     required this.discountValue,
+    this.id,
+    this.title,
+    this.description,
+    this.image,
+    this.minOrderValue = 0,
+    this.maxDiscountAmount,
+    this.validTo,
+    this.status,
   });
 
+  final String? id;
   final String code;
+  final String? title;
+  final String? description;
+  final String? image;
   final String discountType;
   final double discountValue;
+  final double minOrderValue;
+  final double? maxDiscountAmount;
+  final DateTime? validTo;
+  final String? status;
+
+  bool get isPercent => discountType.toUpperCase() == 'PERCENT';
+
+  double calculateDiscount(double subtotal) {
+    if (subtotal < minOrderValue) return 0;
+    if (isPercent) {
+      final calculated = (subtotal * discountValue) / 100;
+      if (maxDiscountAmount != null && maxDiscountAmount! > 0) {
+        return calculated > maxDiscountAmount! ? maxDiscountAmount! : calculated;
+      }
+      return calculated;
+    }
+    return discountValue > subtotal ? subtotal : discountValue;
+  }
 
   factory CouponModel.fromJson(Map<String, dynamic> json) => CouponModel(
-    code: json['code'] as String,
-    discountType: json['discount_type'] as String,
+    id: json['id']?.toString(),
+    code: (json['code'] as String?) ?? '',
+    title: json['title'] as String?,
+    description: json['description'] as String?,
+    image: json['image'] as String?,
+    discountType: (json['discount_type'] as String?) ?? 'PERCENT',
     discountValue: _parseDouble(json['discount_value']),
+    minOrderValue: _parseDouble(json['min_order_value']),
+    maxDiscountAmount: json['max_discount_amount'] != null
+        ? _parseDouble(json['max_discount_amount'])
+        : null,
+    validTo: json['valid_to'] != null
+        ? DateTime.tryParse(json['valid_to'].toString())
+        : null,
+    status: json['status'] as String?,
   );
 }
 

@@ -16,9 +16,7 @@ class AudienceModeNotifier extends AsyncNotifier<AudienceMode> {
     final stored = AudienceMode.tryParse(prefs.getString(_audienceModePrefsKey));
     if (stored != null) return stored;
 
-    final gender = ref.watch(
-      authProvider.select((auth) => auth.value?.customer?.gender),
-    );
+    final gender = ref.read(authProvider).value?.customer?.gender;
     final mode = AudienceMode.fromGender(gender);
     // First-run gender seed: match accent so Men users aren't stuck on rose.
     Future.microtask(() {

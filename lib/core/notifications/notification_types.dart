@@ -15,6 +15,7 @@ class NotificationTypes {
   static const salonApplicationApproved = 'salon_application_approved';
   static const salonApplicationRejected = 'salon_application_rejected';
   static const newReview = 'new_review';
+  static const rewardUnlocked = 'REWARD_UNLOCKED';
 }
 
 class NotificationScreens {

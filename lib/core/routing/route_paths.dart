@@ -21,6 +21,10 @@ class RoutePaths {
 
   static const customerNotifications = '/customer/notifications';
   static const customerSettings = '/customer/settings';
+  static const customerTransformations = '/customer/transformations';
+  static const customerRewards = '/customer/rewards';
+  static const customerAiStylist = '/customer/ai-stylist';
+  static const customerAiScan = '/customer/ai-stylist/scan';
 
   static const ownerDashboard = '/owner/dashboard';
   static const ownerSalons = '/owner/salons';
@@ -37,6 +41,7 @@ class RoutePaths {
   static const ownerPayoutAccount = '/owner/payout-account';
   static const ownerServices = '/owner/salons/:salonId/services';
   static const ownerStaff = '/owner/salons/:salonId/staff';
+  static const ownerGallery = '/owner/salons/:salonId/gallery';
   static const ownerEditSalon = '/owner/salons/:salonId/edit';
   static const ownerSchedule = '/owner/salons/:salonId/schedule';
   static const becomeOwner = '/owner/become';

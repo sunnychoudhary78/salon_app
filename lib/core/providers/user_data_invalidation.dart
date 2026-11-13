@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:saloon_booking/core/crash/crash_reporting.dart';
 import 'package:saloon_booking/core/providers/owner_approval_provider.dart';
 import 'package:saloon_booking/features/auth/presentation/providers/auth_provider.dart';
 import 'package:saloon_booking/features/customer/data/providers/salon_browse_filters_provider.dart';
@@ -18,28 +19,42 @@ void invalidateAllUserScopedDataFromWidget(WidgetRef ref) {
 }
 
 void _invalidateAllUserScopedData(dynamic ref) {
-  ref.invalidate(bannersProvider);
-  ref.invalidate(favoriteSalonsProvider);
-  ref.invalidate(forYouSalonsProvider);
-  ref.invalidate(paginatedSalonsProvider);
-  ref.invalidate(myBookingsProvider);
-  ref.invalidate(premiumConfigProvider);
-  ref.invalidate(notificationsProvider);
-  ref.invalidate(unreadCountProvider);
-  ref.invalidate(ownerDashboardProvider);
-  ref.invalidate(ownerSalonsProvider);
-  ref.invalidate(ownerSalonApplicationsProvider);
-  ref.invalidate(ownerAllBookingsProvider);
-  ref.invalidate(ownerBookingsProvider);
-  ref.invalidate(ownerReviewsProvider);
-  ref.invalidate(hasApprovedSalonsProvider);
-  ref.invalidate(salonBrowseFiltersProvider);
-  ref.invalidate(paymentActionsProvider);
-  ref.invalidate(bookingActionsProvider);
-  ref.invalidate(reviewActionsProvider);
-  ref.invalidate(customerShellTabIndexProvider);
-  ref.invalidate(ownerShellTabIndexProvider);
-  ref.invalidate(pendingSignupProvider);
+  final providers = [
+    bannersProvider,
+    favoriteSalonsProvider,
+    forYouSalonsProvider,
+    paginatedSalonsProvider,
+    myBookingsProvider,
+    premiumConfigProvider,
+    notificationsProvider,
+    unreadCountProvider,
+    ownerDashboardProvider,
+    ownerSalonsProvider,
+    ownerSalonApplicationsProvider,
+    ownerAllBookingsProvider,
+    ownerBookingsProvider,
+    ownerReviewsProvider,
+    hasApprovedSalonsProvider,
+    salonBrowseFiltersProvider,
+    paymentActionsProvider,
+    bookingActionsProvider,
+    reviewActionsProvider,
+    customerShellTabIndexProvider,
+    ownerShellTabIndexProvider,
+    pendingSignupProvider,
+  ];
+
+  for (final provider in providers) {
+    try {
+      ref.invalidate(provider);
+    } catch (e, stack) {
+      CrashReporting.recordError(
+        e,
+        stack,
+        reason: 'invalidateAllUserScopedData: $provider',
+      );
+    }
+  }
 }
 
 /// Invalidate user data when the signed-in user id changes (not on first load).

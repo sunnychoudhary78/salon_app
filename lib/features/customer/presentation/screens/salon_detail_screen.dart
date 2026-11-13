@@ -9,6 +9,7 @@ import 'package:saloon_booking/features/customer/data/models/salon_model.dart';
 import 'package:saloon_booking/features/customer/data/services/customer_service.dart';
 import 'package:saloon_booking/features/customer/presentation/widgets/salon_detail/salon_about_section.dart';
 import 'package:saloon_booking/features/customer/presentation/widgets/salon_detail/salon_booking_bar.dart';
+import 'package:saloon_booking/features/customer/presentation/widgets/salon_detail/salon_gallery_section.dart';
 import 'package:saloon_booking/features/customer/presentation/widgets/salon_detail/salon_hero_section.dart';
 import 'package:saloon_booking/features/customer/presentation/widgets/salon_detail/salon_reviews_section.dart';
 import 'package:saloon_booking/features/customer/presentation/widgets/salon_detail/salon_services_section.dart';
@@ -156,6 +157,13 @@ class SalonDetailScreen extends ConsumerWidget {
                     ),
                     SalonAboutSection(salon: salon),
                     SalonWhyChooseSection(salon: salon),
+                    SalonGallerySection(
+                      salon: salon,
+                      onBookStaff: (staffId) =>
+                          _openBooking(context, staffId: staffId),
+                      onBookService: (serviceId) =>
+                          _openBooking(context, serviceId: serviceId),
+                    ),
                     SalonStaffSection(
                       staff: salon.staff,
                       onBookStaff: (staffId) =>

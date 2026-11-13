@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/features/customer/data/models/salon_model.dart';
+import 'package:saloon_booking/features/customer/presentation/widgets/gallery/stylist_portfolio_sheet.dart';
 import 'package:saloon_booking/features/customer/presentation/widgets/salon_detail/salon_detail_helpers.dart';
 import 'package:saloon_booking/features/customer/presentation/widgets/salon_detail/salon_detail_section.dart';
 import 'package:saloon_booking/shared/widgets/salon_rating_badge.dart';
@@ -35,7 +36,13 @@ class SalonStaffSection extends StatelessWidget {
             final member = staff[index];
             return _StaffCard(
               member: member,
-              onTap: () => onBookStaff(member.id),
+              onTap: () {
+                showStylistPortfolioSheet(
+                  context,
+                  staff: member,
+                  onBookStaff: onBookStaff,
+                );
+              },
             );
           },
         ),

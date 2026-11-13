@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:saloon_booking/core/location/selected_location.dart';
 import 'package:saloon_booking/core/location/selected_location_provider.dart';
@@ -76,7 +78,9 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
   void _loadMoreNearBottom() {
     if (!_homeScrollController.hasClients) return;
     final position = _homeScrollController.position;
-    if (position.extentAfter < 600) {
+    // Only trigger loadMore when user is actively scrolling downwards near the end
+    if (position.userScrollDirection == ScrollDirection.reverse &&
+        position.extentAfter < 500) {
       ref.read(paginatedSalonsProvider.notifier).loadMore();
     }
   }
@@ -140,46 +144,58 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen>
           slivers: [
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              sliver: SliverList(
-                delegate: SliverChildListDelegate([
-                  AnimatedEntrance(
-                    child: HomeSearchHeader(
-                      firstName: firstName,
-                      searchController: _searchController,
-                      onSearchChanged: _onSearchChanged,
-                      onFilterTap: () => showSalonFiltersSheet(context, ref),
+              sliver: SliverToBoxAdapter(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    AnimatedEntrance(
+                      child: HomeSearchHeader(
+                        firstName: firstName,
+                        searchController: _searchController,
+                        onSearchChanged: _onSearchChanged,
+                        onFilterTap: () => showSalonFiltersSheet(context, ref),
+                      ),
                     ),
-                  ),
-                  const _CuratedBannersSection(),
-                  if (!isSearching) ...[
-                    const SizedBox(height: 16),
-                    const AnimatedEntrance(
-                      index: 1,
-                      animateKey: ValueKey('home-favorites-rail'),
-                      child: _FavoriteSalonRailSection(),
-                    ),
-                    const AnimatedEntrance(
+                    if (!isSearching) ...[
+                      const SizedBox(height: 14),
+                      AnimatedEntrance(
+                        index: 1,
+                        child: _AiStylistEntryBanner(
+                          onTap: () => context.push(RoutePaths.customerAiStylist),
+                        ),
+                      ),
+                    ],
+                    const _CuratedBannersSection(),
+                    if (!isSearching) ...[
+                      const SizedBox(height: 16),
+                      const AnimatedEntrance(
+                        index: 1,
+                        animateKey: ValueKey('home-favorites-rail'),
+                        child: _FavoriteSalonRailSection(),
+                      ),
+                      const AnimatedEntrance(
+                        index: 2,
+                        animateKey: ValueKey('home-foryou-rail'),
+                        child: _ForYouSalonRailSection(),
+                      ),
+                    ],
+                    if (!isSearching) const SizedBox(height: 30),
+                    AnimatedEntrance(
                       index: 2,
-                      animateKey: ValueKey('home-foryou-rail'),
-                      child: _ForYouSalonRailSection(),
+                      child: SectionHeader(
+                        title: 'All salons',
+                        subtitle: isSearching
+                            ? "Results for '${browseFilters.search}'"
+                            : browseFilters.hasAvailableSlots
+                            ? 'Open slots today near you'
+                            : browseFilters.hasActiveFilters
+                            ? 'Filtered results near you'
+                            : 'Keep scrolling to discover more',
+                      ),
                     ),
+                    const SizedBox(height: 14),
                   ],
-                  if (!isSearching) const SizedBox(height: 30),
-                  AnimatedEntrance(
-                    index: 2,
-                    child: SectionHeader(
-                      title: 'All salons',
-                      subtitle: isSearching
-                          ? "Results for '${browseFilters.search}'"
-                          : browseFilters.hasAvailableSlots
-                          ? 'Open slots today near you'
-                          : browseFilters.hasActiveFilters
-                          ? 'Filtered results near you'
-                          : 'Keep scrolling to discover more',
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                ]),
+                ),
               ),
             ),
             showSalonShimmer
@@ -327,6 +343,24 @@ class _CuratedBannersSectionState
                           padding: EdgeInsets.zero,
                           margin: const EdgeInsets.only(right: 4),
                           shadowColor: context.appColors.glowAccent,
+                          onTap: () {
+                            if (banner.isSalon && banner.targetSalonId != null) {
+                              context.push(
+                                '${RoutePaths.customerSalons}/${banner.targetSalonId}',
+                              );
+                            } else if (banner.isExternalUrl &&
+                                banner.externalUrl != null) {
+                              final uri = Uri.tryParse(banner.externalUrl!);
+                              if (uri != null) {
+                                launchUrl(
+                                  uri,
+                                  mode: LaunchMode.externalApplication,
+                                );
+                              }
+                            } else {
+                              _showOfferDetails(context, banner);
+                            }
+                          },
                           child: Stack(
                             fit: StackFit.expand,
                             children: [
@@ -370,25 +404,99 @@ class _CuratedBannersSectionState
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 4,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        gradient:
-                                            context.appColors.accentGradient,
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: Text(
-                                        'OFFER',
-                                        style: TextStyle(
-                                          color: context.appColors.onAccent,
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w800,
-                                          letterSpacing: 1,
+                                    Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 4,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            gradient:
+                                                context.appColors.accentGradient,
+                                            borderRadius:
+                                                BorderRadius.circular(6),
+                                          ),
+                                          child: Text(
+                                            'OFFER',
+                                            style: TextStyle(
+                                              color: context.appColors.onAccent,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w800,
+                                              letterSpacing: 1,
+                                            ),
+                                          ),
                                         ),
-                                      ),
+                                        if (banner.isSalon) ...[
+                                          const SizedBox(width: 6),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 4,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: Colors.black.withValues(
+                                                alpha: 0.6,
+                                              ),
+                                              borderRadius:
+                                                BorderRadius.circular(6),
+                                            ),
+                                            child: const Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(
+                                                  Icons.store_rounded,
+                                                  size: 12,
+                                                  color: Colors.white,
+                                                ),
+                                                SizedBox(width: 4),
+                                                Text(
+                                                  'Book Now',
+                                                  style: TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ] else if (banner.isExternalUrl) ...[
+                                          const SizedBox(width: 6),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 4,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: Colors.black.withValues(
+                                                alpha: 0.6,
+                                              ),
+                                              borderRadius:
+                                                BorderRadius.circular(6),
+                                            ),
+                                            child: const Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(
+                                                  Icons.open_in_new_rounded,
+                                                  size: 12,
+                                                  color: Colors.white,
+                                                ),
+                                                SizedBox(width: 4),
+                                                Text(
+                                                  'Visit Deal',
+                                                  style: TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ],
                                     ),
                                     const SizedBox(height: 8),
                                     Text(
@@ -399,6 +507,7 @@ class _CuratedBannersSectionState
                                           ?.copyWith(
                                             color:
                                                 context.appColors.textPrimary,
+                                            fontWeight: FontWeight.bold,
                                           ),
                                     ),
                                   ],
@@ -439,6 +548,71 @@ class _CuratedBannersSectionState
     );
   }
 
+  void _showOfferDetails(BuildContext context, BannerModel banner) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: context.appColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: context.appColors.textMuted.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            if (banner.imageUrl != null)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: CachedNetworkImage(
+                  imageUrl: banner.imageUrl!,
+                  height: 160,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            const SizedBox(height: 16),
+            Text(
+              banner.title,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Explore this exclusive promotional offer across our partner salons.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: context.appColors.textSecondary,
+                  ),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: context.appColors.accent,
+                foregroundColor: context.appColors.onAccent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text('Got it'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _bannerFallback(BuildContext context) => Container(
     decoration: BoxDecoration(
       gradient: LinearGradient(
@@ -468,6 +642,7 @@ class _FavoriteSalonRailSection extends ConsumerWidget {
       value: ref.watch(favoriteSalonsProvider),
       title: 'Favorites',
       subtitle: 'Salons you saved',
+      skipLoadingOnReload: true,
     );
   }
 }
@@ -659,6 +834,92 @@ class _AllSalonsFeedSliver extends StatelessWidget {
             ),
           );
         }, childCount: itemCount),
+      ),
+    );
+  }
+}
+
+class _AiStylistEntryBanner extends StatelessWidget {
+  const _AiStylistEntryBanner({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return GlassCard(
+      onTap: onTap,
+      padding: const EdgeInsets.all(14),
+      shadowColor: colors.glowAccent,
+      child: Row(
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              gradient: colors.accentGradient,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(
+              Icons.face_retouching_natural_rounded,
+              color: colors.onAccent,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      'AI Hair Stylist',
+                      style: TextStyle(
+                        color: colors.textPrimary,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colors.accentSoft,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        'NEW',
+                        style: TextStyle(
+                          color: colors.accent,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.6,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  'Scan your face and get the perfect hairstyle + salon',
+                  style: TextStyle(
+                    color: colors.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Icon(
+            Icons.arrow_forward_ios_rounded,
+            size: 16,
+            color: colors.textMuted,
+          ),
+        ],
       ),
     );
   }

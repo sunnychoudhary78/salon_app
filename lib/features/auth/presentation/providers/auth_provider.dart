@@ -128,12 +128,12 @@ class Auth extends AsyncNotifier<AuthState?> {
   }
 
   Future<void> logout() async {
-    invalidateAllUserScopedData(ref);
     ref.read(secureStorageProvider).clearCachedToken();
     ref.read(hasApprovedSalonsProvider.notifier).reset();
     ref.read(pendingSignupProvider.notifier).clear();
     // Clear session first so GoRouter redirects to login immediately.
     state = const AsyncData(null);
+    invalidateAllUserScopedData(ref);
 
     try {
       await ref.read(authRepositoryProvider).logout();

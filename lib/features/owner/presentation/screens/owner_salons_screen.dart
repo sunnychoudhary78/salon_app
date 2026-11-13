@@ -40,6 +40,10 @@ class OwnerSalonsScreen extends ConsumerWidget {
     context.push('${RoutePaths.ownerSalons}/$salonId/staff');
   }
 
+  void _openManageGallery(BuildContext context, String salonId) {
+    context.push('${RoutePaths.ownerSalons}/$salonId/gallery');
+  }
+
   void _openEditSalon(BuildContext context, String salonId) {
     context.push('${RoutePaths.ownerSalons}/$salonId/edit');
   }
@@ -250,6 +254,7 @@ class OwnerSalonsScreen extends ConsumerWidget {
                           onServices: () =>
                               _openManageServices(context, salon.id),
                           onStaff: () => _openManageStaff(context, salon.id),
+                          onGallery: () => _openManageGallery(context, salon.id),
                           onSchedule: () =>
                               _openManageSchedule(context, salon.id),
                           onToggleStatus: hasPending
@@ -282,6 +287,7 @@ class _OwnerSalonCard extends StatelessWidget {
     required this.onEdit,
     required this.onServices,
     required this.onStaff,
+    required this.onGallery,
     required this.onSchedule,
     required this.onToggleStatus,
     this.pendingLabel,
@@ -294,6 +300,7 @@ class _OwnerSalonCard extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onServices;
   final VoidCallback onStaff;
+  final VoidCallback onGallery;
   final VoidCallback onSchedule;
   final VoidCallback? onToggleStatus;
 
@@ -474,6 +481,12 @@ class _OwnerSalonCard extends StatelessWidget {
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 8),
+                _SalonActionButton(
+                  icon: Icons.auto_awesome_rounded,
+                  label: 'Transformations Gallery',
+                  onTap: onGallery,
                 ),
                 const SizedBox(height: 12),
                 _StatusToggleButton(

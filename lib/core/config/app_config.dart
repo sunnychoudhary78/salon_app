@@ -6,11 +6,24 @@ class AppConfig {
   static const String appIconAsset = 'assets/icon/app_icon.png';
   static const String appLogoAsset = 'assets/icon/app_logo.png';
 
-  /// Change this to your PC WiFi IP (run `ipconfig`).
-  /// Android emulator: use `http://10.0.2.2:3011/api`
-  static const String baseUrl =
-      'https://salon-api.immortaltechnovation.com/api';
-  // 'https://uat-salon-api.immortaltechnovation.com/api';
+  // Environment Base URLs:
+  // Real Physical Phone (Your current PC Wi-Fi IP):
+  static const String deviceLocalBaseUrl = 'http://10.245.74.42:3011/api';
+  // Android Emulator (10.0.2.2 maps to host PC localhost):
+  static const String emulatorBaseUrl = 'http://10.245.74.42:3011/api';
+  // iOS Simulator / Web / Desktop / USB reverse localhost:
+  static const String localhostBaseUrl = 'http://localhost:3011/api';
+  // UAT Server:
+  static const String uatBaseUrl = 'https://uat-salon-api.immortaltechnovation.com/api';
+  // Production Server:
+  static const String prodBaseUrl = 'https://salon-api.immortaltechnovation.com/api';
+
+  /// Active Base URL:
+  static const String baseUrl = deviceLocalBaseUrl; // <-- Real Phone Wi-Fi ke liye active
+  // static const String baseUrl = emulatorBaseUrl; // <-- Android Emulator ke liye
+  // static const String baseUrl = localhostBaseUrl; // <-- iOS/Web/USB adb reverse ke liye
+  // static const String baseUrl = uatBaseUrl;
+  // static const String baseUrl = prodBaseUrl;
 
   static const String authPrefix = '/auth';
   static const String appPrefix = '/app';

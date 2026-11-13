@@ -9,6 +9,7 @@ import 'package:saloon_booking/core/location/selected_location.dart';
 import 'package:saloon_booking/core/location/selected_location_provider.dart';
 import 'package:saloon_booking/core/network/dio_client.dart';
 import 'package:saloon_booking/features/customer/data/models/salon_model.dart';
+import 'package:saloon_booking/features/customer/data/models/reward_model.dart';
 import 'package:saloon_booking/features/customer/data/providers/audience_mode_provider.dart';
 import 'package:saloon_booking/features/customer/data/providers/salon_browse_filters_provider.dart';
 
@@ -216,16 +217,36 @@ class CustomerService {
     );
   }
 
-  Future<CouponModel?> validateCoupon(String code) async {
+  Future<CouponModel?> validateCoupon(String code, {double? orderAmount}) async {
     final response = await _dio.post(
       '${AppConfig.appPrefix}/coupons/validate',
-      data: {'code': code},
+      data: {
+        'code': code,
+        ?'order_amount': orderAmount,
+      },
     );
     final data = response.data as Map<String, dynamic>;
     if (data['valid'] == true && data['coupon'] != null) {
       return CouponModel.fromJson(data['coupon'] as Map<String, dynamic>);
     }
     return null;
+  }
+
+  Future<List<CouponModel>> getActiveCoupons() async {
+    final response = await _dio.get('${AppConfig.appPrefix}/coupons');
+    return parseDataList(response.data, CouponModel.fromJson);
+  }
+
+  Future<List<CustomerRewardModel>> getMyRewards() async {
+    final response = await _dio.get('${AppConfig.appPrefix}/rewards/my-rewards');
+    return parseDataList(response.data, CustomerRewardModel.fromJson);
+  }
+
+  Future<CustomerRewardModel> claimReward(String customerRewardId) async {
+    final response = await _dio.post('${AppConfig.appPrefix}/rewards/$customerRewardId/claim');
+    final data = response.data as Map<String, dynamic>;
+    final item = data['data'] as Map<String, dynamic>;
+    return CustomerRewardModel.fromJson(item);
   }
 }
 
@@ -273,6 +294,7 @@ final homeForYouEnabledProvider = Provider<bool>((ref) {
 });
 
 final bannersProvider = FutureProvider.autoDispose<List<BannerModel>>((ref) {
+  ref.keepAlive();
   return ref.watch(customerServiceProvider).getBanners();
 });
 
@@ -371,6 +393,7 @@ List<SalonModel> _mergeForYouSalons(
 final favoriteSalonsProvider = FutureProvider.autoDispose<List<SalonModel>>((
   ref,
 ) async {
+  ref.keepAlive();
   final locationKey = ref.watch(settledSalonLocationKeyProvider);
   if (locationKey.isEmpty) return [];
 
@@ -383,6 +406,7 @@ final favoriteSalonsProvider = FutureProvider.autoDispose<List<SalonModel>>((
 final forYouSalonsProvider = FutureProvider.autoDispose<List<SalonModel>>((
   ref,
 ) async {
+  ref.keepAlive();
   if (!ref.watch(homeForYouEnabledProvider)) return [];
 
   final locationKey = ref.watch(settledSalonLocationKeyProvider);
@@ -543,8 +567,8 @@ class PaginatedSalonsNotifier extends AsyncNotifier<PaginatedSalonsState> {
           isLoadingMore: false,
         ),
       );
-    } catch (error, stackTrace) {
-      state = AsyncError(error, stackTrace);
+    } catch (_) {
+      state = AsyncData(current.copyWith(isLoadingMore: false));
     }
   }
 }
@@ -768,3 +792,11 @@ final validateCouponProvider = FutureProvider.autoDispose
       if (code.isEmpty) return Future.value(null);
       return ref.watch(customerServiceProvider).validateCoupon(code);
     });
+
+final activeCouponsProvider = FutureProvider.autoDispose<List<CouponModel>>((ref) {
+  return ref.watch(customerServiceProvider).getActiveCoupons();
+});
+
+final myRewardsProvider = FutureProvider.autoDispose<List<CustomerRewardModel>>((ref) {
+  return ref.watch(customerServiceProvider).getMyRewards();
+});
