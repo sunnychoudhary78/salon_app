@@ -22,7 +22,8 @@ bool isSalonOwner(UserModel user) =>
 
 bool isCustomer(UserModel user) => user.roles.any((r) => r.name == 'CUSTOMER');
 
-bool isSalonOwnerAccount(AuthState auth) => auth.salonOwner != null;
+bool isSalonOwnerAccount(AuthState auth) =>
+    isSalonOwner(auth.user) && auth.salonOwner != null;
 
 /// Chose salon owner at signup but has not created the owner profile yet.
 bool needsOwnerOnboarding(AuthState auth) =>

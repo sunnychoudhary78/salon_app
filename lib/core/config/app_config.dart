@@ -19,10 +19,10 @@ class AppConfig {
   static const String prodBaseUrl = 'https://salon-api.immortaltechnovation.com/api';
 
   /// Active Base URL:
-  static const String baseUrl = deviceLocalBaseUrl; // <-- Real Phone Wi-Fi ke liye active
+  // static const String baseUrl = deviceLocalBaseUrl; // <-- Real Phone Wi-Fi ke liye
   // static const String baseUrl = emulatorBaseUrl; // <-- Android Emulator ke liye
   // static const String baseUrl = localhostBaseUrl; // <-- iOS/Web/USB adb reverse ke liye
-  // static const String baseUrl = uatBaseUrl;
+  static const String baseUrl = uatBaseUrl; // <-- UAT
   // static const String baseUrl = prodBaseUrl;
 
   static const String authPrefix = '/auth';

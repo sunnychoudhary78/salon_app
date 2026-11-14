@@ -115,6 +115,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return homePathForUser(authState);
       }
 
+      // Customers (no SALON_OWNER role) must not open owner shell routes.
+      if (!isSalonOwner(authState.user) && location.startsWith('/owner')) {
+        return homePathForUser(authState);
+      }
+
       return null;
     },
     routes: [

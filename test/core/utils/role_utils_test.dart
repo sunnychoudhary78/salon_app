@@ -37,4 +37,17 @@ void main() {
     expect(homePathForUser(incompleteOwner), RoutePaths.becomeOwner);
     expect(homePathForUser(owner), RoutePaths.ownerDashboard);
   });
+
+  test('isSalonOwnerAccount requires SALON_OWNER role, not only profile row', () {
+    const convertedCustomer = AuthState(
+      token: 't',
+      user: customerUser,
+      salonOwner: SalonOwnerProfileModel(id: 'o1', businessName: 'Glow'),
+    );
+    expect(isSalonOwnerAccount(customer), isFalse);
+    expect(isSalonOwnerAccount(incompleteOwner), isFalse);
+    expect(isSalonOwnerAccount(owner), isTrue);
+    expect(isSalonOwnerAccount(convertedCustomer), isFalse);
+    expect(homePathForUser(convertedCustomer), RoutePaths.customerHome);
+  });
 }
