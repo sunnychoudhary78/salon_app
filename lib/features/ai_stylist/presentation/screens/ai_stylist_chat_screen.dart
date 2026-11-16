@@ -10,6 +10,7 @@ import 'package:saloon_booking/features/ai_stylist/presentation/providers/ai_sty
 import 'package:saloon_booking/features/ai_stylist/presentation/widgets/face_analysis_card.dart';
 import 'package:saloon_booking/features/ai_stylist/presentation/widgets/hairstyle_recommendation_carousel.dart';
 import 'package:saloon_booking/features/ai_stylist/presentation/widgets/recommended_salons_strip.dart';
+import 'package:saloon_booking/features/ai_stylist/presentation/widgets/tryon_preview_sheet.dart';
 
 class AiStylistChatScreen extends ConsumerStatefulWidget {
   const AiStylistChatScreen({super.key});
@@ -52,6 +53,18 @@ class _AiStylistChatScreenState extends ConsumerState<AiStylistChatScreen> {
     if (result == true) {
       _scrollToBottom();
     }
+  }
+
+  void _openTryOn(String analysisId, HairstyleRecommendation rec) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => TryOnPreviewSheet(
+        analysisId: analysisId,
+        recommendation: rec,
+      ),
+    );
   }
 
   void _openSessionsSheet() {
@@ -259,6 +272,7 @@ class _AiStylistChatScreenState extends ConsumerState<AiStylistChatScreen> {
                           return _ChatMessageTile(
                             message: msg,
                             onPromptTap: _sendText,
+                            onTryOnTap: _openTryOn,
                           );
                         },
                       ),
@@ -419,10 +433,13 @@ class _ChatMessageTile extends StatelessWidget {
   const _ChatMessageTile({
     required this.message,
     required this.onPromptTap,
+    required this.onTryOnTap,
   });
 
   final AiChatMessage message;
   final ValueChanged<String> onPromptTap;
+  final void Function(String analysisId, HairstyleRecommendation rec)
+      onTryOnTap;
 
   @override
   Widget build(BuildContext context) {
@@ -485,6 +502,10 @@ class _ChatMessageTile extends StatelessWidget {
               HairstyleRecommendationCarousel(
                 recommendations: payload.recommendations,
                 analysisId: payload.analysisId ?? message.analysisId,
+                onTryOnTap: (rec) {
+                  final aid = payload.analysisId ?? message.analysisId;
+                  if (aid != null) onTryOnTap(aid, rec);
+                },
               ),
             if (payload.recommendedSalons.isNotEmpty)
               RecommendedSalonsStrip(salons: payload.recommendedSalons),

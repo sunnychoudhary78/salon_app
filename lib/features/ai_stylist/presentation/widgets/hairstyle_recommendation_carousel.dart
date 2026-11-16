@@ -11,17 +11,19 @@ class HairstyleRecommendationCarousel extends StatelessWidget {
     super.key,
     required this.recommendations,
     this.analysisId,
+    this.onTryOnTap,
   });
 
   final List<HairstyleRecommendation> recommendations;
   final String? analysisId;
+  final void Function(HairstyleRecommendation rec)? onTryOnTap;
 
   @override
   Widget build(BuildContext context) {
     if (recommendations.isEmpty) return const SizedBox.shrink();
 
     return SizedBox(
-      height: 390,
+      height: 425,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.only(top: 10, right: 8),
@@ -32,6 +34,7 @@ class HairstyleRecommendationCarousel extends StatelessWidget {
           return _HairstyleCard(
             rec: rec,
             rank: index + 1,
+            onTryOnTap: onTryOnTap == null ? null : () => onTryOnTap!(rec),
           );
         },
       ),
@@ -43,10 +46,12 @@ class _HairstyleCard extends StatelessWidget {
   const _HairstyleCard({
     required this.rec,
     required this.rank,
+    this.onTryOnTap,
   });
 
   final HairstyleRecommendation rec;
   final int rank;
+  final VoidCallback? onTryOnTap;
 
   void _showZoomDialog(BuildContext context) {
     final colors = context.appColors;
@@ -162,6 +167,28 @@ class _HairstyleCard extends StatelessWidget {
                   ),
                 ),
               ],
+              if (onTryOnTap != null) ...[
+                const SizedBox(height: 12),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.of(ctx).pop();
+                    onTryOnTap!();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: colors.accent,
+                    foregroundColor: colors.onAccent,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  icon: const Icon(Icons.auto_awesome_rounded, size: 16),
+                  label: const Text(
+                    'Try On My Photo',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -191,7 +218,7 @@ class _HairstyleCard extends StatelessWidget {
             child: Stack(
               children: [
                 Container(
-                  height: 142,
+                  height: 138,
                   width: double.infinity,
                   color: colors.surfaceSunken,
                   child: hasImage
@@ -273,7 +300,7 @@ class _HairstyleCard extends StatelessWidget {
           // Details Section
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -286,7 +313,7 @@ class _HairstyleCard extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             color: colors.textPrimary,
-                            fontSize: 14.5,
+                            fontSize: 14,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
@@ -294,7 +321,7 @@ class _HairstyleCard extends StatelessWidget {
                       const SizedBox(width: 6),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 7, vertical: 2.5),
+                            horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: colors.surfaceSunken,
                           borderRadius: BorderRadius.circular(6),
@@ -303,14 +330,14 @@ class _HairstyleCard extends StatelessWidget {
                           '${rec.maintenanceLevel} Care',
                           style: TextStyle(
                             color: colors.textSecondary,
-                            fontSize: 10,
+                            fontSize: 9.5,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 5),
                   Expanded(
                     child: SingleChildScrollView(
                       physics: const BouncingScrollPhysics(),
@@ -322,14 +349,14 @@ class _HairstyleCard extends StatelessWidget {
                               rec.whyItSuits,
                               style: TextStyle(
                                 color: colors.textSecondary,
-                                fontSize: 11.5,
-                                height: 1.35,
+                                fontSize: 11,
+                                height: 1.3,
                               ),
                             ),
                           if (rec.barberInstructions.isNotEmpty) ...[
-                            const SizedBox(height: 6),
+                            const SizedBox(height: 5),
                             Container(
-                              padding: const EdgeInsets.all(8),
+                              padding: const EdgeInsets.all(7),
                               decoration: BoxDecoration(
                                 color: colors.surfaceSunken,
                                 borderRadius: BorderRadius.circular(8),
@@ -350,7 +377,7 @@ class _HairstyleCard extends StatelessWidget {
                                         'Show this to your barber',
                                         style: TextStyle(
                                           color: colors.textPrimary,
-                                          fontSize: 10.5,
+                                          fontSize: 10,
                                           fontWeight: FontWeight.w700,
                                         ),
                                       ),
@@ -372,19 +399,19 @@ class _HairstyleCard extends StatelessWidget {
                                         },
                                         child: Icon(
                                           Icons.copy_rounded,
-                                          size: 13,
+                                          size: 12,
                                           color: colors.textMuted,
                                         ),
                                       ),
                                     ],
                                   ),
-                                  const SizedBox(height: 3),
+                                  const SizedBox(height: 2),
                                   Text(
                                     rec.barberInstructions,
                                     style: TextStyle(
                                       color: colors.textSecondary,
-                                      fontSize: 10.5,
-                                      height: 1.28,
+                                      fontSize: 10,
+                                      height: 1.25,
                                     ),
                                   ),
                                 ],
@@ -392,12 +419,12 @@ class _HairstyleCard extends StatelessWidget {
                             ),
                           ],
                           if (rec.beardPairing.isNotEmpty) ...[
-                            const SizedBox(height: 5),
+                            const SizedBox(height: 4),
                             Text(
                               'Beard: ${rec.beardPairing}',
                               style: TextStyle(
                                 color: colors.textMuted,
-                                fontSize: 10.5,
+                                fontSize: 10,
                               ),
                             ),
                           ],
@@ -406,27 +433,54 @@ class _HairstyleCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 5),
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(7),
-                    ),
-                    child: Text(
-                      rec.matchedServiceNames.isNotEmpty
-                          ? rec.matchedServiceNames.join(' • ')
-                          : 'Custom Haircut & Styling',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: colors.primaryLight,
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w600,
+                  if (onTryOnTap != null)
+                    SizedBox(
+                      width: double.infinity,
+                      height: 34,
+                      child: ElevatedButton.icon(
+                        onPressed: onTryOnTap,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: colors.accent,
+                          foregroundColor: colors.onAccent,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(9),
+                          ),
+                        ),
+                        icon: const Icon(Icons.auto_awesome_rounded, size: 14),
+                        label: const Text(
+                          'Try On My Photo',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(7),
+                      ),
+                      child: Text(
+                        rec.matchedServiceNames.isNotEmpty
+                            ? rec.matchedServiceNames.join(' • ')
+                            : 'Custom Haircut & Styling',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: colors.primaryLight,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ),
