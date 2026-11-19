@@ -529,6 +529,10 @@ class _BookAppointmentScreenState extends ConsumerState<BookAppointmentScreen>
             staffId: _preferredStaffId,
             isPremium: isPremium,
             mergeIntoGroupId: mergeIntoGroupId,
+            couponCode: mergeIntoGroupId == null ? _appliedCoupon?.code : null,
+            customerRewardId: mergeIntoGroupId == null
+                ? _appliedCoupon?.customerRewardId
+                : null,
           );
       if (!mounted) return;
       context.go(RoutePaths.customerBookings);

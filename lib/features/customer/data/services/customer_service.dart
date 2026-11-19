@@ -136,6 +136,8 @@ class CustomerService {
     String? staffId,
     bool isPremium = false,
     String? mergeIntoGroupId,
+    String? couponCode,
+    String? customerRewardId,
   }) async {
     final response = await _dio.post(
       '${AppConfig.appPrefix}/bookings',
@@ -149,6 +151,10 @@ class CustomerService {
         if (isPremium) 'is_premium': true,
         if (mergeIntoGroupId != null && mergeIntoGroupId.isNotEmpty)
           'merge_into_group_id': mergeIntoGroupId,
+        if (couponCode != null && couponCode.isNotEmpty)
+          'coupon_code': couponCode,
+        if (customerRewardId != null && customerRewardId.isNotEmpty)
+          'customer_reward_id': customerRewardId,
       },
     );
     final data = (response.data as Map<String, dynamic>)['data'];
@@ -691,6 +697,8 @@ class BookingActions extends AsyncNotifier<void> {
     String? staffId,
     bool isPremium = false,
     String? mergeIntoGroupId,
+    String? couponCode,
+    String? customerRewardId,
   }) async {
     state = const AsyncLoading();
     late List<BookingModel> bookings;
@@ -706,10 +714,14 @@ class BookingActions extends AsyncNotifier<void> {
             staffId: staffId,
             isPremium: isPremium,
             mergeIntoGroupId: mergeIntoGroupId,
+            couponCode: couponCode,
+            customerRewardId: customerRewardId,
           );
     });
     state = result;
     ref.invalidate(myBookingsProvider);
+    ref.invalidate(myRewardsProvider);
+    ref.invalidate(activeCouponsProvider);
     // A new booking changes slot availability, so refresh slot data too.
     ref.invalidate(salonSlotsProvider);
     if (result.hasError) {
@@ -724,6 +736,8 @@ class BookingActions extends AsyncNotifier<void> {
       () => ref.read(customerServiceProvider).cancelBooking(bookingId),
     );
     ref.invalidate(myBookingsProvider);
+    ref.invalidate(myRewardsProvider);
+    ref.invalidate(activeCouponsProvider);
     // Cancelling frees the slot, so refresh slot availability.
     ref.invalidate(salonSlotsProvider);
     if (state.hasError) throw state.error!;

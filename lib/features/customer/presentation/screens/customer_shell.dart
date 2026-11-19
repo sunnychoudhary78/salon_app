@@ -99,6 +99,11 @@ class _CustomerShellState extends ConsumerState<CustomerShell> {
       index: _notificationsIndex,
     ),
     DrawerNavItem(
+      icon: Icons.card_giftcard_rounded,
+      label: 'Rewards & Vouchers',
+      route: RoutePaths.customerRewards,
+    ),
+    DrawerNavItem(
       icon: Icons.auto_awesome_rounded,
       label: 'AI Hair Stylist',
       route: RoutePaths.customerAiStylist,

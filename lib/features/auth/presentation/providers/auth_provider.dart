@@ -80,9 +80,9 @@ class Auth extends AsyncNotifier<AuthState?> {
             ),
           );
     } else if (result.authState != null) {
+      await _syncApprovalState(result.authState);
       ref.read(pendingSignupProvider.notifier).clear();
       state = AsyncData(result.authState);
-      await _syncApprovalState(result.authState);
     }
 
     return result;
@@ -108,9 +108,9 @@ class Auth extends AsyncNotifier<AuthState?> {
           accountType: accountType,
           email: email,
         );
+    await _syncApprovalState(authState);
     ref.read(pendingSignupProvider.notifier).clear();
     state = AsyncData(authState);
-    await _syncApprovalState(authState);
   }
 
   Future<void> refreshProfile() async {

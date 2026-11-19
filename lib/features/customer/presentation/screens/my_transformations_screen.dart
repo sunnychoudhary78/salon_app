@@ -116,7 +116,7 @@ class MyTransformationsScreen extends ConsumerWidget {
                       BeforeAfterSliderWidget(
                         beforeImageUrl: post.fullBeforeImageUrl,
                         afterImageUrl: post.fullAfterImageUrl,
-                        height: 260,
+                        height: 350,
                         borderRadius: 14,
                       ),
 
@@ -174,6 +174,9 @@ class MyTransformationsScreen extends ConsumerWidget {
                                 newConsent,
                               );
                               ref.invalidate(myTransformationsProvider);
+                              if (post.salonId.isNotEmpty) {
+                                ref.invalidate(salonGalleryProvider(post.salonId));
+                              }
                             },
                           ),
                         ],

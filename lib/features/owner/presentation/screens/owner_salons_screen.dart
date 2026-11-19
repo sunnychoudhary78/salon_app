@@ -483,10 +483,14 @@ class _OwnerSalonCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 8),
-                _SalonActionButton(
-                  icon: Icons.auto_awesome_rounded,
-                  label: 'Transformations Gallery',
-                  onTap: onGallery,
+                SizedBox(
+                  width: double.infinity,
+                  child: _SalonActionButton(
+                    icon: Icons.auto_awesome_rounded,
+                    label: 'Transformations',
+                    horizontal: true,
+                    onTap: onGallery,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 _StatusToggleButton(
@@ -640,6 +644,7 @@ class _SalonActionButton extends StatelessWidget {
     required this.onTap,
     this.enabled = true,
     this.disabledMessage,
+    this.horizontal = false,
   });
 
   final IconData icon;
@@ -647,9 +652,21 @@ class _SalonActionButton extends StatelessWidget {
   final VoidCallback onTap;
   final bool enabled;
   final String? disabledMessage;
+  final bool horizontal;
 
   @override
   Widget build(BuildContext context) {
+    final iconColor = enabled
+        ? context.appColors.accent
+        : context.appColors.textMuted;
+    final textStyle = Theme.of(context).textTheme.labelSmall?.copyWith(
+      fontWeight: FontWeight.w700,
+      fontSize: horizontal ? 13 : null,
+      color: enabled
+          ? context.appColors.textPrimary
+          : context.appColors.textMuted,
+    );
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -660,7 +677,10 @@ class _SalonActionButton extends StatelessWidget {
                   : null),
         borderRadius: BorderRadius.circular(14),
         child: Ink(
-          padding: const EdgeInsets.symmetric(vertical: 11),
+          padding: EdgeInsets.symmetric(
+            horizontal: 14,
+            vertical: horizontal ? 12 : 11,
+          ),
           decoration: BoxDecoration(
             color: enabled
                 ? context.appColors.accent.withValues(alpha: 0.1)
@@ -672,27 +692,35 @@ class _SalonActionButton extends StatelessWidget {
                   : context.appColors.glassBorder.withValues(alpha: 0.5),
             ),
           ),
-          child: Column(
-            children: [
-              Icon(
-                icon,
-                size: 20,
-                color: enabled
-                    ? context.appColors.accent
-                    : context.appColors.textMuted,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: enabled
-                      ? context.appColors.textPrimary
-                      : context.appColors.textMuted,
+          child: horizontal
+              ? Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(icon, size: 19, color: iconColor),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: textStyle,
+                      ),
+                    ),
+                  ],
+                )
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(icon, size: 20, color: iconColor),
+                    const SizedBox(height: 6),
+                    Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: textStyle,
+                    ),
+                  ],
                 ),
-              ),
-            ],
-          ),
         ),
       ),
     );

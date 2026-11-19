@@ -144,8 +144,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const AdminBlockedScreen(),
       ),
       StatefulShellRoute.indexedStack(
-        builder: (_, __, navigationShell) =>
-            CustomerShell(navigationShell: navigationShell),
+        pageBuilder: (_, state, navigationShell) => NoTransitionPage<void>(
+          key: state.pageKey,
+          child: CustomerShell(navigationShell: navigationShell),
+        ),
         branches: [
           StatefulShellBranch(
             routes: [
@@ -230,6 +232,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(
+        path: RoutePaths.customerMyTransformations,
+        pageBuilder: fadeSlideBuilder(
+          (_, __) => const MyTransformationsScreen(),
+        ),
+      ),
+      GoRoute(
         path: RoutePaths.customerRewards,
         pageBuilder: fadeSlideBuilder(
           (_, __) => const RewardsScreen(),
@@ -282,8 +290,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ],
       ),
       StatefulShellRoute.indexedStack(
-        builder: (_, __, navigationShell) =>
-            OwnerShell(navigationShell: navigationShell),
+        pageBuilder: (_, state, navigationShell) => NoTransitionPage<void>(
+          key: state.pageKey,
+          child: OwnerShell(navigationShell: navigationShell),
+        ),
         branches: [
           StatefulShellBranch(
             routes: [

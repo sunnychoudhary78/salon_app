@@ -421,26 +421,58 @@ class _CouponCard extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: colors.accent.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(
-                                color: colors.accent.withValues(alpha: 0.3),
-                              ),
-                            ),
-                            child: Text(
-                              coupon.code,
-                              style: TextStyle(
-                                color: colors.accent,
-                                fontWeight: FontWeight.w800,
-                                fontSize: 13,
-                                letterSpacing: 0.8,
-                              ),
+                          Expanded(
+                            child: Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: coupon.isPersonalReward
+                                        ? Colors.amber.withValues(alpha: 0.16)
+                                        : colors.accent.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(
+                                      color: coupon.isPersonalReward
+                                          ? Colors.amber.shade700.withValues(alpha: 0.45)
+                                          : colors.accent.withValues(alpha: 0.3),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    coupon.code,
+                                    style: TextStyle(
+                                      color: coupon.isPersonalReward
+                                          ? Colors.amber.shade800
+                                          : colors.accent,
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 12,
+                                      letterSpacing: 0.6,
+                                    ),
+                                  ),
+                                ),
+                                if (coupon.isPersonalReward)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.amber.shade600,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: const Text(
+                                      'MY REWARD',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w900,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
-                          const Spacer(),
+                          const SizedBox(width: 6),
                           if (isApplied)
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),

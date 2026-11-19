@@ -9,6 +9,8 @@ import 'package:saloon_booking/features/ai_stylist/data/models/ai_stylist_models
 import 'package:saloon_booking/features/ai_stylist/data/services/on_device_face_analyzer.dart';
 import 'package:saloon_booking/features/ai_stylist/presentation/providers/ai_stylist_provider.dart';
 import 'package:saloon_booking/features/customer/data/providers/audience_mode_provider.dart';
+import 'package:saloon_booking/shared/widgets/premium_button.dart';
+import 'package:saloon_booking/shared/widgets/screen_action_bar.dart';
 
 class MultiAngleScanScreen extends ConsumerStatefulWidget {
   const MultiAngleScanScreen({super.key});
@@ -195,11 +197,9 @@ class _MultiAngleScanScreenState extends ConsumerState<MultiAngleScanScreen> {
           style: TextStyle(fontWeight: FontWeight.w800),
         ),
       ),
-      body: Stack(
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
-          ListView(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 110),
-            children: [
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
@@ -352,50 +352,21 @@ class _MultiAngleScanScreenState extends ConsumerState<MultiAngleScanScreen> {
                   ),
                 ),
               ),
-            ],
-          ),
-          Positioned(
-            left: 16,
-            right: 16,
-            bottom: 16,
-            child: SafeArea(
-              top: false,
-              child: ElevatedButton.icon(
-                onPressed:
-                    (_frontPath == null || state.isAnalyzing || _analyzingLocal)
-                        ? null
-                        : _submitScan,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: colors.accent,
-                  foregroundColor: colors.onAccent,
-                  padding: const EdgeInsets.symmetric(vertical: 15),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-                icon: state.isAnalyzing
-                    ? SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: colors.onAccent,
-                        ),
-                      )
-                    : const Icon(Icons.auto_fix_high_rounded),
-                label: Text(
-                  state.isAnalyzing
-                      ? 'Analyzing Face & Suggesting Looks...'
-                      : 'Analyze Face & Suggest Hairstyles',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ),
-          ),
         ],
+      ),
+      bottomNavigationBar: ScreenActionBar(
+        label: 'Analyze Face & Suggest Hairstyles',
+        loadingLabel: 'Analyzing Face & Suggesting Looks...',
+        icon: Icons.auto_fix_high_rounded,
+        loading: state.isAnalyzing,
+        variant: PremiumButtonVariant.accent,
+        onPressed:
+            (_frontPath == null || state.isAnalyzing || _analyzingLocal)
+                ? null
+                : _submitScan,
+        disabledMessage: _frontPath == null
+            ? 'Front photo is required to analyze face'
+            : null,
       ),
     );
   }

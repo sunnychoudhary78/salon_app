@@ -100,7 +100,9 @@ class _RewardsScreenState extends ConsumerState<RewardsScreen>
         ),
         data: (rewards) {
           final unclaimed = rewards.where((r) => r.isUnclaimed && !r.isExpired).toList();
-          final claimedOrExpired = rewards.where((r) => r.isClaimed || r.isExpired).toList();
+          final claimedOrExpired = rewards
+              .where((r) => r.isClaimed || r.isRedeemed || r.isExpired)
+              .toList();
 
           return TabBarView(
             controller: _tabController,
@@ -486,6 +488,9 @@ class _VoucherCardItem extends StatelessWidget {
     final r = customerReward;
     final reward = r.reward;
     final isExpired = r.isExpired;
+    final isRedeemed = r.isRedeemed;
+    final isInactive = isExpired || isRedeemed;
+    final voucherCode = r.displayCode.isNotEmpty ? r.displayCode : 'CODE';
 
     return Container(
       decoration: BoxDecoration(
@@ -558,15 +563,25 @@ class _VoucherCardItem extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: isExpired
-                        ? AppColors.error.withValues(alpha: 0.12)
-                        : AppColors.success.withValues(alpha: 0.12),
+                    color: isRedeemed
+                        ? colors.accent.withValues(alpha: 0.12)
+                        : isExpired
+                            ? AppColors.error.withValues(alpha: 0.12)
+                            : AppColors.success.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
-                    isExpired ? 'Expired' : 'Claimed',
+                    isRedeemed
+                        ? 'Redeemed'
+                        : isExpired
+                            ? 'Expired'
+                            : 'Claimed',
                     style: TextStyle(
-                      color: isExpired ? AppColors.error : AppColors.success,
+                      color: isRedeemed
+                          ? colors.accent
+                          : isExpired
+                              ? AppColors.error
+                              : AppColors.success,
                       fontWeight: FontWeight.bold,
                       fontSize: 11,
                     ),
@@ -606,7 +621,7 @@ class _VoucherCardItem extends StatelessWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      reward?.rewardCode ?? 'CODE',
+                      voucherCode,
                       style: TextStyle(
                         color: colors.textPrimary,
                         fontWeight: FontWeight.w900,
@@ -617,8 +632,8 @@ class _VoucherCardItem extends StatelessWidget {
                     ),
                   ),
                   InkWell(
-                    onTap: reward != null
-                        ? () => _copyCode(context, reward.rewardCode)
+                    onTap: !isInactive
+                        ? () => _copyCode(context, voucherCode)
                         : null,
                     borderRadius: BorderRadius.circular(8),
                     child: Padding(
@@ -626,12 +641,16 @@ class _VoucherCardItem extends StatelessWidget {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.copy_rounded, size: 14, color: colors.accent),
+                          Icon(
+                            Icons.copy_rounded,
+                            size: 14,
+                            color: isInactive ? colors.textMuted : colors.accent,
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             'COPY',
                             style: TextStyle(
-                              color: colors.accent,
+                              color: isInactive ? colors.textMuted : colors.accent,
                               fontWeight: FontWeight.bold,
                               fontSize: 11,
                             ),
@@ -647,8 +666,38 @@ class _VoucherCardItem extends StatelessWidget {
 
           const SizedBox(height: 12),
 
-          // External Link Button if available
-          if (reward?.externalUrl != null && reward!.externalUrl!.isNotEmpty && !isExpired)
+          // Internal Salon Discount hint or External Partner Redeem Button
+          if (reward?.isSalonDiscount == true && !isInactive)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: colors.accent.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: colors.accent.withValues(alpha: 0.2)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.auto_awesome_rounded, size: 16, color: colors.accent),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        reward!.minOrderValue != null && reward.minOrderValue! > 0
+                            ? 'Ready to use on your next salon booking (Min order ₹${reward.minOrderValue!.toInt()}).'
+                            : 'Ready to apply directly in Checkout Coupons on your next salon booking!',
+                        style: TextStyle(
+                          color: colors.textPrimary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else if (reward?.externalUrl != null && reward!.externalUrl!.isNotEmpty && !isInactive)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
               child: ElevatedButton.icon(
@@ -748,7 +797,9 @@ class _VoucherCelebrationDialog extends StatelessWidget {
                       border: Border.all(color: colors.accent.withValues(alpha: 0.3)),
                     ),
                     child: Text(
-                      reward?.rewardCode ?? 'CODE',
+                      customerReward.displayCode.isNotEmpty
+                          ? customerReward.displayCode
+                          : 'CODE',
                       style: TextStyle(
                         color: colors.accent,
                         fontSize: 18,
@@ -767,8 +818,9 @@ class _VoucherCelebrationDialog extends StatelessWidget {
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () {
-                      if (reward != null) {
-                        Clipboard.setData(ClipboardData(text: reward.rewardCode));
+                      final codeToCopy = customerReward.displayCode;
+                      if (codeToCopy.isNotEmpty) {
+                        Clipboard.setData(ClipboardData(text: codeToCopy));
                         HapticFeedback.selectionClick();
                       }
                       Navigator.of(context).pop();

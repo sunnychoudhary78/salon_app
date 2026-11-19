@@ -55,8 +55,12 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>CATCHY needs access to your camera to capture Before &amp; After transformation photos and face scan photos.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>CATCHY needs access to your photo library so you can add salon images.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>CATCHY needs permission to save your virtual hairstyle try-on photos to your gallery.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>CATCHY uses your location only while you are using the app to help you find nearby salons and add your address. The app does not access your location in the background.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>

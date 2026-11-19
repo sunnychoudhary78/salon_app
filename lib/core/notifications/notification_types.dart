@@ -16,6 +16,7 @@ class NotificationTypes {
   static const salonApplicationRejected = 'salon_application_rejected';
   static const newReview = 'new_review';
   static const rewardUnlocked = 'REWARD_UNLOCKED';
+  static const transformationUploaded = 'transformation_uploaded';
 }
 
 class NotificationScreens {
@@ -27,6 +28,7 @@ class NotificationScreens {
   static const ownerEarnings = 'owner_earnings';
   static const ownerDashboard = 'owner_dashboard';
   static const ownerReviews = 'owner_reviews';
+  static const customerTransformations = 'customer_transformations';
 }
 
 class NotificationUserRoles {

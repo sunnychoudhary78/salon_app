@@ -7,9 +7,11 @@ class BeforeAfterSliderWidget extends StatefulWidget {
     super.key,
     required this.beforeImageUrl,
     required this.afterImageUrl,
-    this.height = 300,
+    this.height = 350,
     this.initialPosition = 0.5,
     this.borderRadius = 16,
+    this.fit = BoxFit.cover,
+    this.alignment = Alignment.topCenter,
   });
 
   final String beforeImageUrl;
@@ -17,6 +19,8 @@ class BeforeAfterSliderWidget extends StatefulWidget {
   final double height;
   final double initialPosition;
   final double borderRadius;
+  final BoxFit fit;
+  final Alignment alignment;
 
   @override
   State<BeforeAfterSliderWidget> createState() => _BeforeAfterSliderWidgetState();
@@ -38,10 +42,26 @@ class _BeforeAfterSliderWidgetState extends State<BeforeAfterSliderWidget> {
     });
   }
 
+  double get _beforeBadgeOpacity {
+    // Hide Before badge when slider moves to the left (covering the before image)
+    if (_position <= 0.08) return 0.0;
+    if (_position >= 0.22) return 1.0;
+    return ((_position - 0.08) / 0.14).clamp(0.0, 1.0);
+  }
+
+  double get _afterBadgeOpacity {
+    // Hide After badge when slider moves to the right (covering the after image)
+    if (_position >= 0.92) return 0.0;
+    if (_position <= 0.78) return 1.0;
+    return ((0.92 - _position) / 0.14).clamp(0.0, 1.0);
+  }
+
   @override
   Widget build(BuildContext context) {
     final resolvedBefore = resolveImageUrl(widget.beforeImageUrl);
     final resolvedAfter = resolveImageUrl(widget.afterImageUrl);
+    final beforeOpacity = _beforeBadgeOpacity;
+    final afterOpacity = _afterBadgeOpacity;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -65,7 +85,8 @@ class _BeforeAfterSliderWidgetState extends State<BeforeAfterSliderWidget> {
                   // 1. After Image (Background full)
                   CachedNetworkImage(
                     imageUrl: resolvedAfter,
-                    fit: BoxFit.cover,
+                    fit: widget.fit,
+                    alignment: widget.alignment,
                     placeholder: (_, _) => _buildPlaceholder(),
                     errorWidget: (_, _, _) => _buildErrorWidget('After'),
                   ),
@@ -75,7 +96,8 @@ class _BeforeAfterSliderWidgetState extends State<BeforeAfterSliderWidget> {
                     clipper: _HorizontalSplitClipper(_position),
                     child: CachedNetworkImage(
                       imageUrl: resolvedBefore,
-                      fit: BoxFit.cover,
+                      fit: widget.fit,
+                      alignment: widget.alignment,
                       placeholder: (_, _) => _buildPlaceholder(),
                       errorWidget: (_, _, _) => _buildErrorWidget('Before'),
                     ),
@@ -85,14 +107,22 @@ class _BeforeAfterSliderWidgetState extends State<BeforeAfterSliderWidget> {
                   Positioned(
                     top: 12,
                     left: 12,
-                    child: _buildLabelBadge('BEFORE', Colors.black.withValues(alpha: 0.6)),
+                    child: _buildLabelBadge(
+                      'BEFORE',
+                      Colors.black.withValues(alpha: 0.6),
+                      beforeOpacity,
+                    ),
                   ),
 
                   // 4. After Badge (Top Right)
                   Positioned(
                     top: 12,
                     right: 12,
-                    child: _buildLabelBadge('AFTER', Theme.of(context).primaryColor.withValues(alpha: 0.85)),
+                    child: _buildLabelBadge(
+                      'AFTER',
+                      Theme.of(context).primaryColor.withValues(alpha: 0.85),
+                      afterOpacity,
+                    ),
                   ),
 
                   // 5. Divider Line & Slider Thumb
@@ -143,21 +173,28 @@ class _BeforeAfterSliderWidgetState extends State<BeforeAfterSliderWidget> {
     );
   }
 
-  Widget _buildLabelBadge(String text, Color bgColor) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 0.8),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 11,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 0.8,
+  Widget _buildLabelBadge(String text, Color bgColor, double opacity) {
+    return IgnorePointer(
+      child: AnimatedOpacity(
+        opacity: opacity,
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOut,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 0.8),
+          ),
+          child: Text(
+            text,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.8,
+            ),
+          ),
         ),
       ),
     );

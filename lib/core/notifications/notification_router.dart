@@ -3,6 +3,7 @@ import 'package:saloon_booking/core/notifications/notification_payload.dart';
 import 'package:saloon_booking/core/notifications/notification_types.dart';
 import 'package:saloon_booking/core/routing/app_router.dart';
 import 'package:saloon_booking/core/routing/route_paths.dart';
+import 'package:saloon_booking/features/customer/data/services/gallery_service.dart';
 import 'package:saloon_booking/features/owner/presentation/providers/pending_booking_gate_provider.dart';
 
 class NotificationRouter {
@@ -28,6 +29,11 @@ class NotificationRouter {
       _ref.read(pendingBookingGateProvider.notifier).refresh();
     }
 
+    if (payload.screen == NotificationScreens.customerTransformations ||
+        payload.type == NotificationTypes.transformationUploaded) {
+      _ref.invalidate(myTransformationsProvider);
+    }
+
     final router = _ref.read(appRouterProvider);
     final location = _resolveLocation(payload);
     if (location != null) {
@@ -36,6 +42,10 @@ class NotificationRouter {
   }
 
   String? _resolveLocation(NotificationPayload payload) {
+    if (payload.route != null && payload.route!.isNotEmpty) {
+      return payload.route;
+    }
+
     switch (payload.screen) {
       case NotificationScreens.bookingDetails:
         return RoutePaths.customerBookings;
@@ -49,6 +59,8 @@ class NotificationRouter {
         return RoutePaths.ownerDashboard;
       case NotificationScreens.ownerReviews:
         return RoutePaths.ownerReviews;
+      case NotificationScreens.customerTransformations:
+        return RoutePaths.customerTransformations;
       default:
         return _fallbackByType(payload.type, payload.userRole);
     }
@@ -78,6 +90,7 @@ class NotificationRouter {
       NotificationTypes.paymentSuccessful => RoutePaths.customerBookings,
       NotificationTypes.rewardUnlocked => RoutePaths.customerRewards,
       NotificationTypes.promotionalOffer => RoutePaths.customerHome,
+      NotificationTypes.transformationUploaded => RoutePaths.customerTransformations,
       _ => null,
     };
   }

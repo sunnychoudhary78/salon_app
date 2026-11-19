@@ -23,6 +23,8 @@ class NotificationPayload {
     this.sound,
     this.priority,
     this.isPremium = false,
+    this.route,
+    this.postId,
   });
 
   final String type;
@@ -43,6 +45,8 @@ class NotificationPayload {
   final String? sound;
   final String? priority;
   final bool isPremium;
+  final String? route;
+  final String? postId;
 
   bool get isUrgentBooking => type == NotificationTypes.newBooking;
 
@@ -93,6 +97,8 @@ class NotificationPayload {
       sound: _optionalString(data['sound']),
       priority: _optionalString(data['priority']),
       isPremium: _parseBool(data['isPremium']),
+      route: _optionalString(data['route']),
+      postId: _optionalString(data['postId']),
     );
   }
 
@@ -130,6 +136,8 @@ class NotificationPayload {
       sound: fromData.sound,
       priority: fromData.priority,
       isPremium: fromData.isPremium,
+      route: fromData.route,
+      postId: fromData.postId,
     );
   }
 
@@ -156,6 +164,8 @@ class NotificationPayload {
       if (sound != null) 'sound': sound!,
       if (priority != null) 'priority': priority!,
       if (isPremium) 'isPremium': 'true',
+      if (route != null) 'route': route!,
+      if (postId != null) 'postId': postId!,
     };
   }
 

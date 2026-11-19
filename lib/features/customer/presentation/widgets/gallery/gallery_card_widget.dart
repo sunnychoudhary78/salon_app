@@ -173,7 +173,7 @@ class _GalleryCardWidgetState extends ConsumerState<GalleryCardWidget> {
             child: BeforeAfterSliderWidget(
               beforeImageUrl: widget.post.fullBeforeImageUrl,
               afterImageUrl: widget.post.fullAfterImageUrl,
-              height: 280,
+              height: 350,
               borderRadius: 14,
             ),
           ),

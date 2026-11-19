@@ -6,7 +6,6 @@ import 'package:saloon_booking/core/routing/route_paths.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
 import 'package:saloon_booking/core/utils/form_validators.dart';
-import 'package:saloon_booking/core/utils/role_utils.dart';
 import 'package:saloon_booking/features/auth/presentation/providers/auth_provider.dart';
 import 'package:saloon_booking/features/customer/data/providers/audience_mode_provider.dart';
 import 'package:saloon_booking/core/theme/app_animations.dart';
@@ -76,11 +75,8 @@ class _CompleteProfileScreenState extends ConsumerState<CompleteProfileScreen> {
       await ref
           .read(audienceModeProvider.notifier)
           .hydrateFromGender(_gender);
-      if (!mounted) return;
-      final auth = ref.read(authProvider).value;
-      context.go(
-        auth != null ? homePathForUser(auth) : RoutePaths.customerHome,
-      );
+      // GoRouter's auth redirect automatically navigates to homePathForUser(auth)
+      // once authProvider updates; avoid a duplicate context.go mid-transition.
     } catch (e) {
       if (mounted) setState(() => _error = userFacingErrorMessage(e));
     } finally {
@@ -93,7 +89,9 @@ class _CompleteProfileScreenState extends ConsumerState<CompleteProfileScreen> {
     final pending = ref.watch(pendingSignupProvider);
     if (pending == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (context.mounted) context.go(RoutePaths.login);
+        if (!context.mounted) return;
+        if (ref.read(authProvider).value != null) return;
+        context.go(RoutePaths.login);
       });
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
