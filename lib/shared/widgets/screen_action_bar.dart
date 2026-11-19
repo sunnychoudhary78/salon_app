@@ -12,6 +12,7 @@ class ScreenActionBar extends StatelessWidget {
     this.subtitle,
     this.icon,
     this.loading = false,
+    this.loadingLabel,
     this.variant = PremiumButtonVariant.accent,
     this.disabledMessage,
     this.footer,
@@ -22,6 +23,7 @@ class ScreenActionBar extends StatelessWidget {
   final VoidCallback? onPressed;
   final IconData? icon;
   final bool loading;
+  final String? loadingLabel;
   final PremiumButtonVariant variant;
   final String? disabledMessage;
   final Widget? footer;
@@ -62,6 +64,7 @@ class ScreenActionBar extends StatelessWidget {
                   ],
                   PremiumButton(
                     label: label,
+                    loadingLabel: loadingLabel,
                     subtitle: subtitle,
                     icon: icon,
                     loading: loading,

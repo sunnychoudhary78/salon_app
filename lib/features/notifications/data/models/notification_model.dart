@@ -60,6 +60,20 @@ class AppNotificationModel {
   String get screen => _asString(data['screen']);
   String get userRole => _asString(data['userRole']);
 
+  String? get route {
+    final value = data['route'];
+    if (value == null) return null;
+    final text = value.toString().trim();
+    return text.isEmpty ? null : text;
+  }
+
+  String? get postId {
+    final value = data['postId'];
+    if (value == null) return null;
+    final text = value.toString().trim();
+    return text.isEmpty ? null : text;
+  }
+
   factory AppNotificationModel.fromJson(Map<String, dynamic> json) {
     return AppNotificationModel(
       id: _asString(json['id']),

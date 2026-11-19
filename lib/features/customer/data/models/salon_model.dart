@@ -726,6 +726,8 @@ class CouponModel {
     this.maxDiscountAmount,
     this.validTo,
     this.status,
+    this.isPersonalReward = false,
+    this.customerRewardId,
   });
 
   final String? id;
@@ -739,6 +741,8 @@ class CouponModel {
   final double? maxDiscountAmount;
   final DateTime? validTo;
   final String? status;
+  final bool isPersonalReward;
+  final String? customerRewardId;
 
   bool get isPercent => discountType.toUpperCase() == 'PERCENT';
 
@@ -770,6 +774,8 @@ class CouponModel {
         ? DateTime.tryParse(json['valid_to'].toString())
         : null,
     status: json['status'] as String?,
+    isPersonalReward: json['is_personal_reward'] == true,
+    customerRewardId: json['customer_reward_id']?.toString(),
   );
 }
 

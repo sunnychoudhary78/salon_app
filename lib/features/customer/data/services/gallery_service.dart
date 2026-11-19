@@ -90,11 +90,11 @@ class GalleryService {
     required String salonId,
     required File beforeImage,
     required File afterImage,
+    required String customerPhone,
     String? title,
     String? description,
     String? staffId,
     String? serviceId,
-    String? customerPhone,
     bool isPublic = true,
   }) async {
     final formData = FormData.fromMap({
@@ -110,7 +110,7 @@ class GalleryService {
       if (description != null && description.isNotEmpty) 'description': description,
       if (staffId != null && staffId.isNotEmpty) 'staff_id': staffId,
       if (serviceId != null && serviceId.isNotEmpty) 'service_id': serviceId,
-      if (customerPhone != null && customerPhone.isNotEmpty) 'customer_phone': customerPhone,
+      'customer_phone': customerPhone,
       'is_public': isPublic.toString(),
     });
 

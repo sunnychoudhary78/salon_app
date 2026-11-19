@@ -221,7 +221,15 @@ class _OwnerShellState extends ConsumerState<OwnerShell> {
         },
         child: AnimatedBuilder(
           animation: routerDelegate,
-          builder: (context, _) => Scaffold(
+          child: GradientBackground(
+            child: Builder(
+              builder: (context) => ShellNavigationScope(
+                openDrawer: () => Scaffold.of(context).openDrawer(),
+                child: widget.navigationShell,
+              ),
+            ),
+          ),
+          builder: (context, shellBody) => Scaffold(
             onDrawerChanged: (isOpened) {
               if (_drawerOpen != isOpened) {
                 setState(() => _drawerOpen = isOpened);
@@ -239,14 +247,7 @@ class _OwnerShellState extends ConsumerState<OwnerShell> {
                   ? () => _onSelect(_dashboardIndex)
                   : null,
             ),
-            body: GradientBackground(
-              child: Builder(
-                builder: (context) => ShellNavigationScope(
-                  openDrawer: () => Scaffold.of(context).openDrawer(),
-                  child: widget.navigationShell,
-                ),
-              ),
-            ),
+            body: shellBody,
             bottomNavigationBar: _showBottomNav(routerDelegate)
                 ? PremiumBottomNav(
                     items: _navItems(pendingBookings),

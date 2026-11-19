@@ -8,9 +8,9 @@ class AppConfig {
 
   // Environment Base URLs:
   // Real Physical Phone (Your current PC Wi-Fi IP):
-  static const String deviceLocalBaseUrl = 'http://10.245.74.42:3011/api';
+  static const String deviceLocalBaseUrl = 'http://10.121.94.42:3011/api';
   // Android Emulator (10.0.2.2 maps to host PC localhost):
-  static const String emulatorBaseUrl = 'http://10.245.74.42:3011/api';
+  static const String emulatorBaseUrl = 'http://10.121.94.42:3011/api';
   // iOS Simulator / Web / Desktop / USB reverse localhost:
   static const String localhostBaseUrl = 'http://localhost:3011/api';
   // UAT Server:

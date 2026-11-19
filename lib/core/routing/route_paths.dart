@@ -22,6 +22,7 @@ class RoutePaths {
   static const customerNotifications = '/customer/notifications';
   static const customerSettings = '/customer/settings';
   static const customerTransformations = '/customer/transformations';
+  static const customerMyTransformations = '/customer/my-transformations';
   static const customerRewards = '/customer/rewards';
   static const customerAiStylist = '/customer/ai-stylist';
   static const customerAiScan = '/customer/ai-stylist/scan';

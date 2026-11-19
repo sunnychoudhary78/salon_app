@@ -558,7 +558,7 @@ class _TypingIndicatorBubble extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Text(
-              'Stylist soch raha hai...',
+              'Stylist is thinking...',
               style: TextStyle(color: colors.textSecondary, fontSize: 12),
             ),
           ],

@@ -77,6 +77,8 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
             bookingId: notification.bookingId,
             title: notification.title,
             body: notification.body,
+            route: notification.route,
+            postId: notification.postId,
           ),
         );
   }

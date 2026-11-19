@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:saloon_booking/core/network/user_facing_error.dart';
@@ -255,7 +256,7 @@ class _OwnerGalleryPostCard extends StatelessWidget {
             child: BeforeAfterSliderWidget(
               beforeImageUrl: post.fullBeforeImageUrl,
               afterImageUrl: post.fullAfterImageUrl,
-              height: 240,
+              height: 320,
             ),
           ),
 
@@ -371,10 +372,72 @@ class _AddGalleryPostSheetState extends ConsumerState<_AddGalleryPostSheet> {
     super.dispose();
   }
 
-  Future<void> _pickImage(bool isBefore) async {
+  Future<void> _showPhotoSourcePicker(bool isBefore) async {
+    final colors = context.appColors;
+    final label = isBefore ? 'Before Photo' : 'After Photo';
+
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: colors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+                child: Text(
+                  label,
+                  style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: colors.textPrimary,
+                      ),
+                ),
+              ),
+              ListTile(
+                leading: Icon(Icons.camera_alt_rounded, color: colors.accent),
+                title: Text(
+                  'Take Photo with Camera',
+                  style: TextStyle(color: colors.textPrimary),
+                ),
+                subtitle: Text(
+                  'Capture directly using device camera',
+                  style: TextStyle(color: colors.textMuted, fontSize: 12),
+                ),
+                onTap: () => Navigator.pop(ctx, ImageSource.camera),
+              ),
+              ListTile(
+                leading: Icon(Icons.photo_library_rounded, color: colors.accent),
+                title: Text(
+                  'Choose from Gallery',
+                  style: TextStyle(color: colors.textPrimary),
+                ),
+                subtitle: Text(
+                  'Select an existing photo from your device',
+                  style: TextStyle(color: colors.textMuted, fontSize: 12),
+                ),
+                onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (source == null || !mounted) return;
+    await _pickImage(isBefore, source);
+  }
+
+  Future<void> _pickImage(bool isBefore, ImageSource source) async {
     try {
       final file = await _picker.pickImage(
-        source: ImageSource.gallery,
+        source: source,
+        preferredCameraDevice: CameraDevice.rear,
         maxWidth: 1600,
         maxHeight: 1600,
         imageQuality: 88,
@@ -390,13 +453,27 @@ class _AddGalleryPostSheetState extends ConsumerState<_AddGalleryPostSheet> {
       });
     } catch (_) {
       if (!mounted) return;
-      setState(() => _error = 'Could not pick image');
+      setState(
+        () => _error = source == ImageSource.camera
+            ? 'Could not capture photo from camera'
+            : 'Could not pick image from gallery',
+      );
     }
   }
 
   Future<void> _submit() async {
     if (_beforeImage == null || _afterImage == null) {
       setState(() => _error = 'Please select both Before and After photos');
+      return;
+    }
+
+    final phone = _customerPhoneController.text.trim();
+    if (phone.isEmpty) {
+      setState(() => _error = 'Customer phone number is required');
+      return;
+    }
+    if (!RegExp(r'^[0-9]{10}$').hasMatch(phone)) {
+      setState(() => _error = 'Please enter a valid 10-digit customer phone number');
       return;
     }
 
@@ -414,9 +491,7 @@ class _AddGalleryPostSheetState extends ConsumerState<_AddGalleryPostSheet> {
             description: _descController.text.trim().isEmpty ? null : _descController.text.trim(),
             staffId: _selectedStaffId,
             serviceId: _selectedServiceId,
-            customerPhone: _customerPhoneController.text.trim().isEmpty
-                ? null
-                : _customerPhoneController.text.trim(),
+            customerPhone: phone,
             isPublic: _isPublic,
           );
 
@@ -487,7 +562,7 @@ class _AddGalleryPostSheetState extends ConsumerState<_AddGalleryPostSheet> {
                   child: _PhotoPickerBox(
                     label: 'BEFORE Photo',
                     image: _beforeImage,
-                    onTap: () => _pickImage(true),
+                    onTap: () => _showPhotoSourcePicker(true),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -495,7 +570,7 @@ class _AddGalleryPostSheetState extends ConsumerState<_AddGalleryPostSheet> {
                   child: _PhotoPickerBox(
                     label: 'AFTER Photo',
                     image: _afterImage,
-                    onTap: () => _pickImage(false),
+                    onTap: () => _showPhotoSourcePicker(false),
                   ),
                 ),
               ],
@@ -575,12 +650,16 @@ class _AddGalleryPostSheetState extends ConsumerState<_AddGalleryPostSheet> {
             ),
             const SizedBox(height: 12),
 
-            // Customer Phone (Optional tag)
+            // Customer Phone (Required)
             PremiumTextField(
               controller: _customerPhoneController,
-              label: 'Customer Phone (10 digits, Optional)',
+              label: 'Customer Phone (10 digits) *',
               keyboardType: TextInputType.phone,
-              hint: 'Link to client’s transformation history',
+              hint: 'e.g. 9876543210',
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(10),
+              ],
             ),
             const SizedBox(height: 12),
 
@@ -631,7 +710,7 @@ class _PhotoPickerBox extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        height: 140,
+        height: 180,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
@@ -647,7 +726,11 @@ class _PhotoPickerBox extends StatelessWidget {
             ? Stack(
                 fit: StackFit.expand,
                 children: [
-                  Image.file(File(image!.path), fit: BoxFit.cover),
+                  Image.file(
+                    File(image!.path),
+                    fit: BoxFit.cover,
+                    alignment: Alignment.topCenter,
+                  ),
                   Positioned(
                     top: 6,
                     left: 6,
@@ -696,7 +779,7 @@ class _PhotoPickerBox extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'Tap to choose',
+                    'Camera or Gallery',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           fontSize: 10,
                           color: context.appColors.textMuted,

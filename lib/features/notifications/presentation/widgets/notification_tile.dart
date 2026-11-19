@@ -43,6 +43,10 @@ class NotificationTile extends StatelessWidget {
         Icons.local_offer_rounded,
         context.appColors.accent,
       ),
+      'transformation_uploaded' => (
+        Icons.auto_fix_high_rounded,
+        AppColors.primary,
+      ),
       _ when type.contains('review') => (
         Icons.star_rounded,
         context.appColors.accent,

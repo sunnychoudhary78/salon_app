@@ -7,7 +7,6 @@ import 'package:saloon_booking/core/network/user_facing_error.dart';
 import 'package:saloon_booking/core/routing/route_paths.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_theme_extension.dart';
-import 'package:saloon_booking/core/utils/role_utils.dart';
 import 'package:saloon_booking/features/auth/presentation/providers/auth_provider.dart';
 import 'package:saloon_booking/features/auth/presentation/utils/otp_sms_listener.dart';
 import 'package:saloon_booking/core/theme/app_animations.dart';
@@ -130,12 +129,11 @@ class _OtpVerifyScreenState extends ConsumerState<OtpVerifyScreen> {
 
       if (result.isNewUser) {
         context.go(RoutePaths.completeProfile);
-      } else {
-        final auth = ref.read(authProvider).value;
-        context.go(
-          auth != null ? homePathForUser(auth) : RoutePaths.customerHome,
-        );
       }
+      // For existing users, setting authProvider state triggers GoRouter's
+      // redirect to homePathForUser(auth) automatically — calling context.go
+      // here as well races with the shell route transition and causes
+      // Duplicate GlobalKey assertions on StatefulShellRoute.
     } catch (e) {
       if (mounted) setState(() => _error = userFacingErrorMessage(e));
     } finally {
