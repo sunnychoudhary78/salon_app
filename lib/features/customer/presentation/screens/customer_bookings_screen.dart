@@ -11,8 +11,11 @@ import 'package:saloon_booking/core/routing/route_paths.dart';
 import 'package:saloon_booking/core/theme/app_colors.dart';
 import 'package:saloon_booking/core/theme/app_decorations.dart';
 import 'package:saloon_booking/core/utils/currency_utils.dart';
+import 'package:saloon_booking/features/customer/data/models/reward_model.dart';
 import 'package:saloon_booking/features/customer/data/models/salon_model.dart';
 import 'package:saloon_booking/features/customer/data/services/customer_service.dart';
+import 'package:saloon_booking/features/customer/presentation/widgets/reward_scratch_dialog.dart';
+import 'package:saloon_booking/features/payments/data/services/payment_service.dart';
 import 'package:saloon_booking/features/payments/presentation/providers/payment_provider.dart';
 import 'package:saloon_booking/features/settings/presentation/widgets/legal_acknowledgement.dart';
 import 'package:saloon_booking/core/utils/booking_timeline_utils.dart';
@@ -88,7 +91,7 @@ class _CustomerBookingsScreenState extends ConsumerState<CustomerBookingsScreen>
 
   Future<void> _runPaymentAction(
     BuildContext context,
-    Future<void> Function() action,
+    Future<dynamic> Function() action,
     String successMessage, {
     String? actionKey,
   }) async {
@@ -96,11 +99,41 @@ class _CustomerBookingsScreenState extends ConsumerState<CustomerBookingsScreen>
       setState(() => _processingPaymentKey = actionKey);
     }
     try {
-      await action();
+      final actionResult = await action();
       if (!context.mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(successMessage)));
+
+      CustomerRewardModel? rewardToShow;
+      if (actionResult is PaymentActionResult && actionResult.reward != null) {
+        rewardToShow = actionResult.reward;
+      } else {
+        ref.invalidate(myRewardsProvider);
+        try {
+          final myRewards = await ref.read(myRewardsProvider.future);
+          final fresh = myRewards.where((r) => r.isUnclaimed && !r.isExpired).toList();
+          if (fresh.isNotEmpty) {
+            rewardToShow = fresh.first;
+          }
+        } catch (_) {}
+      }
+
+      if (rewardToShow != null && context.mounted) {
+        await showRewardScratchDialog(context, reward: rewardToShow);
+      }
+
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            rewardToShow != null
+                ? '$successMessage! 🎉 Mystery reward unlocked.'
+                : successMessage,
+          ),
+          action: SnackBarAction(
+            label: 'My Rewards',
+            onPressed: () => context.push(RoutePaths.customerRewards),
+          ),
+        ),
+      );
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

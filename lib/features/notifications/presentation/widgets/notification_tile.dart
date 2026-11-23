@@ -47,6 +47,11 @@ class NotificationTile extends StatelessWidget {
         Icons.auto_fix_high_rounded,
         AppColors.primary,
       ),
+      'REWARD_UNLOCKED' ||
+      'reward_unlocked' => (
+        Icons.celebration_rounded,
+        const Color(0xFFD4AF37),
+      ),
       _ when type.contains('review') => (
         Icons.star_rounded,
         context.appColors.accent,

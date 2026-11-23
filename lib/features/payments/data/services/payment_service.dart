@@ -2,14 +2,20 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:saloon_booking/core/config/app_config.dart';
 import 'package:saloon_booking/core/network/dio_client.dart';
+import 'package:saloon_booking/features/customer/data/models/reward_model.dart';
 import 'package:saloon_booking/features/customer/data/models/salon_model.dart';
 import 'package:saloon_booking/features/payments/data/models/payment_model.dart';
 
 class PaymentActionResult {
-  const PaymentActionResult({required this.payment, this.booking});
+  const PaymentActionResult({
+    required this.payment,
+    this.booking,
+    this.reward,
+  });
 
   final PaymentModel payment;
   final BookingModel? booking;
+  final CustomerRewardModel? reward;
 }
 
 class PaymentService {
@@ -112,6 +118,9 @@ class PaymentService {
       booking: json['booking'] == null
           ? null
           : BookingModel.fromJson(json['booking'] as Map<String, dynamic>),
+      reward: json['reward'] == null
+          ? null
+          : CustomerRewardModel.fromJson(json['reward'] as Map<String, dynamic>),
     );
   }
 }

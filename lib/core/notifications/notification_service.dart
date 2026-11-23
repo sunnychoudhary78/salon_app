@@ -302,11 +302,17 @@ class NotificationService with WidgetsBindingObserver {
     _router.navigate(payload);
     _read.invalidate(unreadCountProvider);
     _read.invalidate(notificationsProvider);
+    if (payload.type == NotificationTypes.rewardUnlocked) {
+      _read.invalidate(myRewardsProvider);
+    }
     _refreshBookingData(payload);
   }
 
   void _scheduleRefresh(NotificationPayload payload) {
     _pendingNotificationList = true;
+    if (payload.type == NotificationTypes.rewardUnlocked) {
+      _read.invalidate(myRewardsProvider);
+    }
     if (_isBookingRelated(payload.type)) {
       if (payload.userRole == NotificationUserRoles.salonOwner) {
         _pendingOwnerBookings = true;

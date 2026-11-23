@@ -429,6 +429,7 @@ class AiTryOnResult {
     required this.id,
     required this.hairstyleName,
     required this.resultImageUrl,
+    this.originalImageUrl,
     this.hairColor,
     this.provider,
   });
@@ -436,6 +437,7 @@ class AiTryOnResult {
   final String id;
   final String hairstyleName;
   final String resultImageUrl;
+  final String? originalImageUrl;
   final String? hairColor;
   final String? provider;
 
@@ -444,6 +446,8 @@ class AiTryOnResult {
       id: json['id']?.toString() ?? '',
       hairstyleName: json['hairstyle_name']?.toString() ?? '',
       resultImageUrl: json['result_image_url']?.toString() ?? '',
+      originalImageUrl: json['original_image_url']?.toString() ??
+          json['front_image_url']?.toString(),
       hairColor: json['hair_color']?.toString(),
       provider: json['provider']?.toString(),
     );

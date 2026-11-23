@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:saloon_booking/features/auth/presentation/providers/auth_provider.dart';
 import 'package:saloon_booking/features/customer/data/models/salon_model.dart';
 import 'package:saloon_booking/features/customer/data/services/customer_service.dart';
+import 'package:saloon_booking/features/notifications/data/providers/notification_history_provider.dart';
 import 'package:saloon_booking/features/payments/data/services/payment_service.dart';
 import 'package:saloon_booking/features/payments/data/services/razorpay_checkout.dart';
 
@@ -15,12 +16,13 @@ class PaymentActions extends AsyncNotifier<void> {
 
   String _groupId(BookingModel booking) => booking.groupId ?? booking.id;
 
-  Future<void> payOnline({
+  Future<PaymentActionResult?> payOnline({
     required BookingModel booking,
     required String checkoutKind,
   }) async {
     state = const AsyncLoading();
     final groupId = _groupId(booking);
+    PaymentActionResult? verifyResult;
     final result = await AsyncValue.guard(() async {
       final order = await ref
           .read(paymentServiceProvider)
@@ -38,7 +40,7 @@ class PaymentActions extends AsyncNotifier<void> {
         email: user?.email,
       );
       try {
-        await ref
+        verifyResult = await ref
             .read(paymentServiceProvider)
             .verifyRazorpayPaymentWithRetry(
               orderId: checkout.orderId,
@@ -56,7 +58,11 @@ class PaymentActions extends AsyncNotifier<void> {
     });
     state = result;
     ref.invalidate(myBookingsProvider);
+    ref.invalidate(myRewardsProvider);
+    ref.invalidate(notificationsProvider);
+    ref.invalidate(unreadCountProvider);
     if (result.hasError) throw result.error!;
+    return verifyResult;
   }
 
   String _descriptionForCheckout(String checkoutKind, BookingModel booking) {

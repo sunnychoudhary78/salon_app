@@ -55,7 +55,9 @@ class _AiStylistChatScreenState extends ConsumerState<AiStylistChatScreen> {
     }
   }
 
-  void _openTryOn(String analysisId, HairstyleRecommendation rec) {
+  void _openTryOn(String analysisId, HairstyleRecommendation rec, {String? originalImageUrl}) {
+    final state = ref.read(aiStylistProvider);
+    final scanImageUrl = originalImageUrl ?? state.activeSession?.previewImageUrl;
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -63,6 +65,7 @@ class _AiStylistChatScreenState extends ConsumerState<AiStylistChatScreen> {
       builder: (_) => TryOnPreviewSheet(
         analysisId: analysisId,
         recommendation: rec,
+        originalImageUrl: scanImageUrl,
       ),
     );
   }

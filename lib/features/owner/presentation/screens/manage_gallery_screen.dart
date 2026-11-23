@@ -37,6 +37,7 @@ class _ManageGalleryScreenState extends ConsumerState<ManageGalleryScreen> {
     final result = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       showDragHandle: true,
       backgroundColor: context.appColors.surface,
       shape: const RoundedRectangleBorder(
@@ -512,14 +513,22 @@ class _AddGalleryPostSheetState extends ConsumerState<_AddGalleryPostSheet> {
     final staffAsync = ref.watch(ownerStaffProvider(widget.salonId));
     final servicesAsync = ref.watch(ownerServicesProvider(widget.salonId));
 
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 8,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-      ),
-      child: SingleChildScrollView(
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final systemBottom = MediaQuery.viewPaddingOf(context).bottom;
+    final maxHeight = MediaQuery.sizeOf(context).height * 0.90;
+
+    return SafeArea(
+      top: false,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxHeight),
+        child: Padding(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 8,
+            bottom: bottomInset + (systemBottom > 0 ? systemBottom : 20) + 16,
+          ),
+          child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
@@ -686,7 +695,10 @@ class _AddGalleryPostSheetState extends ConsumerState<_AddGalleryPostSheet> {
               loading: _isSubmitting,
               onPressed: _isSubmitting ? null : _submit,
             ),
-          ],
+            const SizedBox(height: 16),
+              ],
+            ),
+          ),
         ),
       ),
     );
