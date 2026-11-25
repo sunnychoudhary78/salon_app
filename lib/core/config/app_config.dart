@@ -8,7 +8,7 @@ class AppConfig {
 
   // Environment Base URLs:
   // Real Physical Phone (Your current PC Wi-Fi IP):
-  static const String deviceLocalBaseUrl = 'http://10.83.182.42:3011/api';
+  static const String deviceLocalBaseUrl = 'http://10.213.188.42:3011/api';
   // Android Emulator (10.0.2.2 maps to host PC localhost):
   static const String emulatorBaseUrl = 'http://10.121.94.42:3011/api';
   // iOS Simulator / Web / Desktop / USB reverse localhost:
@@ -19,7 +19,7 @@ class AppConfig {
   static const String prodBaseUrl = 'https://salon-api.immortaltechnovation.com/api';
 
   /// Active Base URL:
-  static const String baseUrl = uatBaseUrl; // <-- Real Phone Wi-Fi ke liye active
+  static const String baseUrl = deviceLocalBaseUrl; // <-- Real Phone Wi-Fi ke liye active
   // static const String baseUrl = emulatorBaseUrl; // <-- Android Emulator ke liye
   // static const String baseUrl = localhostBaseUrl; // <-- iOS/Web/USB adb reverse ke liye
   // static const String baseUrl = uatBaseUrl;
